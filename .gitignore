@@ -1,0 +1,30 @@
+# Rust
+target/
+*.pdb
+backend/uploads/
+backend/.env
+backend/sqlx-data.json
+
+# Node / Next.js
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/.env.production
+
+# Docker
+.env
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code agent memory
+.claude/
