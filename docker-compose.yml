@@ -32,6 +32,7 @@ services:
       UPLOADS_DIR: /app/uploads
       PORT: "3001"
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      PUBLIC_URL: http://localhost
     volumes:
       - uploads:/app/uploads
     # P1-2: Health check so nginx only starts once the API is genuinely accepting connections.

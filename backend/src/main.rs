@@ -61,7 +61,7 @@ async fn main() {
 
     tracing::info!("Database migrations applied");
 
-    let api_base_url = format!("http://0.0.0.0:{}", config.port);
+    let api_base_url = config.public_url.clone();
 
     let state = AppState {
         pool: Arc::new(pool),
