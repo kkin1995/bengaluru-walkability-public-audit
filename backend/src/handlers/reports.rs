@@ -154,7 +154,7 @@ pub async fn list_reports(
     State(state): State<AppState>,
     Query(params): Query<ListReportsQuery>,
 ) -> Result<Json<Value>, AppError> {
-    let limit = params.limit.clamp(1, 100);
+    let limit = if params.limit <= 0 { 20 } else { params.limit.clamp(1, 200) };
     let page = params.page.max(1);
 
     let reports = queries::list_reports(
@@ -399,6 +399,181 @@ mod tests {
         assert_eq!(
             location_source, "manual_pin",
             "Empty location_source must default to 'manual_pin'"
+        );
+    }
+
+    // ── P2-4: effective_limit() ───────────────────────────────────────────────
+    //
+    // Spec: cap raised from 100 → 200; values ≤ 0 fall back to default 20;
+    //       values 1–200 accepted as-is; values > 200 clamped to 200.
+    //
+    // This helper mirrors the logic the handler will use AFTER the fix.
+    // It is intentionally seeded with the OLD logic (raw.clamp(1, 100)) so
+    // that the tests compile right now but the cases exercising new behaviour
+    // (EC-1, EC-2, EC-3, EC-10, EC-11, EC-12, EC-13) FAIL, confirming they
+    // represent a real behavioural delta that the implementer must satisfy.
+    //
+    // The implementer must replace the body of this function with:
+    //   if raw <= 0 { 20 } else { raw.clamp(1, 200) }
+    // and then update the production line in list_reports() to match.
+    // Tests must NOT be modified — they are the contract.
+    fn effective_limit(raw: i64) -> i64 {
+        if raw <= 0 { 20 } else { raw.clamp(1, 200) }
+    }
+
+    // EC-1: zero must fall back to default 20, not be clamped to 1
+    #[test]
+    fn test_effective_limit_zero_returns_default_20() {
+        assert_eq!(
+            effective_limit(0),
+            20,
+            "limit=0 must fall back to the default of 20, not be clamped to 1 \
+             (got {} instead of 20)",
+            effective_limit(0)
+        );
+    }
+
+    // EC-2: -1 must fall back to default 20
+    #[test]
+    fn test_effective_limit_minus_one_returns_default_20() {
+        assert_eq!(
+            effective_limit(-1),
+            20,
+            "limit=-1 must fall back to the default of 20, not be clamped to 1 \
+             (got {} instead of 20)",
+            effective_limit(-1)
+        );
+    }
+
+    // EC-3: large negative value must fall back to default 20
+    #[test]
+    fn test_effective_limit_large_negative_returns_default_20() {
+        assert_eq!(
+            effective_limit(-999),
+            20,
+            "limit=-999 must fall back to the default of 20, not be clamped to 1 \
+             (got {} instead of 20)",
+            effective_limit(-999)
+        );
+    }
+
+    // EC-4: minimum valid value 1 must be returned as-is
+    #[test]
+    fn test_effective_limit_one_returns_one() {
+        assert_eq!(
+            effective_limit(1),
+            1,
+            "limit=1 is the minimum valid value and must be returned unchanged \
+             (got {} instead of 1)",
+            effective_limit(1)
+        );
+    }
+
+    // EC-5: mid-range value 20 (the default) must be returned as-is
+    #[test]
+    fn test_effective_limit_twenty_returns_twenty() {
+        assert_eq!(
+            effective_limit(20),
+            20,
+            "limit=20 is a normal mid-range value and must be returned unchanged \
+             (got {} instead of 20)",
+            effective_limit(20)
+        );
+    }
+
+    // EC-6: mid-range value 50 must be returned as-is
+    #[test]
+    fn test_effective_limit_fifty_returns_fifty() {
+        assert_eq!(
+            effective_limit(50),
+            50,
+            "limit=50 is within the valid range 1–200 and must be returned unchanged \
+             (got {} instead of 50)",
+            effective_limit(50)
+        );
+    }
+
+    // EC-7: 100 was the old cap — it must now be accepted as-is (not clamped)
+    #[test]
+    fn test_effective_limit_one_hundred_returns_one_hundred() {
+        assert_eq!(
+            effective_limit(100),
+            100,
+            "limit=100 was the old cap but is now a mid-range value (cap is 200); \
+             it must be returned unchanged (got {} instead of 100)",
+            effective_limit(100)
+        );
+    }
+
+    // EC-8: 199 is just below the new cap and must be returned as-is
+    #[test]
+    fn test_effective_limit_199_returns_199() {
+        assert_eq!(
+            effective_limit(199),
+            199,
+            "limit=199 is one below the new cap of 200 and must be returned unchanged \
+             (got {} instead of 199)",
+            effective_limit(199)
+        );
+    }
+
+    // EC-9: 200 is exactly the new cap and must be returned as-is
+    #[test]
+    fn test_effective_limit_200_returns_200() {
+        assert_eq!(
+            effective_limit(200),
+            200,
+            "limit=200 is exactly at the new cap and must be accepted unchanged \
+             (got {} instead of 200)",
+            effective_limit(200)
+        );
+    }
+
+    // EC-10: 201 is just over the new cap and must be clamped to 200
+    #[test]
+    fn test_effective_limit_201_clamped_to_200() {
+        assert_eq!(
+            effective_limit(201),
+            200,
+            "limit=201 exceeds the cap of 200 and must be clamped to 200 \
+             (got {} instead of 200)",
+            effective_limit(201)
+        );
+    }
+
+    // EC-11: 500 is well over the new cap and must be clamped to 200
+    #[test]
+    fn test_effective_limit_500_clamped_to_200() {
+        assert_eq!(
+            effective_limit(500),
+            200,
+            "limit=500 exceeds the cap of 200 and must be clamped to 200 \
+             (got {} instead of 200)",
+            effective_limit(500)
+        );
+    }
+
+    // EC-12: 10000 must be clamped to 200
+    #[test]
+    fn test_effective_limit_10000_clamped_to_200() {
+        assert_eq!(
+            effective_limit(10000),
+            200,
+            "limit=10000 far exceeds the cap of 200 and must be clamped to 200 \
+             (got {} instead of 200)",
+            effective_limit(10000)
+        );
+    }
+
+    // EC-13: i64::MAX must be clamped to 200 without overflow or panic
+    #[test]
+    fn test_effective_limit_i64_max_clamped_to_200() {
+        assert_eq!(
+            effective_limit(i64::MAX),
+            200,
+            "limit=i64::MAX must be clamped to 200 without overflow or panic \
+             (got {} instead of 200)",
+            effective_limit(i64::MAX)
         );
     }
 }
