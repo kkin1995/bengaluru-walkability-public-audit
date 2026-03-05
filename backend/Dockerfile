@@ -35,19 +35,21 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
     curl \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/server ./server
 COPY --from=builder /app/migrations ./migrations
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# P1-4: Create uploads dir and hand ownership to appuser BEFORE switching users,
-# so the process can write photo files at runtime. The Docker volume mount at
-# /app/uploads will inherit this ownership when the named volume is first created.
-RUN mkdir -p /app/uploads && chown -R appuser:appuser /app/uploads
+# P1-4: Pre-create uploads dir. The entrypoint re-chowns it at runtime so named
+# volume mounts (which overwrite image layers) are always writable by appuser.
+RUN mkdir -p /app/uploads
 
 EXPOSE 3001
 
-# P1-4: Drop root before starting the server process.
-USER appuser
-
+# P1-4: Entrypoint runs as root, fixes /app/uploads ownership, then drops to
+# appuser via gosu before exec-ing the server.
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["./server"]
