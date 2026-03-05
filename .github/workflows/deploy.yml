@@ -1,0 +1,43 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    name: "Run CI checks"
+    # Reuse the canonical CI workflow so deploy never ships code that has not
+    # passed lint, tests, and docker-build verification.
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: "Deploy to staging"
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to staging
+        run: |
+          # ---------------------------------------------------------------------------
+          # TODO: configure real deployment before enabling this step.
+          #
+          # Prerequisites:
+          #   1. Add a GitHub Actions secret named STAGING_HOST containing the IP or
+          #      hostname of the staging server (e.g. 203.0.113.42 or staging.example.com).
+          #   2. Add a GitHub Actions secret named STAGING_SSH_KEY containing the private
+          #      SSH key that has deploy access to that host.
+          #   3. Uncomment the SSH command below (or replace with your preferred deploy
+          #      mechanism — e.g. Docker Hub push + Watchtower, Kamal, etc.).
+          #
+          # Example SSH deploy (uncomment and adjust paths as needed):
+          #
+          #   echo "${{ secrets.STAGING_SSH_KEY }}" | ssh-add -
+          #   ssh -o StrictHostKeyChecking=no deploy@${{ secrets.STAGING_HOST }} \
+          #     "cd /app && git pull && docker compose up --build -d"
+          #
+          # ---------------------------------------------------------------------------
+          echo "Staging deploy placeholder — configure STAGING_HOST secret and SSH key to enable."

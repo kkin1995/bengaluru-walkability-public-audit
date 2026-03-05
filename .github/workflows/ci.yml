@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  # Allow this workflow to be called from deploy.yml with no inputs required.
+  workflow_call: {}
+
+jobs:
+  frontend-checks:
+    name: "Frontend — lint + test"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Test
+        working-directory: frontend
+        run: npm test -- --passWithNoTests --watchAll=false
+
+  backend-checks:
+    name: "Backend — clippy + test"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable) with clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Rust build artefacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      - name: Clippy (deny warnings)
+        working-directory: backend
+        run: cargo clippy -- -D warnings
+
+      - name: Unit tests
+        working-directory: backend
+        run: cargo test
+
+  docker-build:
+    name: "Docker — compose build"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build all Docker images
+        # POSTGRES_PASSWORD is a required variable in docker-compose.yml with no default.
+        # Passing a dummy value here prevents compose from failing on the missing secret.
+        # This job verifies image builds only — it does not start containers.
+        env:
+          POSTGRES_PASSWORD: ci_dummy
+        run: docker compose build
