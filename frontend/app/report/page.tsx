@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, Loader2, MapPin, CheckCircle2 } from "lucide-react";
 import PhotoCapture from "../components/PhotoCapture";
@@ -179,7 +180,9 @@ export default function ReportPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
         ) : (
-          <div className="w-9" />
+          <Link href="/" aria-label="Back to home">
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </Link>
         )}
         <div className="flex-1">
           <h1 className="font-bold text-gray-900">Report an Issue</h1>

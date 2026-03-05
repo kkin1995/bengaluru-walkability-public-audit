@@ -648,6 +648,56 @@ describe("R4 / AC4.5 — Submit error shows message and re-enables button", () =
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Track E — Step 1 back-to-home link
+//
+// On step 0 (wizard "Step 1 of 4: Photo") the intra-wizard Back button does not
+// exist because there is no previous step.  Instead, the empty placeholder
+// `<div className="w-9" />` must be replaced with a <Link href="/"> so the user
+// can navigate back to the home page.  Steps 2–4 (step > 0) keep their existing
+// intra-wizard Back button; the home link must NOT appear there.
+// ─────────────────────────────────────────────────────────────────────────────
+describe("Step 1 back to home link", () => {
+  it("back-to-home link is present on wizard step 1 (Photo) — Track E", () => {
+    render(<ReportPage />);
+
+    // The wizard opens at step 0 ("Step 1 of 4: Photo").
+    // A <Link href="/"> with aria-label="Back to home" must be rendered in the
+    // header slot that currently holds an empty <div className="w-9" />.
+    const link = screen.getByRole("link", { name: /back to home/i });
+
+    expect(link).toBeInTheDocument();
+    // The link must navigate to the home page, not a relative sub-path.
+    expect(link).toHaveAttribute("href", "/");
+  });
+
+  it("back-to-home link is NOT present on wizard step 2 (Location) — Track E", async () => {
+    render(<ReportPage />);
+
+    // Advancing past step 0 (Photo) must replace the home link with the
+    // intra-wizard Back button; the home link must disappear.
+    await completeStep0WithGps(); // step 0 → step 1 (Location), auto-advance
+
+    expect(screen.getByText(/step 2 of 4: location/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /back to home/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("back-to-home link is NOT present on wizard step 3 (Category) — Track E", async () => {
+    render(<ReportPage />);
+
+    // Advance to step 2 (Category) — three moves from the start.
+    await completeStep0WithGps();  // step 0 → step 1 (Location)
+    await advanceFromStep1();      // step 1 → step 2 (Category)
+
+    expect(screen.getByText(/step 3 of 4: category/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /back to home/i })
+    ).not.toBeInTheDocument();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FormData payload verification
 // ─────────────────────────────────────────────────────────────────────────────
 describe("Submit FormData payload", () => {
