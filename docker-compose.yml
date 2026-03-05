@@ -60,8 +60,11 @@ services:
       # API call if we used the internal hostname.
       NEXT_PUBLIC_API_URL: http://localhost
     # P1-2: Health check so nginx only starts once Next.js is serving pages.
+    # node:20-alpine ships wget but not curl; use wget instead.
+    # Use 127.0.0.1 explicitly — Alpine resolves 'localhost' to ::1 (IPv6) but
+    # Next.js standalone only binds IPv4 (HOSTNAME=0.0.0.0), causing ECONNREFUSED.
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ > /dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       start_period: 30s
