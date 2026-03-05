@@ -1,5 +1,5 @@
 # Bengaluru Walkability Audit — Product Plan
-> Living document. Updated 2026-03-04.
+> Living document. Updated 2026-03-05.
 > Covers: completed work, open ACs, next-session backlog, open assumptions.
 
 ---
@@ -21,7 +21,8 @@
 - [x] Public coordinates rounded to 3 decimal places (~111m) in response serializer
 - [x] Bengaluru bounding box validation server-side (lat 12.7342–13.1739, lng 77.3791–77.8731)
 - [x] SQLx compile-time queries replaced with runtime API for testability
-- [x] 26 backend unit tests passing (models + handlers)
+- [x] Server-side `?limit=` cap at 200; `limit ≤ 0` falls back to default 20 (P2-4)
+- [x] 39 backend unit tests passing (models + handlers + limit-cap edge cases)
 
 ### 1.2 Frontend (Next.js 14)
 - [x] Landing page (`/`) — headline, CTAs, How It Works section
@@ -37,13 +38,23 @@
 - [x] All Reports map (`/map`) — color-coded markers, legend, popup with photo + details
 - [x] Submit success screen with "View on Map" / "Share This App" / "Report Another Issue"
 - [x] Shared constants: `BENGALURU_BOUNDS`, `BENGALURU_CENTER` in `app/lib/constants.ts`
-- [x] 122 frontend tests across 6 suites (Jest + React Testing Library)
+- [x] `viewport`/`themeColor` extracted into separate `export const viewport: Viewport` (F1 — removes Next.js 14 deprecation warnings)
+- [x] EXIF vs manual pin conflict warning: amber banner when pin >500m from EXIF position; dismissible; resets on return (§2.3 — ASSUMPTION-6 resolved at 500m)
+- [x] `haversineDistance` utility in `app/lib/utils.ts`
+- [x] 159 frontend tests across 9 suites (Jest + React Testing Library)
 
 ### 1.3 Infrastructure
 - [x] `docker-compose.yml` — full stack (nginx + frontend + backend + db)
 - [x] `docker-compose.dev.yml` — dev overrides (hot reload)
 - [x] nginx reverse proxy: `/api/` → backend:3001, `/uploads/` → backend:3001, `/` → frontend:3000
 - [x] PostGIS extensions auto-applied on backend startup via `sqlx::migrate!`
+- [x] `NEXT_PUBLIC_API_URL=http://localhost` — nginx proxy, not internal Docker hostname (P3-3)
+- [x] `POSTGRES_PASSWORD` fallback removed — missing password is a hard startup failure (P0-1)
+- [x] `deploy.resources.limits` on all containers: db 512m, backend 256m, frontend 256m, nginx 64m (P0-2)
+- [x] `client_body_buffer_size 10m` + `client_body_temp_path` in nginx.conf (P1-1)
+- [x] Healthchecks on backend (`/health`) and frontend (`/`); nginx `depends_on: service_healthy` (P1-2)
+- [x] Restart policies: `always` for db, `unless-stopped` for backend/frontend/nginx (P1-3)
+- [x] Non-root `appuser` in backend Dockerfile runtime stage; `curl` installed for healthcheck (P1-4)
 
 ### 1.4 UX / Copy
 - [x] Taxonomy finalised: 6 categories with emoji, display labels, card descriptions, map legend labels
@@ -68,10 +79,9 @@ These were defined in the AC spec (2026-03-03) but are unresolved pending produc
 **AC:** Backend returns HTTP 429 with `Retry-After` header when rate limit exceeded. Frontend shows user-facing error (WB-SUB-003) with countdown or retry guidance.
 **Status:** Not implemented in backend or frontend.
 
-### 2.3 EXIF vs Manual Pin Conflict Warning (WB-LOC-003)
-**Blocked by:** ASSUMPTION-6 (conflict threshold: 500m / 1km / 5km)
-**AC:** When EXIF GPS is present AND the user moves the pin more than X metres from the EXIF position, show a warning banner: "Your pin is far from the photo location — is this intentional?"
-**Status:** Not implemented.
+### ~~2.3 EXIF vs Manual Pin Conflict Warning~~ ✅ DONE 2026-03-05
+ASSUMPTION-6 resolved: **500m threshold** (>500m triggers warning).
+`haversineDistance` utility added to `app/lib/utils.ts`. Amber warning banner rendered in `LocationMap.tsx`; dismissible; dismissed state resets when pin returns within 500m. 19 component tests + 12 utility tests passing.
 
 ### 2.4 Coordinate Precision Validation (WB-LOC-006)
 **Blocked by:** ASSUMPTION-20 (minimum 4 decimal places vs no floor)
@@ -111,37 +121,26 @@ From the 2026-03-04 docker run log review. Prioritised.
 
 ### P0 — Fix Before Any Real Traffic
 
-#### P0-1: Remove hardcoded password fallback
-**File:** `docker-compose.yml`
-**Problem:** `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}` — if env is unset, DB starts with password `secret`.
-**Fix:** Remove `:-secret` default. Compose should fail loudly if var is unset. Replace value in `.env.example` with `CHANGEME_STRONG_PASSWORD`.
+#### ~~P0-1: Remove hardcoded password fallback~~ ✅ DONE 2026-03-05
+`:-secret` default removed. `.env.example` updated to `CHANGEME_STRONG_PASSWORD`.
+**Note:** `POSTGRES_PASSWORD` must be set in a root `.env` file before running `docker compose up`.
 
-#### P0-2: Add resource limits to all containers
-**File:** `docker-compose.yml`
-**Problem:** No `mem_limit`, `cpus`, or disk quotas. An upload spike can OOM the host.
-**Fix:** Add `deploy.resources.limits` to each service (e.g., backend: 256m RAM, db: 512m RAM, nginx: 64m RAM, frontend: 256m RAM). Add `tmpfs` size limit for nginx client temp.
+#### ~~P0-2: Add resource limits to all containers~~ ✅ DONE 2026-03-05
+`deploy.resources.limits` added to all services.
 
 ### P1 — High Impact
 
-#### P1-1: nginx upload buffering
-**File:** `nginx/nginx.conf`
-**Problem:** Photo uploads are buffered to disk (confirmed in logs). `client_body_buffer_size` not set; defaults to 8–16KB.
-**Fix:** Set `client_body_buffer_size 10m;` and `client_body_temp_path /tmp/nginx_upload_temp;`. Mount the temp path as a bounded volume or tmpfs.
+#### ~~P1-1: nginx upload buffering~~ ✅ DONE 2026-03-05
+`client_body_buffer_size 10m` + `client_body_temp_path /tmp/nginx_upload_temp` added.
 
-#### P1-2: Add healthchecks and gate depends_on properly
-**File:** `docker-compose.yml`
-**Problem:** nginx starts before backend/frontend are actually serving; can return 502 on cold start.
-**Fix:** Add `healthcheck` to backend (curl `/health`) and frontend (curl `/`). Change `nginx.depends_on` to use `condition: service_healthy` for both.
+#### ~~P1-2: Add healthchecks and gate depends_on properly~~ ✅ DONE 2026-03-05
+Healthchecks on backend + frontend; nginx `depends_on: condition: service_healthy`; `curl` installed in backend runtime image.
 
-#### P1-3: Add restart policies
-**File:** `docker-compose.yml`
-**Problem:** No `restart:` directive. A backend crash stays down permanently.
-**Fix:** Add `restart: unless-stopped` to backend, frontend, nginx. Add `restart: always` to db.
+#### ~~P1-3: Add restart policies~~ ✅ DONE 2026-03-05
+`restart: always` on db; `restart: unless-stopped` on backend/frontend/nginx.
 
-#### P1-4: Add non-root user to backend Dockerfile
-**File:** `backend/Dockerfile`
-**Problem:** Backend process runs as root inside the container.
-**Fix:** Add `RUN useradd -m appuser` and `USER appuser` in the runtime stage (mirrors the frontend Dockerfile pattern).
+#### ~~P1-4: Add non-root user to backend Dockerfile~~ ✅ DONE 2026-03-05
+`appuser` created in runtime stage; `/app/uploads` chowned before `USER` switch.
 
 ### P2 — Observability
 
@@ -157,10 +156,8 @@ From the 2026-03-04 docker run log review. Prioritised.
 **Files:** `nginx/nginx.conf`, backend `main.rs`
 **Fix:** Switch nginx to JSON access log format. Add `tracing-subscriber` JSON formatter to backend.
 
-#### P2-4: Server-side cap on `?limit=` parameter
-**File:** `backend/src/handlers/reports.rs`
-**Problem:** Frontend passes `limit=200`; there is no server-side maximum enforcement. A caller can pass `limit=10000`.
-**Fix:** Hard cap `limit` at 500 (or 1000) server-side regardless of what the client sends.
+#### ~~P2-4: Server-side cap on `?limit=` parameter~~ ✅ DONE 2026-03-05
+Cap raised to 200; `limit ≤ 0` now falls back to default 20. 13 new unit tests added.
 
 #### P2-5: Add a metrics endpoint
 **Files:** backend `main.rs`, `nginx/nginx.conf`
@@ -193,9 +190,8 @@ From the 2026-03-04 docker run log review. Prioritised.
 
 ### Frontend Fixes (from log warnings)
 
-#### F1: Fix Next.js metadata/viewport warnings
-**File:** `frontend/app/layout.tsx` lines 9–14
-**Fix:** Remove `themeColor` and `viewport` from `export const metadata`. Add `export const viewport: Viewport` as a separate named export (import `Viewport` from `"next"`).
+#### ~~F1: Fix Next.js metadata/viewport warnings~~ ✅ DONE 2026-03-05
+`viewport` + `themeColor` moved into a separate `export const viewport: Viewport` named export.
 
 #### ~~F2: Add favicon~~ ✅ DONE 2026-03-04
 `frontend/app/favicon.ico` added. Next.js App Router auto-serves it at `/favicon.ico`.
@@ -212,7 +208,7 @@ These block implementation of the Open ACs in section 2. They need a product/leg
 | ASSUMPTION-3 | Accepted MIME types | JPEG+PNG / +WEBP+HEIC / any image/* | AC step 1 |
 | ASSUMPTION-4 | Duplicate window | 60min/50m/same-cat / 24h same coords / moderation only | §2.1 |
 | ASSUMPTION-5 | Bounding box definition | BBMP ward GeoJSON / rect / 50km radius | validation |
-| ASSUMPTION-6 | EXIF vs pin conflict threshold | 500m / 1km / 5km | §2.3 |
+| ~~ASSUMPTION-6~~ | ~~EXIF vs pin conflict threshold~~ | **Resolved: 500m** (2026-03-05) | ~~§2.3~~ |
 | ASSUMPTION-7 | Rate limit | 10/hr / 5/hr / none for MVP | §2.2 |
 | ASSUMPTION-13 | Offline queueing | IndexedDB / fail immediately / skip MVP | §2.5 |
 | ASSUMPTION-14 | Languages at launch | English only / +Kannada / trilingual | §2.8 |
