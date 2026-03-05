@@ -27,16 +27,27 @@ FROM debian:bookworm-slim AS runtime
 
 WORKDIR /app
 
+# P1-4: Create a dedicated non-root system user so the process cannot write outside
+# its own working directory even if a path-traversal bug exists in the upload handler.
+RUN addgroup --system appuser && adduser --system --ingroup appuser appuser
+
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/server ./server
 COPY --from=builder /app/migrations ./migrations
 
-RUN mkdir -p /app/uploads
+# P1-4: Create uploads dir and hand ownership to appuser BEFORE switching users,
+# so the process can write photo files at runtime. The Docker volume mount at
+# /app/uploads will inherit this ownership when the named volume is first created.
+RUN mkdir -p /app/uploads && chown -R appuser:appuser /app/uploads
 
 EXPOSE 3001
+
+# P1-4: Drop root before starting the server process.
+USER appuser
 
 CMD ["./server"]

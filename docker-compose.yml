@@ -4,7 +4,8 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-walkability}
       POSTGRES_USER: ${POSTGRES_USER:-walkability}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+      # P0-1: No fallback — a missing password must be a hard failure, not a silent default.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -12,6 +13,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # P1-3: Always restart db; it is stateful and must recover from OOM or host reboots.
+    restart: always
+    deploy:
+      resources:
+        limits:
+          # P0-2: 512 MB cap — PostgreSQL on a small server; tune upward if query memory pressure shows up.
+          memory: 512m
 
   backend:
     build: ./backend
@@ -19,19 +27,52 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-walkability}:${POSTGRES_PASSWORD:-secret}@db:5432/${POSTGRES_DB:-walkability}
+      # P0-1: No fallback here either — DATABASE_URL must be fully specified via .env / environment.
+      DATABASE_URL: postgres://${POSTGRES_USER:-walkability}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-walkability}
       UPLOADS_DIR: /app/uploads
       PORT: "3001"
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
     volumes:
       - uploads:/app/uploads
+    # P1-2: Health check so nginx only starts once the API is genuinely accepting connections.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    # P1-3: Restart on crash but respect intentional `docker compose stop`.
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          # P0-2: 256 MB — Rust binary is lean; raise if upload processing causes spikes.
+          memory: 256m
 
   frontend:
     build: ./frontend
     depends_on:
       - backend
     environment:
-      NEXT_PUBLIC_API_URL: http://backend:3001
+      # P3-3: Must be the nginx proxy URL (http://localhost), NOT the internal Docker hostname
+      # http://backend:3001. NEXT_PUBLIC_* vars are inlined into browser JS at build time,
+      # so the browser — which has no access to Docker's internal DNS — would fail every
+      # API call if we used the internal hostname.
+      NEXT_PUBLIC_API_URL: http://localhost
+    # P1-2: Health check so nginx only starts once Next.js is serving pages.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    # P1-3: Restart on crash but respect intentional `docker compose stop`.
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          # P0-2: 256 MB — Next.js standalone build; raise if SSR pages are memory-heavy.
+          memory: 256m
 
   nginx:
     image: nginx:alpine
@@ -39,9 +80,20 @@ services:
       - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    # P1-2: Gate nginx startup on both upstream services being healthy, not just started.
+    # Without this, nginx can start and immediately 502 on the first real request.
     depends_on:
-      - frontend
-      - backend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    # P1-3: Nginx is stateless; restart freely on any failure.
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          # P0-2: 64 MB — nginx:alpine reverse proxy with no caching; very low footprint.
+          memory: 64m
 
 volumes:
   postgres_data:
