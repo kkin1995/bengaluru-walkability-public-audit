@@ -9,7 +9,6 @@ use tower_http::{
     services::ServeDir,
     trace::TraceLayer,
 };
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
 mod db;
@@ -18,6 +17,29 @@ mod handlers;
 mod models;
 
 use config::Config;
+
+async fn request_id_middleware(
+    request: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let request_id = request
+        .headers()
+        .get("x-request-id")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("unknown")
+        .to_owned();
+
+    let span = tracing::info_span!("http_request", request_id = %request_id);
+    let _enter = span.enter();
+
+    let mut response = next.run(request).await;
+
+    if let Ok(val) = axum::http::HeaderValue::from_str(&request_id) {
+        response.headers_mut().insert("x-request-id", val);
+    }
+
+    response
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -32,12 +54,12 @@ async fn main() {
     let _ = dotenvy::dotenv();
 
     // Init tracing
-    tracing_subscriber::registry()
-        .with(
+    tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "bengaluru_walkability_backend=debug,tower_http=debug".into()),
+                .unwrap_or_else(|_| "bengaluru_walkability_backend=info,tower_http=info".into()),
         )
-        .with(tracing_subscriber::fmt::layer())
         .init();
 
     let config = Config::from_env();
@@ -90,6 +112,7 @@ async fn main() {
         .nest_service("/uploads", ServeDir::new(&config.uploads_dir))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
+        .layer(axum::middleware::from_fn(request_id_middleware))
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));

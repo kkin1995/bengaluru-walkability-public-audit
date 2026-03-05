@@ -33,6 +33,7 @@ services:
       PORT: "3001"
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       PUBLIC_URL: http://localhost
+      RUST_LOG: info
     volumes:
       - uploads:/app/uploads
     # P1-2: Health check so nginx only starts once the API is genuinely accepting connections.
@@ -91,6 +92,12 @@ services:
         condition: service_healthy
       frontend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     # P1-3: Nginx is stateless; restart freely on any failure.
     restart: unless-stopped
     deploy:
