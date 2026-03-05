@@ -163,6 +163,31 @@ jest.mock("../components/LocationMap", () => {
   return MockLocationMap;
 });
 
+// ReviewStrip — shown on steps > 0; exposes received props via data attributes
+jest.mock("../components/ReviewStrip", () => {
+  const MockReviewStrip = ({
+    photo,
+    lat,
+    lng,
+    category,
+  }: {
+    photo: File | null;
+    lat: number;
+    lng: number;
+    category: string;
+  }) => (
+    <div
+      data-testid="mock-review-strip"
+      data-has-photo={String(!!photo)}
+      data-lat={lat}
+      data-lng={lng}
+      data-category={category}
+    />
+  );
+  MockReviewStrip.displayName = "MockReviewStrip";
+  return MockReviewStrip;
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -782,5 +807,112 @@ describe("Submit FormData payload", () => {
     const [, options] = fetchMock.mock.calls[0];
     const body = (options as RequestInit).body as FormData;
     expect(body.get("description")).toBe("Big pothole on main road");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P1-B — Sticky CTA disabled reasons
+//
+// When canAdvance() is false, the Next button must display a context-sensitive
+// disabled-reason suffix so the user understands why they cannot proceed.
+// ─────────────────────────────────────────────────────────────────────────────
+describe("P1-B: Sticky CTA disabled reasons", () => {
+  it("shows 'Next (add a photo)' on step 0 when no photo has been chosen — P1-B", () => {
+    render(<ReportPage />);
+
+    // Step 0 is the initial state — no photo has been taken yet, so canAdvance()
+    // is false. The button text must encode the blocking reason.
+    expect(
+      screen.getByRole("button", { name: /next \(add a photo\)/i })
+    ).toBeInTheDocument();
+  });
+
+  it("shows 'Next (pin your location)' on step 1 when pin is outside Bengaluru — P1-B", async () => {
+    render(<ReportPage />);
+
+    // Advance to step 1 (Location) with a GPS photo so we start with a valid pin.
+    await completeStep0WithGps();
+
+    // Move the pin outside Bengaluru to invalidate the location — canAdvance() → false.
+    await act(async () => {
+      await userEvent.click(screen.getByTestId("mock-pin-outside"));
+    });
+
+    // The Next button must now show the location-specific disabled reason.
+    expect(
+      screen.getByRole("button", { name: /next \(pin your location\)/i })
+    ).toBeInTheDocument();
+  });
+
+  it("shows 'Next (pick a category)' on step 2 before any category is selected — P1-B", async () => {
+    render(<ReportPage />);
+
+    // Advance to step 2 (Category) — no category selected yet.
+    await completeStep0WithGps();
+    await advanceFromStep1();
+
+    // canAdvance() is false because category is empty. The button must encode
+    // the category-specific disabled reason.
+    expect(
+      screen.getByRole("button", { name: /next \(pick a category\)/i })
+    ).toBeInTheDocument();
+  });
+
+  it("Next button does NOT show a disabled-reason suffix when inside Bengaluru on step 1 — P1-B", async () => {
+    render(<ReportPage />);
+
+    // GPS photo gives valid coordinates inside Bengaluru — canAdvance() is true.
+    await completeStep0WithGps();
+
+    // The button should show the enabled label (containing "Next") but must NOT
+    // include any parenthetical disabled-reason suffix.
+    const nextButton = screen.getByRole("button", { name: /next/i });
+    expect(nextButton).not.toBeDisabled();
+    expect(nextButton).not.toHaveAccessibleName(/next \(/i);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P2-B — ReviewStrip visibility
+//
+// ReviewStrip must appear on every step > 0 (i.e., steps 1, 2, and 3) and must
+// be completely absent on step 0 (the initial Photo step).
+// ─────────────────────────────────────────────────────────────────────────────
+describe("P2-B: ReviewStrip shown on steps > 0", () => {
+  it("ReviewStrip is NOT rendered on step 0 (initial Photo step) — P2-B", () => {
+    render(<ReportPage />);
+
+    // The wizard opens at step 0. ReviewStrip must not be in the DOM yet.
+    expect(screen.queryByTestId("mock-review-strip")).not.toBeInTheDocument();
+  });
+
+  it("ReviewStrip IS rendered on step 1 (Location) immediately after a photo is taken — P2-B", async () => {
+    render(<ReportPage />);
+
+    // Taking a photo auto-advances to step 1 — ReviewStrip must now be present.
+    await completeStep0WithGps();
+
+    expect(screen.getByTestId("mock-review-strip")).toBeInTheDocument();
+  });
+
+  it("ReviewStrip IS rendered on step 2 (Category) after advancing from Location — P2-B", async () => {
+    render(<ReportPage />);
+
+    await completeStep0WithGps();
+    await advanceFromStep1();
+
+    // Step 2 (Category) — ReviewStrip must still be visible.
+    expect(screen.getByText(/step 3 of 4: category/i)).toBeInTheDocument();
+    expect(screen.getByTestId("mock-review-strip")).toBeInTheDocument();
+  });
+
+  it("ReviewStrip IS rendered on step 3 (Details) after completing all prior steps — P2-B", async () => {
+    render(<ReportPage />);
+
+    await navigateToStep3();
+
+    // Step 3 (Details) — ReviewStrip must still be visible.
+    expect(screen.getByText(/step 4 of 4: details/i)).toBeInTheDocument();
+    expect(screen.getByTestId("mock-review-strip")).toBeInTheDocument();
   });
 });

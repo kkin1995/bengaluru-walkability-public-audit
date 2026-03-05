@@ -7,13 +7,16 @@ import { ArrowLeft, ArrowRight, Loader2, MapPin, CheckCircle2 } from "lucide-rea
 import PhotoCapture from "../components/PhotoCapture";
 import CategoryPicker from "../components/CategoryPicker";
 import SubmitSuccess from "../components/SubmitSuccess";
+import ReviewStrip from "../components/ReviewStrip";
+import { BilingualText } from "../components/BilingualText";
+import { t } from "../lib/translations";
 import { BENGALURU_BOUNDS, BENGALURU_CENTER } from "../lib/constants";
 
 // react-leaflet uses window — must disable SSR
 const LocationMap = dynamic(() => import("../components/LocationMap"), {
   ssr: false,
   loading: () => (
-    <div className="h-64 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500 text-sm">
+    <div className="h-80 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500 text-sm">
       Loading map…
     </div>
   ),
@@ -97,6 +100,15 @@ export default function ReportPage() {
       case 2: return !!form.category;
       case 3: return true;
       default: return false;
+    }
+  }
+
+  function getDisabledReason(step: number): string {
+    switch (step) {
+      case 0: return "add a photo";
+      case 1: return "pin your location";
+      case 2: return "pick a category";
+      default: return "";
     }
   }
 
@@ -185,7 +197,15 @@ export default function ReportPage() {
           </Link>
         )}
         <div className="flex-1">
-          <h1 className="font-bold text-gray-900">Report an Issue</h1>
+          <h1 className="font-bold text-gray-900">
+            <BilingualText
+              en="Report an Issue"
+              kn="ಸಮಸ್ಯೆ ವರದಿ ಮಾಡಿ"
+              enClass="font-bold text-gray-900"
+              knClass="text-sm text-gray-600 font-normal"
+              containerClass="flex flex-col leading-tight"
+            />
+          </h1>
           <p className="text-xs text-gray-500">
             Step {step + 1} of {STEPS.length}: {STEPS[step]}
           </p>
@@ -200,12 +220,30 @@ export default function ReportPage() {
         />
       </div>
 
+      {/* ReviewStrip — shown on steps 1, 2, 3 (not on step 0) */}
+      {step > 0 && (
+        <ReviewStrip
+          photo={form.file}
+          lat={form.lat}
+          lng={form.lng}
+          category={form.category}
+        />
+      )}
+
       {/* Step content */}
-      <div className="flex-1 px-4 py-6">
+      <div className="flex-1 px-4 py-6 pb-28">
         {/* Step 0: Photo */}
         {step === 0 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-900">Take a photo</h2>
+            <h2>
+              <BilingualText
+                en={t.stepPhotoTitle.en}
+                kn={t.stepPhotoTitle.kn}
+                enClass="text-xl font-bold text-gray-900"
+                knClass="text-sm text-gray-600 font-normal"
+                containerClass="flex flex-col leading-tight"
+              />
+            </h2>
             <p className="text-gray-500 text-sm">
               Photograph the pedestrian infrastructure issue clearly.
             </p>
@@ -216,7 +254,15 @@ export default function ReportPage() {
         {/* Step 1: Location */}
         {step === 1 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-900">Confirm location</h2>
+            <h2>
+              <BilingualText
+                en={t.stepLocationTitle.en}
+                kn={t.stepLocationTitle.kn}
+                enClass="text-xl font-bold text-gray-900"
+                knClass="text-sm text-gray-600 font-normal"
+                containerClass="flex flex-col leading-tight"
+              />
+            </h2>
             {form.gpsConfirmed ? (
               <div className="flex items-center gap-2 text-green-600 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
                 <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
@@ -254,7 +300,15 @@ export default function ReportPage() {
         {/* Step 2: Category */}
         {step === 2 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-900">What&apos;s the issue?</h2>
+            <h2>
+              <BilingualText
+                en={t.stepCategoryTitle.en}
+                kn={t.stepCategoryTitle.kn}
+                enClass="text-xl font-bold text-gray-900"
+                knClass="text-sm text-gray-600 font-normal"
+                containerClass="flex flex-col leading-tight"
+              />
+            </h2>
             <p className="text-gray-500 text-sm">Select the best matching category.</p>
             <CategoryPicker
               value={form.category}
@@ -266,7 +320,15 @@ export default function ReportPage() {
         {/* Step 3: Details */}
         {step === 3 && (
           <div className="space-y-5">
-            <h2 className="text-xl font-bold text-gray-900">Add details</h2>
+            <h2>
+              <BilingualText
+                en={t.stepDetailsTitle.en}
+                kn={t.stepDetailsTitle.kn}
+                enClass="text-xl font-bold text-gray-900"
+                knClass="text-sm text-gray-600 font-normal"
+                containerClass="flex flex-col leading-tight"
+              />
+            </h2>
 
             {/* Severity */}
             <div>
@@ -368,8 +430,8 @@ export default function ReportPage() {
         )}
       </div>
 
-      {/* Footer actions */}
-      <footer className="px-4 pb-8 pt-4 border-t border-gray-100">
+      {/* Footer actions — sticky fixed bar */}
+      <footer className="fixed bottom-0 left-0 right-0 bg-white shadow-lg px-4 pt-4 pb-6 border-t border-gray-100 z-10 max-w-lg mx-auto">
         {error && (
           <p className="text-red-600 text-sm mb-3 text-center">{error}</p>
         )}
@@ -379,7 +441,19 @@ export default function ReportPage() {
             disabled={!canAdvance()}
             className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-4 rounded-2xl transition-colors"
           >
-            Next
+            {!canAdvance() ? (
+              /* Show disabled reason as plain text when blocked */
+              `Next (${getDisabledReason(step)})`
+            ) : (
+              /* Show bilingual label when enabled */
+              <BilingualText
+                en="Next"
+                kn="ಮುಂದೆ"
+                enClass="text-base font-semibold"
+                knClass="text-sm font-normal"
+                containerClass="flex flex-col leading-none items-center"
+              />
+            )}
             <ArrowRight className="w-5 h-5" />
           </button>
         ) : (
@@ -394,7 +468,13 @@ export default function ReportPage() {
                 Submitting…
               </>
             ) : (
-              "Submit Report"
+              <BilingualText
+                en="Submit Report"
+                kn="ವರದಿ ಸಲ್ಲಿಸಿ"
+                enClass="text-base font-semibold"
+                knClass="text-sm font-normal"
+                containerClass="flex flex-col leading-none items-center"
+              />
             )}
           </button>
         )}
