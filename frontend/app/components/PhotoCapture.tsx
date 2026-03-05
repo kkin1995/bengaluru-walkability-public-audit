@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Camera, ImagePlus, X } from "lucide-react";
+import { BilingualText } from "./BilingualText";
 
 interface GpsCoords {
   latitude: number;
@@ -162,7 +163,7 @@ export default function PhotoCapture({ onPhoto }: PhotoCaptureProps) {
         className="w-full flex flex-col items-center justify-center gap-3 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white py-10 rounded-2xl shadow transition-colors"
       >
         <Camera className="w-12 h-12" />
-        <span className="text-xl font-semibold">Take Photo</span>
+        <BilingualText en="Take Photo" kn="ಫೋಟೋ ತೆಗೆಯಿರಿ" enClass="text-xl font-semibold" knClass="text-sm font-normal" containerClass="flex flex-col leading-tight" />
       </button>
 
       {/* Upload from Gallery — secondary */}
@@ -171,7 +172,7 @@ export default function PhotoCapture({ onPhoto }: PhotoCaptureProps) {
         className="w-full flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 py-4 rounded-2xl transition-colors"
       >
         <ImagePlus className="w-5 h-5" />
-        <span className="font-medium">Upload from Gallery</span>
+        <BilingualText en="Upload from Gallery" kn="ಗ್ಯಾಲರಿಯಿಂದ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ" enClass="font-medium" knClass="text-sm font-normal" containerClass="flex flex-col leading-tight" />
       </button>
     </div>
   );

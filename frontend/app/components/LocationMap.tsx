@@ -14,6 +14,7 @@ interface LocationMapProps {
   onChange: (lat: number, lng: number) => void;
   readOnly?: boolean;
   exifCoords?: { lat: number; lng: number };
+  className?: string;
 }
 
 function DraggableMarker({
@@ -57,6 +58,7 @@ export default function LocationMap({
   onChange,
   readOnly = false,
   exifCoords,
+  className,
 }: LocationMapProps) {
   const mapRef = useRef<LeafletMap>(null);
 
@@ -118,7 +120,7 @@ export default function LocationMap({
   }
 
   return (
-    <div className="w-full h-64 rounded-xl overflow-hidden border border-gray-200">
+    <div className={className ?? "w-full h-80 rounded-xl overflow-hidden border border-gray-200"}>
       {showWarning && (
         <div
           role="alert"
