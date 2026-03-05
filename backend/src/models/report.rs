@@ -274,6 +274,73 @@ mod tests {
         assert_eq!(response.longitude, 77.595, "Response longitude must be rounded to 3dp");
     }
 
+    // ── P-D: PUBLIC_URL / image_url correctness ──────────────────────────────
+    //
+    // These four tests are regression guards that verify into_response() builds
+    // image_url from whatever api_base is passed in.  They will pass as soon as
+    // the implementation wires config.public_url into AppState.api_base_url
+    // (replacing the current "http://0.0.0.0:{port}" construction in main.rs).
+    //
+    // Requirements:
+    //   PD-R1 — image_url must use the configured public base URL, not 0.0.0.0
+    //   PD-R2 — image_url must never expose the internal bind address 0.0.0.0
+
+    #[test]
+    fn test_image_url_uses_provided_base_url() {
+        // PD-R1 — into_response must prefix image_path with whatever api_base is given.
+        // With api_base = "http://localhost" the URL must begin "http://localhost/uploads/".
+        let report = make_report(12.9716, 77.5946);
+        let response = report.into_response("http://localhost");
+        assert!(
+            response.image_url.starts_with("http://localhost/uploads/"),
+            "image_url must start with 'http://localhost/uploads/' when api_base is \
+             'http://localhost', but got: {}",
+            response.image_url
+        );
+    }
+
+    #[test]
+    fn test_image_url_with_custom_domain() {
+        // PD-R1 — into_response must use the caller-supplied domain verbatim.
+        // With api_base = "https://example.com" the URL must begin
+        // "https://example.com/uploads/".
+        let report = make_report(12.9716, 77.5946);
+        let response = report.into_response("https://example.com");
+        assert!(
+            response.image_url.starts_with("https://example.com/uploads/"),
+            "image_url must start with 'https://example.com/uploads/' when api_base is \
+             'https://example.com', but got: {}",
+            response.image_url
+        );
+    }
+
+    #[test]
+    fn test_image_url_never_contains_0_0_0_0() {
+        // PD-R2 — the bind address 0.0.0.0 must never leak into image URLs.
+        // When api_base is the correct public URL the string "0.0.0.0" must be absent.
+        let report = make_report(12.9716, 77.5946);
+        let response = report.into_response("http://localhost");
+        assert!(
+            !response.image_url.contains("0.0.0.0"),
+            "image_url must NOT contain '0.0.0.0'; that is the internal bind address \
+             and must never be exposed to clients. Got: {}",
+            response.image_url
+        );
+    }
+
+    #[test]
+    fn test_image_url_never_starts_with_http_0_0_0_0() {
+        // PD-R2 (strict prefix form) — the URL must not start with the broken
+        // "http://0.0.0.0" pattern that was produced by the pre-fix main.rs line 64.
+        let report = make_report(12.9716, 77.5946);
+        let response = report.into_response("http://localhost");
+        assert!(
+            !response.image_url.starts_with("http://0.0.0.0"),
+            "image_url must NOT start with 'http://0.0.0.0'; got: {}",
+            response.image_url
+        );
+    }
+
     // ── submitter_contact is NOT present in ReportResponse (privacy) ──────────
 
     #[test]
