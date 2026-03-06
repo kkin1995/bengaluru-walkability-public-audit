@@ -33,7 +33,6 @@ jest.mock("exifr", () => ({
 
 // Helper to grab the exifr mock reference after jest.mock hoisting
 function getExifrGpsMock() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   return require("exifr").default.gps as jest.Mock;
 }
 

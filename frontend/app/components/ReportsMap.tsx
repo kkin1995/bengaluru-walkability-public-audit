@@ -50,9 +50,7 @@ export default function ReportsMap({ apiUrl }: ReportsMapProps) {
     setError(null);
     try {
       // Fix Leaflet default icon in Next.js
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const L = require("leaflet");
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       delete (L.Icon.Default.prototype as Record<string, unknown>)._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl:

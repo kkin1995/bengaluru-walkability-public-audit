@@ -17,6 +17,9 @@ pub enum AppError {
     #[error("Bad request: {0}")]
     BadRequest(String),
 
+    // Kept for future use — callers will construct this variant when
+    // non-DB internal failures need a structured error response.
+    #[allow(dead_code)]
     #[error("Internal error: {0}")]
     Internal(String),
 

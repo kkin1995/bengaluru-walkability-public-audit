@@ -96,9 +96,7 @@ export default function LocationMap({
 
   // Fix Leaflet default marker icon path issue in Next.js
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const L = require("leaflet");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     delete (L.Icon.Default.prototype as Record<string, unknown>)._getIconUrl;
     L.Icon.Default.mergeOptions({
       iconRetinaUrl:

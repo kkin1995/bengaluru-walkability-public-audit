@@ -61,7 +61,6 @@ export default function PhotoCapture({ onPhoto }: PhotoCaptureProps) {
     // Babel's _interopRequireWildcard double-wrapping the default export.
     let gps: GpsCoords | null = null;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const exifr = require("exifr").default as { gps: (f: File) => Promise<{ latitude: number; longitude: number } | null> };
       const result = await exifr.gps(file);
       if (result?.latitude && result?.longitude) {
