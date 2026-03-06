@@ -25,6 +25,22 @@ pub enum AppError {
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    /// HTTP 401 — missing or invalid authentication credentials.
+    /// Used by the JWT middleware when the `admin_token` cookie is absent,
+    /// malformed, signed with the wrong secret, or expired.
+    #[error("Unauthorized")]
+    Unauthorized,
+
+    /// HTTP 403 — authenticated but insufficient role.
+    /// Used by `require_role` when the caller's role does not satisfy the
+    /// required role for the requested endpoint.
+    #[error("Forbidden")]
+    Forbidden,
+
+    /// HTTP 409 — resource already exists (e.g. duplicate email on user create).
+    #[error("Conflict: {0}")]
+    Conflict(String),
 }
 
 impl IntoResponse for AppError {
@@ -44,6 +60,13 @@ impl IntoResponse for AppError {
                 tracing::error!("IO error: {e}");
                 (StatusCode::INTERNAL_SERVER_ERROR, "IO error".to_string())
             }
+            AppError::Unauthorized => {
+                (StatusCode::UNAUTHORIZED, "Unauthorized".to_string())
+            }
+            AppError::Forbidden => {
+                (StatusCode::FORBIDDEN, "Forbidden".to_string())
+            }
+            AppError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
         };
 
         (status, Json(json!({ "error": message }))).into_response()
