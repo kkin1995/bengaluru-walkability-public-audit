@@ -1,5 +1,12 @@
 name: CI
 
+# Required GitHub Actions secrets for admin dashboard:
+#   JWT_SECRET          — 64-char hex string (openssl rand -hex 64)
+#   COOKIE_SECURE       — "true" for production HTTPS deployments
+#   ADMIN_SEED_EMAIL    — Initial admin user email
+#   ADMIN_SEED_PASSWORD — Initial admin user password (remove after first deploy)
+# These secrets are used only in the deploy workflow, not in CI checks.
+
 on:
   push:
     branches: ["**"]
