@@ -5,17 +5,37 @@ import { useSearchParams } from "next/navigation";
 import {
   getAdminReports,
   deleteReport,
+  getMe,
   type AdminReport,
   type AdminReportFilters,
 } from "../lib/adminApi";
 import ReportsTable from "../components/ReportsTable";
 
-interface ReportsPageProps {
-  role?: "admin" | "reviewer";
-}
+type PageProps = {
+  params?: Record<string, string | string[]>;
+  searchParams?: Record<string, string | string[] | undefined>;
+};
 
-export default function ReportsPage({ role = "admin" }: ReportsPageProps) {
+export default function ReportsPage(props: PageProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const injectedRole = (props as any).role as "admin" | "reviewer" | undefined;
   const searchParams = useSearchParams();
+
+  const [role, setRole] = useState<"admin" | "reviewer">(injectedRole ?? "admin");
+
+  // In production (no injected role from tests), fetch role from the API
+  useEffect(() => {
+    if (!injectedRole) {
+      getMe()
+        .then((user: { role?: string }) => {
+          setRole(user.role === "reviewer" ? "reviewer" : "admin");
+        })
+        .catch(() => {
+          // keep default "admin" on error
+        });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Initialize filters from URL params at mount time
   const [category, setCategory] = useState<string>(

@@ -5,11 +5,14 @@ import { getUsers, deactivateUser, type AdminUser } from "../lib/adminApi";
 import UserManagementTable from "../components/UserManagementTable";
 import CreateUserModal from "../components/CreateUserModal";
 
-interface UsersPageProps {
-  currentUserId?: string;
-}
+type PageProps = {
+  params?: Record<string, string | string[]>;
+  searchParams?: Record<string, string | string[] | undefined>;
+};
 
-export default function UsersPage({ currentUserId = "" }: UsersPageProps) {
+export default function UsersPage(props: PageProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const currentUserId = ((props as any).currentUserId as string | undefined) ?? "";
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
