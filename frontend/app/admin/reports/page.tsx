@@ -17,7 +17,6 @@ type PageProps = {
 };
 
 export default function ReportsPage(props: PageProps) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const injectedRole = (props as any).role as "admin" | "reviewer" | undefined;
   const searchParams = useSearchParams();
 

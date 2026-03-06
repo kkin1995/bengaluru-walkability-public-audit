@@ -11,7 +11,6 @@ type PageProps = {
 };
 
 export default function UsersPage(props: PageProps) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentUserId = ((props as any).currentUserId as string | undefined) ?? "";
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
