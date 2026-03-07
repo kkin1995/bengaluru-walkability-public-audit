@@ -9,7 +9,7 @@
  *                             no alert(); password field cleared; email field retained
  *   R-LGN-2 (AC-LGN-2-F2) — On 429: inline rate-limit message; button disabled for 60s
  *                             with visible "Try again in Xs" countdown
- *   R-LGN-2 (AC-LGN-2-F3) — On 5xx / network error: generic error; button re-enabled; form not reset
+ *   R-LGN-2 (AC-LGN-2-F3) — On 5xx: status-interpolated error; network error: specific copy; button re-enabled; form not reset
  *   R-LGN-3 (AC-LGN-3-S1) — Loading state: submit button disabled + loading indicator;
  *                             email and password inputs disabled while request is in-flight
  *   Guard    — No fetch call when email field is empty
@@ -19,8 +19,10 @@
  * Ambiguity resolutions (documented here so impl agent can read the contract):
  *   - 401 copy: "Invalid email or password" (AC-LGN-2-F1, COPY.admin.login.invalidCredentials)
  *   - 429 copy: "Too many attempts. Please wait before trying again." (AC-LGN-2-F2)
- *   - 5xx copy: "Something went wrong. Please try again." (AC-LGN-2-F3)
- *   - 400: surfaces the `message` field from the server response JSON body as-is
+ *   - 5xx copy: "Server error (HTTP {status}). Please try again later or contact support." (AC-LGN-2-F3)
+ *   - Network error copy: "Cannot reach the server. Check your internet connection and try again."
+ *   - 400: fixed copy "Invalid request. Please check your inputs and try again." — body.message NOT surfaced
+ *   - Other 4xx: body.error ?? body.message ?? "Unexpected error. Please try again." (body.error takes priority; empty string is "present")
  *   - Loading indicator: button accessible name matches /signing in/i AND button is disabled
  *   - 429 countdown: client-side 60-second lockout; button area shows "Try again in Xs"
  *   - Password cleared on 401: password input value becomes "" after 401 response
@@ -412,8 +414,10 @@ describe("T5: 401 response — inline error, password cleared, email retained", 
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// T6 — On 400: inline error message from server response
+// T6 — On 400: fixed copy shown; server body.message NOT surfaced
 // Requirement: R-LGN-2 (task spec)
+// Updated: body.message must NOT appear; fixed string "Invalid request. Please
+//   check your inputs and try again." must appear regardless of body content.
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("T6: 400 response — inline error showing server message", () => {
@@ -434,14 +438,14 @@ describe("T6: 400 response — inline error showing server message", () => {
     });
 
     await waitFor(() => {
-      // The page must surface an inline error on 400 — it may show the server message
-      // or a generic fallback; either way an error element must be in the DOM.
-      const errorElement = screen.queryByRole("alert") ??
-        screen.queryByText(/missing required fields/i) ??
-        screen.queryByText(/invalid|error|wrong|failed/i);
-      // An inline error message must appear in the DOM on 400 — must not silently fail
-      expect(errorElement).not.toBeNull();
+      // The page must show the fixed 400 copy — NOT the server's body.message
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Invalid request. Please check your inputs and try again."
+      );
     });
+
+    // The server's body.message must NOT be surfaced to the user on a 400 response
+    expect(screen.queryByText(/missing required fields/i)).not.toBeInTheDocument();
   });
 
   it("does NOT redirect to /admin on a 400 response", async () => {
@@ -672,12 +676,14 @@ describe("T7: 429 response — rate-limit message and countdown lockout", () => 
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// T8 — On 5xx / network error: generic error, button re-enabled, form not reset
+// T8 — On 5xx: status-interpolated error; network error: specific copy;
+//      button re-enabled; form not reset
 // Requirement: R-LGN-2 (AC-LGN-2-F3)
+// Updated: 5xx copy now interpolates the status code; network error copy is distinct.
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("T8: 5xx and network errors — generic error message, form preserved", () => {
-  it("shows 'Something went wrong. Please try again.' on a 500 response", async () => {
+  it("shows 'Server error (HTTP 500). Please try again later or contact support.' on a 500 response", async () => {
     jest.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: false,
       status: 500,
@@ -691,12 +697,14 @@ describe("T8: 5xx and network errors — generic error message, form preserved",
     });
 
     await waitFor(() => {
-      // Generic error message 'Something went wrong. Please try again.' must appear on 500
-      expect(screen.getByText(/something went wrong\. please try again\./i)).toBeInTheDocument();
+      // Status-interpolated error message must appear on 500
+      expect(
+        screen.getByText(/server error \(http 500\)\. please try again later or contact support\./i)
+      ).toBeInTheDocument();
     });
   });
 
-  it("shows generic error message when fetch throws a network error", async () => {
+  it("shows network error message when fetch throws", async () => {
     jest.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network error"));
 
     render(<LoginPage />);
@@ -706,8 +714,10 @@ describe("T8: 5xx and network errors — generic error message, form preserved",
     });
 
     await waitFor(() => {
-      // Generic error message must appear when fetch rejects (network failure)
-      expect(screen.getByText(/something went wrong\. please try again\./i)).toBeInTheDocument();
+      // Specific network-error copy must appear when fetch rejects (network failure)
+      expect(
+        screen.getByText(/cannot reach the server\. check your internet connection and try again\./i)
+      ).toBeInTheDocument();
     });
   });
 
@@ -725,7 +735,10 @@ describe("T8: 5xx and network errors — generic error message, form preserved",
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/something went wrong\. please try again\./i)).toBeInTheDocument();
+      // Wait for the 500 error copy to appear before asserting button state
+      expect(
+        screen.getByText(/server error \(http 500\)\. please try again later or contact support\./i)
+      ).toBeInTheDocument();
     });
 
     const submitButton = screen.getByRole("button", { name: /sign in|log in|submit/i });
@@ -747,7 +760,10 @@ describe("T8: 5xx and network errors — generic error message, form preserved",
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/something went wrong\. please try again\./i)).toBeInTheDocument();
+      // Wait for the 500 error copy to appear before asserting field value
+      expect(
+        screen.getByText(/server error \(http 500\)\. please try again later or contact support\./i)
+      ).toBeInTheDocument();
     });
 
     const emailInput = screen.getByRole("textbox", { name: /email/i });
@@ -769,7 +785,10 @@ describe("T8: 5xx and network errors — generic error message, form preserved",
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/something went wrong\. please try again\./i)).toBeInTheDocument();
+      // Wait for the 500 error copy to appear before asserting navigation
+      expect(
+        screen.getByText(/server error \(http 500\)\. please try again later or contact support\./i)
+      ).toBeInTheDocument();
     });
 
     // router.push must NOT be called when the server returns 5xx
@@ -834,5 +853,232 @@ describe("T10: Empty password field — fetch is not called", () => {
 
     // fetch must NOT be called when the password field is empty — form guard must prevent submission
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T11 — 5xx responses — status code interpolated into error message
+// Requirement: R-LGN-2 (AC-LGN-2-F3)
+// New: 5xx copy uses "Server error (HTTP {status}). Please try again later or
+//      contact support." — the status code is interpolated into the message.
+//      Body content must NOT leak into the 5xx error banner.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("T11: 5xx responses — status code interpolated into error message", () => {
+  it("shows 'Server error (HTTP 502)...' on a 502 response", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      json: async () => ({ error: "BAD_GATEWAY", message: "Bad Gateway" }),
+    } as Response);
+
+    render(<LoginPage />);
+
+    await act(async () => {
+      await submitForm("ops@example.com", "somePassword123!");
+    });
+
+    await waitFor(() => {
+      // Error message must interpolate the exact status code 502
+      expect(
+        screen.getByText(/server error \(http 502\)\. please try again later or contact support\./i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("shows 'Server error (HTTP 503)...' on a 503 response", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      json: async () => ({ error: "SERVICE_UNAVAILABLE", message: "Service Unavailable" }),
+    } as Response);
+
+    render(<LoginPage />);
+
+    await act(async () => {
+      await submitForm("ops@example.com", "somePassword123!");
+    });
+
+    await waitFor(() => {
+      // Error message must interpolate the exact status code 503
+      expect(
+        screen.getByText(/server error \(http 503\)\. please try again later or contact support\./i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("shows 5xx copy even when the response body is not parseable JSON", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      // json() rejects — simulates non-JSON body (e.g. nginx error page)
+      json: async () => { throw new SyntaxError("Unexpected token < in JSON"); },
+    } as Response);
+
+    render(<LoginPage />);
+
+    await act(async () => {
+      await submitForm("ops@example.com", "somePassword123!");
+    });
+
+    await waitFor(() => {
+      // 5xx copy must appear even when the body cannot be parsed as JSON
+      expect(
+        screen.getByText(/server error \(http 500\)\. please try again later or contact support\./i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("does NOT surface body.message in the error banner for a 5xx response", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({
+        error: "INTERNAL",
+        // body.message must not appear in the UI — only the fixed template copy
+        message: "Detailed internal server diagnostics that must be hidden",
+      }),
+    } as Response);
+
+    render(<LoginPage />);
+
+    await act(async () => {
+      await submitForm("ops@example.com", "somePassword123!");
+    });
+
+    await waitFor(() => {
+      // 5xx banner must show the fixed template copy
+      expect(
+        screen.getByText(/server error \(http 500\)\. please try again later or contact support\./i)
+      ).toBeInTheDocument();
+    });
+
+    // The server's body.message must NOT be rendered anywhere in the DOM on 5xx
+    expect(
+      screen.queryByText(/detailed internal server diagnostics/i)
+    ).not.toBeInTheDocument();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T12 — Other 4xx responses — body field priority and fallback
+// Requirement: R-LGN-2 (task spec)
+// New: Any 4xx that is not 400, 401, or 429 surfaces:
+//      body.error ?? body.message ?? "Unexpected error. Please try again."
+//      Empty string in body.error is treated as present (uses ?? not ||).
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("T12: Other 4xx responses — error or message from body, fallback if absent", () => {
+  it("shows body.error when the server returns 403 with body.error present", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: async () => ({
+        // body.error takes priority over body.message
+        error: "You do not have permission to access this resource.",
+        message: "Forbidden",
+      }),
+    } as Response);
+
+    render(<LoginPage />);
+
+    await act(async () => {
+      await submitForm("ops@example.com", "somePassword123!");
+    });
+
+    await waitFor(() => {
+      // body.error must be displayed, not body.message
+      expect(
+        screen.getByText(/you do not have permission to access this resource\./i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("shows body.message when the server returns 403 with body.error absent", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: async () => ({
+        // body.error is absent — fall through to body.message
+        message: "Account is suspended.",
+      }),
+    } as Response);
+
+    render(<LoginPage />);
+
+    await act(async () => {
+      await submitForm("ops@example.com", "somePassword123!");
+    });
+
+    await waitFor(() => {
+      // body.message must be displayed when body.error is absent
+      expect(screen.getByText(/account is suspended\./i)).toBeInTheDocument();
+    });
+  });
+
+  it("shows fallback copy 'Unexpected error. Please try again.' when body has neither error nor message", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      json: async () => ({}), // body has no error or message fields
+    } as Response);
+
+    render(<LoginPage />);
+
+    await act(async () => {
+      await submitForm("ops@example.com", "somePassword123!");
+    });
+
+    await waitFor(() => {
+      // Fallback copy must appear when the response body provides no error or message
+      expect(
+        screen.getByText(/unexpected error\. please try again\./i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("re-enables the submit button after any other 4xx response", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: "Forbidden access." }),
+    } as Response);
+
+    render(<LoginPage />);
+
+    await act(async () => {
+      await submitForm("ops@example.com", "somePassword123!");
+    });
+
+    await waitFor(() => {
+      // Wait for the error banner to appear before checking button state
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+
+    const submitButton = screen.getByRole("button", { name: /sign in|log in|submit/i });
+    // Submit button must be re-enabled after any other 4xx so the user can retry
+    expect(submitButton).not.toBeDisabled();
+  });
+
+  it("does NOT call router.push after any other 4xx response", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: "Forbidden access." }),
+    } as Response);
+
+    render(<LoginPage />);
+
+    await act(async () => {
+      await submitForm("ops@example.com", "somePassword123!");
+    });
+
+    await waitFor(() => {
+      // Wait for the error banner to appear before checking navigation
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+
+    // router.push must NOT be called when the server returns any other 4xx
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

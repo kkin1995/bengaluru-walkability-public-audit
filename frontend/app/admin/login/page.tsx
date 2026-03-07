@@ -76,16 +76,18 @@ export default function LoginPage() {
         setErrorMessage("Too many attempts. Please wait before trying again.");
         setRateLimitCountdown(RATE_LIMIT_SECONDS);
       } else if (res.status >= 500) {
-        setErrorMessage("Something went wrong. Please try again.");
+        setErrorMessage(`Server error (HTTP ${res.status}). Please try again later or contact support.`);
+      } else if (res.status === 400) {
+        setErrorMessage("Invalid request. Please check your inputs and try again.");
       } else {
-        // 400 or other client errors — surface server message or generic
+        // Other 4xx (402–428, 430–499)
         setErrorMessage(
-          body.message ?? "Something went wrong. Please try again."
+          body.error ?? body.message ?? "Unexpected error. Please try again."
         );
       }
     } catch {
-      // Network error
-      setErrorMessage("Something went wrong. Please try again.");
+      // Network error (fetch threw — no HTTP response)
+      setErrorMessage("Cannot reach the server. Check your internet connection and try again.");
     } finally {
       setIsLoading(false);
     }
