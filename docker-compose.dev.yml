@@ -21,6 +21,8 @@ services:
     build:
       context: ./frontend
       target: deps
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001
     command: npm run dev
     ports:
       - "3000:3000"

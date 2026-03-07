@@ -57,14 +57,18 @@ services:
           memory: 256m
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # P3-3: Must be the nginx proxy URL (http://localhost), NOT the internal Docker hostname
+        # http://backend:3001. NEXT_PUBLIC_* vars are inlined into browser JS at build time,
+        # so the browser — which has no access to Docker's internal DNS — would fail every
+        # API call if we used the internal hostname.
+        NEXT_PUBLIC_API_URL: http://localhost
     depends_on:
       - backend
     environment:
-      # P3-3: Must be the nginx proxy URL (http://localhost), NOT the internal Docker hostname
-      # http://backend:3001. NEXT_PUBLIC_* vars are inlined into browser JS at build time,
-      # so the browser — which has no access to Docker's internal DNS — would fail every
-      # API call if we used the internal hostname.
+      # Runtime fallback — unused by the built bundle but kept for local `next start` runs.
       NEXT_PUBLIC_API_URL: http://localhost
     # P1-2: Health check so nginx only starts once Next.js is serving pages.
     # node:20-alpine ships wget but not curl; use wget instead.
