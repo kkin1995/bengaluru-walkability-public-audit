@@ -87,6 +87,8 @@ async fn main() {
 
     tracing::info!("Database migrations applied");
 
+    db::admin_seed::seed_admin_user(&pool).await;
+
     let api_base_url = config.public_url.clone();
 
     let jwt_secret = std::env::var("JWT_SECRET")
