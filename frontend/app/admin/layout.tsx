@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 export default async function AdminLayout({
@@ -6,6 +6,13 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = (await headers()).get('x-pathname') ?? '';
+
+  // Skip auth check for the login page itself — prevents infinite redirect loop.
+  if (pathname.startsWith('/admin/login')) {
+    return <>{children}</>;
+  }
+
   const cookieStore = await cookies();
   const token = cookieStore.get('admin_token');
 
