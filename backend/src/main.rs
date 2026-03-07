@@ -1,4 +1,5 @@
 use axum::{
+    extract::DefaultBodyLimit,
     routing::{delete, get, patch, post},
     Router,
 };
@@ -171,6 +172,9 @@ async fn main() {
         // Static file serving for uploaded images
         .nest_service("/uploads", ServeDir::new(&config.uploads_dir))
         .layer(cors)
+        // Override Axum's 2 MB implicit DefaultBodyLimit to match nginx's
+        // client_max_body_size 20M, so 3–5 MB iPhone JPEGs are not silently dropped.
+        .layer(DefaultBodyLimit::max(20 * 1024 * 1024))
         .layer(TraceLayer::new_for_http())
         .layer(axum::middleware::from_fn(request_id_middleware))
         .with_state(state);
