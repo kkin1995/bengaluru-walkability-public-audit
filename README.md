@@ -24,14 +24,29 @@ A citizen-driven PWA for reporting and mapping pedestrian infrastructure issues 
 
 ## Features
 
+### Citizen-facing
 - **Photo submission** — camera capture or gallery upload; JPEG/PNG/HEIC/WebP accepted
-- **Client-side image compression** — Canvas API reduces files above 10 MB (quality 0.85 → 0.4) before upload
+- **Client-side image compression** — Canvas API reduces files above 10 MB before upload
 - **EXIF GPS extraction** — `exifr` reads GPS coordinates from photo metadata client-side; raw location data never sent separately to the server
-- **Interactive map pin** — when EXIF is missing the user drops a pin on a Leaflet map; pin is constrained to the Bengaluru bounding box
-- **6 issue categories** — No Footpath, Damaged Footpath, Blocked Footpath, Unsafe Crossing, Poor Lighting, Other
+- **Interactive map pin** — when EXIF is missing the user drops a pin on a Leaflet map; constrained to the Bengaluru bounding box
+- **EXIF vs pin conflict warning** — amber banner when pin is >500 m from EXIF location
+- **8 issue categories** — No Footpath, Damaged Footpath, Blocked Footpath, No Curb Ramp, Unsafe Crossing, Poor Lighting, Encroachment, Other
+- **Bilingual copy** — English + Kannada throughout
 - **Public map** — all reports visualised as colour-coded circle markers; click for photo popup
-- **Privacy-by-default** — EXIF stripped server-side before writing to disk; public API rounds coordinates to ±111 m; contact details never returned
-- **Audit trail** — `status_history` table tracks every `submitted → under_review → resolved` transition
+
+### Admin dashboard (`/admin`)
+- **JWT auth** — HttpOnly cookie, 24-hour (configurable) sessions, Argon2id password hashing
+- **Reports management** — list, filter (category, status, severity, date range), view full PII, update status, delete
+- **Audit trail** — `status_history` records every `submitted → under_review → resolved` transition with optional note and actor
+- **User management** — create, list, deactivate admin users
+- **Statistics** — aggregate counts by status, category, severity (all enum values always present even at 0)
+- **Auto-seeding** — first admin user created on startup from `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD` (idempotent)
+
+### Privacy & security
+- EXIF stripped server-side via `img-parts` before writing to disk
+- Public API rounds coordinates to ±111 m; exact coordinates only visible to authenticated admins
+- `submitter_contact` never returned in public responses
+- nginx rate-limits `POST /api/admin/login` to prevent brute-force attacks
 
 ---
 
@@ -139,18 +154,27 @@ npm run dev
 
 ### Backend (`backend/.env`)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | — | PostgreSQL connection string |
-| `UPLOADS_DIR` | `./uploads` | Directory where uploaded images are written |
-| `PORT` | `3001` | HTTP port the Axum server listens on |
-| `CORS_ORIGIN` | `http://localhost:3000` | Allowed CORS origin for browser clients |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | ✅ | — | PostgreSQL connection string |
+| `JWT_SECRET` | ✅ | — | Min 32 chars; HMAC-SHA256 key for admin session JWTs |
+| `UPLOADS_DIR` | ✅ | — | Directory where uploaded images are written |
+| `PORT` | | `3001` | HTTP port the Axum server listens on |
+| `CORS_ORIGIN` | | `http://localhost:3000` | Allowed CORS origin for browser clients |
+| `PUBLIC_URL` | | `http://localhost` | Base URL prepended to `image_url` in API responses |
+| `JWT_SESSION_HOURS` | | `24` | Admin JWT session length in hours |
+| `COOKIE_SECURE` | | `false` | Set `true` in production (requires HTTPS) |
+| `ADMIN_SEED_EMAIL` | | — | Email for the first admin user (seeded on first boot if `admin_users` is empty) |
+| `ADMIN_SEED_PASSWORD` | | — | Password for the first admin user (min 12 chars) |
+| `RUST_LOG` | | — | Log filter (e.g. `info`; production default in docker-compose) |
 
-### Frontend (`frontend/.env.local`)
+### Frontend
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:3001` | Base URL the browser uses to reach the API |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `NEXT_PUBLIC_API_URL` | ✅ | `http://localhost:3001` | Public URL the browser uses to reach the API |
+
+> **Important:** `NEXT_PUBLIC_*` variables are inlined by webpack at **build time**. In Docker they must be passed as `build.args` in `docker-compose.yml` — runtime environment variables have no effect on the built bundle.
 
 ---
 
@@ -251,9 +275,31 @@ Serve uploaded images. Nginx caches these with a 30-day `expires` header in prod
 
 ---
 
+### Admin API (JWT required)
+
+All `/api/admin/*` endpoints require a valid `admin_token` HttpOnly cookie (set by `/api/admin/auth/login`).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/admin/auth/login` | Login — sets `admin_token` cookie |
+| `POST` | `/api/admin/auth/logout` | Logout — clears cookie |
+| `GET` | `/api/admin/auth/me` | Current admin user info |
+| `GET` | `/api/admin/reports` | List reports with full PII and exact coordinates |
+| `GET` | `/api/admin/reports/:id` | Get single report (admin view) |
+| `PATCH` | `/api/admin/reports/:id/status` | Update report status |
+| `DELETE` | `/api/admin/reports/:id` | Delete report + image file |
+| `GET` | `/api/admin/stats` | Aggregate counts by status, category, severity |
+| `GET` | `/api/admin/users` | List admin users |
+| `POST` | `/api/admin/users` | Create admin user |
+| `DELETE` | `/api/admin/users/:id` | Deactivate admin user |
+
+---
+
 ## Database Schema
 
-Schema is defined in `backend/migrations/001_init.sql` and applied automatically on startup.
+Schema is defined in `backend/migrations/` and applied automatically on startup.
+- `001_init.sql` — public reports, enums, indexes, triggers
+- `002_admin.sql` — `admin_users` table and `user_role` enum
 
 ### Enums
 
@@ -294,10 +340,24 @@ Audit trail for every status transition.
 |--------|------|-------|
 | `id` | `UUID` PK | |
 | `report_id` | `UUID` FK | Cascades on delete |
-| `old_status` | `report_status` | NULL for the first record |
-| `new_status` | `report_status` | NOT NULL |
+| `status` | `report_status` | NOT NULL |
 | `changed_at` | `TIMESTAMPTZ` | DEFAULT NOW() |
 | `note` | `TEXT` | Optional admin comment |
+| `changed_by` | `UUID` FK | Admin user who made the change |
+
+### `admin_users`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | `UUID` PK | `gen_random_uuid()` |
+| `email` | `TEXT` UNIQUE | NOT NULL |
+| `password_hash` | `TEXT` | Argon2id PHC format |
+| `role` | `user_role` | `admin` · `reviewer` |
+| `display_name` | `TEXT` | Optional |
+| `is_active` | `BOOL` | DEFAULT `true`; set `false` to deactivate without deleting |
+| `last_login_at` | `TIMESTAMPTZ` | Updated on successful login |
+| `created_at` | `TIMESTAMPTZ` | Immutable |
+| `updated_at` | `TIMESTAMPTZ` | Auto-touched by trigger |
 
 ### `bus_stops` / `metro_stations`
 
@@ -363,23 +423,37 @@ npm run test:coverage
 
 ### Test inventory
 
-**Backend — 26 tests** (`cargo test`)
+**Backend — 124 tests** (`cargo test`, no live DB required)
 
 | Module | Tests |
 |--------|-------|
-| `models/report.rs` | Coordinate rounding (3 d.p.), image URL construction, `submitter_contact` absent from JSON |
-| `handlers/reports.rs` | Bengaluru bbox predicate (centre, interior, all 4 exact corners, just-outside edges, lat/lng too high/low), default field population |
+| `models/report.rs` | Coordinate rounding, image URL construction, contact field absent from JSON |
+| `models/admin.rs` | Admin user response (no password hash), JWT claims, validation helpers |
+| `handlers/reports.rs` | Bengaluru bbox (all corners + just-outside edges), default field population, limit capping |
+| `handlers/admin.rs` | `validate_status`, `validate_create_user_request`, `require_role` pure functions |
+| `middleware/auth.rs` | JWT extract/verify, expired/wrong-key/alg-none rejection, role checks |
+| `config.rs` | `PUBLIC_URL` resolution |
+| `db/admin_seed.rs` | `should_seed` guards, Argon2id hash format + verifiability + unique salt |
 
-**Frontend — 122 tests across 6 suites** (`npm test`)
+**Frontend — 212+ tests across 14+ suites** (`npm test`)
 
 | Suite | Tests |
 |-------|-------|
 | `lib/__tests__/constants.test.ts` | Boundary values for `BENGALURU_BOUNDS` |
-| `components/__tests__/CategoryPicker.test.tsx` | All 6 categories (emoji, label, description), selection styling, `onChange` |
-| `components/__tests__/SubmitSuccess.test.tsx` | Heading, subheading, map link, Web Share API / clipboard fallback, reset callback |
-| `components/__tests__/PhotoCapture.test.tsx` | Camera trigger, EXIF extraction order, >10 MB compress/fail, clear button |
-| `components/__tests__/ReportsMap.test.tsx` | Fetch lifecycle, markers, popup content, error + retry, empty state overlay |
-| `app/__tests__/report-page.test.tsx` | Full wizard flow, bbox gate on step 1, severity hints, description counter, submit/error/success |
+| `app/__tests__/utils.test.ts` | `haversineDistance` utility |
+| `components/__tests__/CategoryPicker.test.tsx` | All 8 categories, selection styling, `onChange` |
+| `components/__tests__/SubmitSuccess.test.tsx` | Share API / clipboard fallback, reset callback |
+| `components/__tests__/PhotoCapture.test.tsx` | Camera trigger, EXIF extraction order, compression |
+| `components/__tests__/ReportsMap.test.tsx` | Fetch lifecycle, markers, popups, error + retry |
+| `components/__tests__/BilingualText.test.tsx` | English + Kannada rendering, contrast class |
+| `components/__tests__/ReviewStrip.test.tsx` | Photo thumb, reverse geocode, category label |
+| `app/__tests__/home-page.test.tsx` | Hero copy, trust pills, CTAs |
+| `app/__tests__/report-page.test.tsx` | Full wizard flow, bbox gate, submit/error/success |
+| `admin/__tests__/adminApi.test.ts` | All 11 admin API client functions |
+| `admin/__tests__/dashboard.test.tsx` | Stats cards, recent reports |
+| `admin/__tests__/reports-page.test.tsx` | Report list, filters, status update |
+| `admin/__tests__/users-page.test.tsx` | User list, create, deactivate |
+| `admin/login/__tests__/login-page.test.tsx` | Auth flow, 401/429/5xx/network/400/other-4xx error states, countdown |
 
 ### Test infrastructure
 

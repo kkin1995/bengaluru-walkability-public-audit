@@ -1,5 +1,5 @@
 # Bengaluru Walkability Audit — Product Plan
-> Living document. Updated 2026-03-05.
+> Living document. Updated 2026-03-07.
 > Covers: completed work, open ACs, next-session backlog, open assumptions.
 
 ---
@@ -22,7 +22,16 @@
 - [x] Bengaluru bounding box validation server-side (lat 12.7342–13.1739, lng 77.3791–77.8731)
 - [x] SQLx compile-time queries replaced with runtime API for testability
 - [x] Server-side `?limit=` cap at 200; `limit ≤ 0` falls back to default 20 (P2-4)
-- [x] 39 backend unit tests passing (models + handlers + limit-cap edge cases)
+- [x] Request ID middleware: reads `X-Request-ID` from nginx, injects into tracing span, echoes in response header (P2-1)
+- [x] `RUST_LOG: info` in `docker-compose.yml` backend service (P2-2)
+- [x] `tracing-subscriber` JSON formatter (`fmt().json()`) in `main.rs` (P2-3)
+- [x] Body limit raised to 20 MB (`DefaultBodyLimit::max`) to prevent 502 on iPhone uploads
+- [x] Admin subsystem: `002_admin.sql` — `admin_users` table (`user_role` enum, Argon2id hash, `is_active`) + `status_history` audit trail
+- [x] JWT auth middleware (`backend/src/middleware/auth.rs`) — pure-function `extract_claims` + `require_role` security boundary
+- [x] 11 admin handlers: login, logout, me, list/get/update/delete reports, stats, list/create/deactivate users
+- [x] Admin router at `/api/admin/*` — unprotected auth sub-router + JWT-gated protected sub-router
+- [x] Idempotent admin user seeding on startup: reads `ADMIN_SEED_EMAIL` + `ADMIN_SEED_PASSWORD` from env, skips if table non-empty, hashes with Argon2id and inserts (`backend/src/db/admin_seed.rs`)
+- [x] 124 backend unit tests passing (models, handlers, middleware, config, seeding)
 
 ### 1.2 Frontend (Next.js 14)
 - [x] Landing page (`/`) — headline, CTAs, How It Works section
@@ -41,14 +50,18 @@
 - [x] `viewport`/`themeColor` extracted into separate `export const viewport: Viewport` (F1 — removes Next.js 14 deprecation warnings)
 - [x] EXIF vs manual pin conflict warning: amber banner when pin >500m from EXIF position; dismissible; resets on return (§2.3 — ASSUMPTION-6 resolved at 500m)
 - [x] `haversineDistance` utility in `app/lib/utils.ts`
-- [x] 159 frontend tests across 9 suites (Jest + React Testing Library)
+- [x] Admin dashboard frontend (`/admin` route group): edge middleware auth redirect, server-side auth layout, dashboard overview, reports table with status update, users management page
+- [x] Typed API client (`frontend/app/admin/lib/adminApi.ts`) for all 11 admin endpoints
+- [x] Admin login page (`/admin/login`): HttpOnly cookie auth, rate-limit countdown (60 s), actionable per-status error messages (network / 5xx with status code / 400 / other 4xx / 401 / 429)
+- [x] Admin login bug fix: infinite redirect loop on successful login resolved
+- [x] 212+ frontend tests across 14+ suites (Jest + React Testing Library)
 
 ### 1.3 Infrastructure
 - [x] `docker-compose.yml` — full stack (nginx + frontend + backend + db)
 - [x] `docker-compose.dev.yml` — dev overrides (hot reload)
 - [x] nginx reverse proxy: `/api/` → backend:3001, `/uploads/` → backend:3001, `/` → frontend:3000
 - [x] PostGIS extensions auto-applied on backend startup via `sqlx::migrate!`
-- [x] `NEXT_PUBLIC_API_URL=http://localhost` — nginx proxy, not internal Docker hostname (P3-3)
+- [x] `NEXT_PUBLIC_API_URL=http://localhost` baked into Next.js Docker build via `ARG`/`ENV` in `frontend/Dockerfile` and `build.args` in `docker-compose.yml` — fixes silent API failures where browser bundle fell back to `http://localhost:3001` (P3-3)
 - [x] `POSTGRES_PASSWORD` fallback removed — missing password is a hard startup failure (P0-1)
 - [x] `deploy.resources.limits` on all containers: db 512m, backend 256m, frontend 256m, nginx 64m (P0-2)
 - [x] `client_body_buffer_size 10m` + `client_body_temp_path` in nginx.conf (P1-1)
@@ -144,17 +157,14 @@ Healthchecks on backend + frontend; nginx `depends_on: condition: service_health
 
 ### P2 — Observability
 
-#### P2-1: Add request ID propagation
-**Files:** `nginx/nginx.conf`, backend trace config
-**Fix:** Generate `$request_id` in nginx, forward as `X-Request-ID` header to backend, include in nginx access log format, log in backend trace spans.
+#### ~~P2-1: Add request ID propagation~~ ✅ DONE 2026-03-07
+nginx generates `$request_id`, forwards as `X-Request-ID`; backend middleware reads it, injects into tracing span, echoes in response header.
 
-#### P2-2: Set RUST_LOG=info in production
-**File:** `docker-compose.yml`
-**Fix:** Add `RUST_LOG: info` environment variable to the backend service. Currently defaults to DEBUG → verbose log bloat.
+#### ~~P2-2: Set RUST_LOG=info in production~~ ✅ DONE 2026-03-07
+`RUST_LOG: info` added to backend service in `docker-compose.yml`.
 
-#### P2-3: Structured JSON logging
-**Files:** `nginx/nginx.conf`, backend `main.rs`
-**Fix:** Switch nginx to JSON access log format. Add `tracing-subscriber` JSON formatter to backend.
+#### ~~P2-3: Structured JSON logging~~ ✅ DONE 2026-03-07
+nginx switched to JSON access log format. Backend `main.rs` uses `tracing_subscriber::fmt().json()`.
 
 #### ~~P2-4: Server-side cap on `?limit=` parameter~~ ✅ DONE 2026-03-05
 Cap raised to 200; `limit ≤ 0` now falls back to default 20. 13 new unit tests added.
@@ -168,25 +178,20 @@ Cap raised to 200; `limit ≤ 0` now falls back to default 20. 13 new unit tests
 #### P3-1: Backup strategy for uploads volume
 **Fix:** Document and automate: nightly `pg_dump` for postgres_data; nightly `rsync`/`tar` for uploads volume to an offsite location. Add a `backup/` script and cron job.
 
-#### P3-2: CI/CD pipeline
-**Fix:** Add `.github/workflows/ci.yml` running: frontend lint → frontend test → backend clippy → backend test → docker build (no push). Add a separate `deploy.yml` for staging.
+#### ~~P3-2: CI/CD pipeline~~ ✅ DONE 2026-03-07
+`.github/workflows/ci.yml` — 3 parallel jobs (frontend-checks, backend-checks, docker-build) with `workflow_call` trigger. `.github/workflows/deploy.yml` — reuses ci.yml then SSH-deploy placeholder. CI is green.
 
-#### P3-3: Fix NEXT_PUBLIC_API_URL in production (CRITICAL)
-**File:** `docker-compose.yml`
-**Problem:** `NEXT_PUBLIC_API_URL=http://backend:3001` is a Docker-internal hostname inlined into the JS bundle at build time. Browsers cannot resolve `backend`. All API calls silently fail.
-**Fix:** Set `NEXT_PUBLIC_API_URL=http://localhost` (or the production domain). The frontend should call nginx (port 80), which proxies `/api/` to the backend — not call the backend directly.
+#### ~~P3-3: Fix NEXT_PUBLIC_API_URL in production~~ ✅ DONE 2026-03-07
+`frontend/Dockerfile` now declares `ARG NEXT_PUBLIC_API_URL` + `ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL` before `RUN npm run build`. `docker-compose.yml` passes it via `build.args`. Browser bundle now uses `http://localhost` (nginx proxy) in production.
 
-#### P3-4: nginx proxy timeouts and rate limiting
-**File:** `nginx/nginx.conf`
-**Fix:** Add `proxy_read_timeout 30s; proxy_connect_timeout 5s; proxy_send_timeout 30s;`. Add `limit_req_zone` + `limit_req` on `POST /api/reports` to prevent upload flooding.
+#### ~~P3-4: nginx proxy timeouts and rate limiting~~ ✅ DONE 2026-03-07
+`proxy_connect_timeout 5s; proxy_send_timeout 30s; proxy_read_timeout 30s` added. `limit_req_zone` + `limit_req` on POST `/api/reports` (5 r/m). Stricter rate limit on `/api/admin/login` (login brute-force protection).
 
-#### P3-5: Fix /uploads/ forwarding headers
-**File:** `nginx/nginx.conf`
-**Fix:** Add `proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;` to the `/uploads/` location block (matches the `/api/` block).
+#### ~~P3-5: Fix /uploads/ forwarding headers~~ ✅ DONE 2026-03-07
+`proxy_set_header X-Real-IP` and `X-Forwarded-For` added to `/uploads/` location block.
 
-#### P3-6: Add nginx healthcheck
-**File:** `docker-compose.yml`
-**Fix:** Add `healthcheck: test: ["CMD", "curl", "-f", "http://localhost/health"]` to the nginx service.
+#### ~~P3-6: Add nginx healthcheck~~ ✅ DONE 2026-03-07
+`healthcheck: test: ["CMD", "curl", "-f", "http://localhost/health"]` added to nginx service in `docker-compose.yml`.
 
 ### Frontend Fixes (from log warnings)
 
@@ -224,7 +229,7 @@ These block implementation of the Open ACs in section 2. They need a product/leg
 
 These were identified as valuable but explicitly out of current scope:
 
-- **Report moderation UI** — admin dashboard to move reports through `submitted → under_review → resolved`
+- ~~**Report moderation UI**~~ ✅ DONE 2026-03-07 — admin dashboard with JWT auth, 11 handlers, full frontend; see §1.2 and §1.1
 - **upvote / verify** — `report_verifications` table (schema stub exists: `UNIQUE(report_id, device_fingerprint_hash)`)
 - **Heatmap layer** — ST_SnapToGrid SQL query already written in schema-decisions.md; needs API endpoint + frontend toggle
 - **PWN transit density** — reports near bus stops / metro stations (PostGIS query ready in schema-decisions.md)
