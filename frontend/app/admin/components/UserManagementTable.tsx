@@ -5,6 +5,7 @@ interface AdminUser {
   email: string;
   role: string;
   is_active: boolean;
+  is_super_admin?: boolean;
   last_login_at?: string | null;
 }
 
@@ -50,12 +51,21 @@ export default function UserManagementTable({
         <tbody className="bg-white divide-y divide-gray-200">
           {users.map((user) => {
             const isSelf = user.id === currentUserId;
-            const isDeactivateDisabled = isSelf || !user.is_active;
+            const isSuperAdmin = user.is_super_admin === true;
+            const isDeactivateDisabled = isSelf || !user.is_active || isSuperAdmin;
 
             return (
               <tr key={user.id} data-testid={`user-row-${user.id}`}>
                 <td className="px-4 py-3 text-sm text-gray-900">
                   {user.email}
+                  {isSuperAdmin && (
+                    <span
+                      data-testid="super-admin-badge"
+                      className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800"
+                    >
+                      Super Admin
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span
@@ -87,6 +97,15 @@ export default function UserManagementTable({
                 <td className="px-4 py-3">
                   <button
                     disabled={isDeactivateDisabled}
+                    title={
+                      isSuperAdmin
+                        ? "Cannot deactivate super-admin"
+                        : isSelf
+                        ? "You cannot deactivate your own account"
+                        : !user.is_active
+                        ? "Account already deactivated"
+                        : undefined
+                    }
                     onClick={() => {
                       if (!isDeactivateDisabled) {
                         onDeactivate(user.id);

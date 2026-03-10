@@ -32,6 +32,8 @@ struct AdminUserRow {
     updated_at: DateTime<Utc>,
     is_active: bool,
     last_login_at: Option<DateTime<Utc>>,
+    /// Phase 2 addition (AC-SA-BE-4-S1): must be selected from DB.
+    is_super_admin: bool,
 }
 
 impl From<AdminUserRow> for AdminUser {
@@ -46,11 +48,13 @@ impl From<AdminUserRow> for AdminUser {
             updated_at: r.updated_at,
             is_active: r.is_active,
             last_login_at: r.last_login_at,
+            is_super_admin: r.is_super_admin,
         }
     }
 }
 
 // Re-used SELECT column list for admin_users queries.
+// Phase 2: is_super_admin added (AC-SA-BE-4-S1).
 const ADMIN_USER_COLS: &str = r#"
     id,
     email,
@@ -60,7 +64,8 @@ const ADMIN_USER_COLS: &str = r#"
     created_at,
     updated_at,
     is_active,
-    last_login_at
+    last_login_at,
+    is_super_admin
 "#;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -148,18 +153,27 @@ pub async fn create_admin_user(
     Ok(AdminUser::from(row))
 }
 
+// SQL for the deactivation UPDATE — exposed as a const so deactivate_admin_user_sql()
+// can return the exact string that the live function uses, satisfying the test that
+// verifies the atomic super-admin guard (AC-SA-BE-3-F1, SA Security Considerations).
+const DEACTIVATE_ADMIN_USER_SQL: &str =
+    "UPDATE admin_users SET is_active = FALSE \
+     WHERE id = $1 AND is_active = TRUE AND is_super_admin = FALSE";
+
 /// Soft-deactivate an admin user (sets `is_active = false`).
 /// Returns `true` if the row existed and was updated, `false` if not found.
+/// Super-admin rows are silently protected by the WHERE clause — they return false
+/// (not found / not updated) rather than an error, so the caller's NotFound path
+/// is exercised. The handler layer calls guard_super_admin_deactivation() before
+/// reaching this function for a pre-DB Forbidden response.
 pub async fn deactivate_admin_user(
     pool: &PgPool,
     user_id: Uuid,
 ) -> Result<bool, AppError> {
-    let result = sqlx::query(
-        "UPDATE admin_users SET is_active = FALSE WHERE id = $1 AND is_active = TRUE",
-    )
-    .bind(user_id)
-    .execute(pool)
-    .await?;
+    let result = sqlx::query(DEACTIVATE_ADMIN_USER_SQL)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
 
     Ok(result.rows_affected() > 0)
 }
@@ -460,4 +474,267 @@ pub async fn get_report_stats(pool: &PgPool) -> Result<StatsResponse, AppError> 
         by_category,
         by_severity,
     })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2 — New admin_queries functions (stubs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Update a user's display_name column in-place.
+///
+/// # Contract (AC-PR-BE-1-S1, AC-PR-BE-1-S2)
+/// - `display_name = Some(s)` → sets column to the string value s
+/// - `display_name = None`    → sets column to NULL
+/// - In both cases, `updated_at` is refreshed to NOW().
+/// - Returns the updated AdminUser row.
+/// - Returns AppError::NotFound if no row matches `user_id`.
+#[allow(dead_code)]
+pub async fn update_admin_profile(
+    pool: &PgPool,
+    user_id: Uuid,
+    display_name: Option<&str>,
+) -> Result<AdminUser, AppError> {
+    let sql = format!(
+        "UPDATE admin_users SET display_name = $2, updated_at = NOW() \
+         WHERE id = $1 RETURNING {}",
+        ADMIN_USER_COLS
+    );
+    let row = sqlx::query_as::<_, AdminUserRow>(&sql)
+        .bind(user_id)
+        .bind(display_name)
+        .fetch_optional(pool)
+        .await?
+        .ok_or(AppError::NotFound)?;
+
+    Ok(AdminUser::from(row))
+}
+
+/// Update a user's password_hash column in-place.
+///
+/// # Contract (AC-PR-BE-3-S1)
+/// - Stores the new Argon2id hash.
+/// - `updated_at` is refreshed to NOW().
+/// - Returns Ok(()) on success.
+/// - Returns AppError::NotFound if no row matches `user_id`.
+#[allow(dead_code)]
+pub async fn update_admin_password(
+    pool: &PgPool,
+    user_id: Uuid,
+    new_password_hash: &str,
+) -> Result<(), AppError> {
+    let result = sqlx::query(
+        "UPDATE admin_users SET password_hash = $2, updated_at = NOW() WHERE id = $1",
+    )
+    .bind(user_id)
+    .bind(new_password_hash)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound);
+    }
+    Ok(())
+}
+
+/// Fetch a single admin user by ID (for profile operations that work from JWT sub).
+///
+/// # Contract (AC-PR-BE-1-F5, AC-PR-BE-3-F6)
+/// - Returns Some(AdminUser) if the row exists.
+/// - Returns None if no row with the given UUID exists.
+#[allow(dead_code)]
+pub async fn get_admin_user_by_id(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<Option<AdminUser>, AppError> {
+    let sql = format!(
+        "SELECT {} FROM admin_users WHERE id = $1",
+        ADMIN_USER_COLS
+    );
+    let row = sqlx::query_as::<_, AdminUserRow>(&sql)
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(row.map(AdminUser::from))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pure SQL-string helpers (testable without a database)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Returns the SQL column list used for all admin_users SELECT queries.
+/// Exposed as a pure function so tests can verify the Phase 2 column
+/// `is_super_admin` is present without executing any DB query.
+///
+/// # Contract (AC-SA-BE-4-S1)
+/// The returned string must contain "is_super_admin".
+///
+/// This is a test-only hook — carries no behavioral side effects.
+/// The `#[allow(dead_code)]` ensures the function compiles even if not
+/// called in production code paths (only called from tests).
+#[allow(dead_code)]
+pub fn admin_user_cols_sql() -> &'static str {
+    ADMIN_USER_COLS
+}
+
+/// Returns the SQL used to deactivate an admin user.
+///
+/// # Contract (AC-SA-BE-3-S1, SA Security Considerations)
+/// The deactivation SQL must include `AND is_super_admin = FALSE` in the WHERE
+/// clause so the super-admin guard is atomic (single UPDATE, no TOCTOU window).
+#[allow(dead_code)]
+pub fn deactivate_admin_user_sql() -> &'static str {
+    DEACTIVATE_ADMIN_USER_SQL
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unit tests — no database required
+//
+// Requirements covered:
+//   AC-SA-BE-4-S1  — ADMIN_USER_COLS includes is_super_admin
+//   AC-SA-BE-3-F1  — deactivation SQL includes super-admin guard (atomic)
+//   AC-SA-BE-5-S1  — create_admin_user SQL hardcodes is_super_admin = FALSE
+//   AC-SA-BE-2-S1  — seed SQL sets is_super_admin = TRUE
+//
+// ── Implementation agent instructions ─────────────────────────────────────────
+// Do NOT modify any test in this module. The tests are the behavioural contract.
+// If a test appears to be incorrect, document your concern and request a review
+// from the QA agent — do not alter assertions independently.
+// ─────────────────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite 1 — ADMIN_USER_COLS includes is_super_admin (AC-SA-BE-4-S1)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// AC-SA-BE-4-S1 — Every SELECT query that builds an AdminUser must include
+    /// the is_super_admin column. This test verifies the shared column list
+    /// contains the token so that all queries that use ADMIN_USER_COLS are covered.
+    #[test]
+    fn admin_user_cols_includes_is_super_admin() {
+        let cols = admin_user_cols_sql();
+        assert!(
+            cols.contains("is_super_admin"),
+            "ADMIN_USER_COLS must include 'is_super_admin' so that all admin_users \
+             SELECT queries return the Phase 2 field (AC-SA-BE-4-S1); got: {}",
+            cols
+        );
+    }
+
+    /// AC-SA-BE-4-S1 — The column list must still include all pre-existing Phase 1
+    /// columns. Adding is_super_admin must not accidentally drop any existing column.
+    #[test]
+    fn admin_user_cols_still_includes_all_phase1_columns() {
+        let cols = admin_user_cols_sql();
+        for col in &[
+            "id",
+            "email",
+            "password_hash",
+            "role",
+            "display_name",
+            "created_at",
+            "updated_at",
+            "is_active",
+            "last_login_at",
+        ] {
+            assert!(
+                cols.contains(col),
+                "ADMIN_USER_COLS must still include column '{}' after Phase 2 additions; \
+                 a column was accidentally removed. Got: {}",
+                col,
+                cols
+            );
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite 2 — AdminUser struct carries is_super_admin (AC-SA-BE-4-S1)
+    //
+    // AdminUserRow is a private struct — we cannot construct it directly in
+    // tests. Instead, we verify that AdminUser (the public output of the
+    // From<AdminUserRow> conversion) correctly carries the is_super_admin field.
+    // The models/admin.rs test suite covers the into_response() path.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// AC-SA-BE-4-S1 — AdminUser struct must have an is_super_admin field so
+    /// that the DB query result can set it. This test constructs an AdminUser
+    /// directly (without the DB row) to verify the field exists and can be set.
+    #[test]
+    fn admin_user_struct_has_is_super_admin_field() {
+        use chrono::Utc;
+
+        let now = Utc::now();
+        // Construct with is_super_admin = true (seeded super-admin case).
+        let super_admin = AdminUser {
+            id: Uuid::nil(),
+            email: "seed@example.com".to_string(),
+            password_hash: "$argon2id$stub".to_string(),
+            role: "admin".to_string(),
+            display_name: None,
+            created_at: now,
+            updated_at: now,
+            is_active: true,
+            last_login_at: None,
+            is_super_admin: true,
+        };
+        assert!(
+            super_admin.is_super_admin,
+            "AdminUser with is_super_admin=true must carry that value; \
+             the DB row-to-struct mapping must not coerce it to false \
+             (AC-SA-BE-4-S1). Got false."
+        );
+
+        // Also verify the false case (API-created user).
+        let regular = AdminUser {
+            id: Uuid::nil(),
+            email: "api@example.com".to_string(),
+            password_hash: "$argon2id$stub".to_string(),
+            role: "reviewer".to_string(),
+            display_name: None,
+            created_at: now,
+            updated_at: now,
+            is_active: true,
+            last_login_at: None,
+            is_super_admin: false,
+        };
+        assert!(
+            !regular.is_super_admin,
+            "AdminUser with is_super_admin=false (API-created) must carry false; \
+             the DB row-to-struct mapping must not coerce it to true \
+             (AC-SA-BE-5-S1). Got true."
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite 3 — deactivation SQL atomic super-admin guard (AC-SA-BE-3-F1)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// AC-SA-BE-3-F1 + SA Security Considerations — the deactivation UPDATE must
+    /// include `AND is_super_admin = FALSE` (or equivalent) in its WHERE clause.
+    /// This makes the super-admin protection atomic: a single SQL statement that
+    /// cannot be split into a TOCTOU-vulnerable two-step SELECT + UPDATE.
+    ///
+    /// RED PHASE: deactivate_admin_user_sql() panics with todo!() until the impl
+    /// agent updates deactivate_admin_user() to include the guard and updates
+    /// this helper to return the actual SQL.
+    #[test]
+    fn deactivation_sql_includes_super_admin_guard() {
+        let sql = deactivate_admin_user_sql();
+        let upper = sql.to_uppercase();
+        assert!(
+            upper.contains("IS_SUPER_ADMIN") || sql.contains("is_super_admin"),
+            "deactivate_admin_user SQL must include 'is_super_admin' in the WHERE clause \
+             so the super-admin guard is atomic (SA Security Considerations: single UPDATE, \
+             no TOCTOU window); got: {}",
+            sql
+        );
+        assert!(
+            upper.contains("FALSE"),
+            "deactivate_admin_user SQL must include 'FALSE' to guard against deactivating \
+             super-admin rows (AC-SA-BE-3-F1); got: {}",
+            sql
+        );
+    }
 }

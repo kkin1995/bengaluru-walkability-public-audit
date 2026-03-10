@@ -18,8 +18,18 @@ export interface AdminUser {
   role: "admin" | "reviewer";
   display_name: string | null;
   is_active: boolean;
+  is_super_admin: boolean;
   created_at: string;
   last_login_at: string | null;
+}
+
+export interface UpdateProfilePayload {
+  display_name?: string | null;
+}
+
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
 }
 
 export interface AdminReport {
@@ -188,5 +198,23 @@ export async function createUser(data: CreateUserPayload): Promise<AdminUser> {
 export async function deactivateUser(id: string): Promise<void> {
   return apiFetch<void>(`${BASE}/api/admin/users/${id}`, {
     method: "DELETE",
+  });
+}
+
+// ─── Profile ──────────────────────────────────────────────────────────────────
+
+export async function updateProfile(data: UpdateProfilePayload): Promise<AdminUser> {
+  return apiFetch<AdminUser>(`${BASE}/api/admin/auth/profile`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function changePassword(data: ChangePasswordPayload): Promise<void> {
+  await apiFetch<void>(`${BASE}/api/admin/auth/change-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
   });
 }

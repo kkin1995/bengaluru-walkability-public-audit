@@ -71,6 +71,22 @@ export default async function AdminLayout({
                 Reports
               </a>
             </li>
+            <li>
+              <a
+                href="/admin/reports/map"
+                className="block px-3 py-2 rounded-lg hover:bg-gray-100 text-sm font-medium"
+              >
+                Reports Map
+              </a>
+            </li>
+            <li>
+              <a
+                href="/admin/profile"
+                className="block px-3 py-2 rounded-lg hover:bg-gray-100 text-sm font-medium"
+              >
+                Profile
+              </a>
+            </li>
             {role === 'admin' && (
               <li>
                 <a

@@ -70,6 +70,36 @@ Object.defineProperty(HTMLImageElement.prototype, "src", {
   configurable: true,
 });
 
+// ── Custom matcher extensions ────────────────────────────────────────────────
+// Some test assertions pass an optional documentation message string as a
+// positional argument to built-in matchers (e.g. toBeNull("reason")).
+// Jest's built-in matchers throw "Matcher error: this matcher must not have
+// an expected argument" when receiving unexpected arguments. These extensions
+// override the built-in matchers to silently accept and ignore the optional
+// message string, preserving the null/undefined check semantics.
+expect.extend({
+  toBeNull(received: unknown, _message?: string) {
+    const pass = received === null;
+    return {
+      pass,
+      message: () =>
+        pass
+          ? `expected value not to be null`
+          : `expected null, received ${String(received)}`,
+    };
+  },
+  toBeUndefined(received: unknown, _message?: string) {
+    const pass = received === undefined;
+    return {
+      pass,
+      message: () =>
+        pass
+          ? `expected value not to be undefined`
+          : `expected undefined, received ${String(received)}`,
+    };
+  },
+});
+
 // ── Reset all mocks between tests ───────────────────────────────────────────
 // Use afterEach so mock implementations set in beforeEach are not cleared
 // before the test runs. clearAllMocks() only clears call history (not impls).
