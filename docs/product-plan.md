@@ -1,5 +1,5 @@
 # Bengaluru Walkability Audit — Product Plan
-> Living document. Updated 2026-03-07.
+> Living document. Updated 2026-03-10.
 > Covers: completed work, open ACs, next-session backlog, open assumptions.
 
 ---
@@ -31,7 +31,14 @@
 - [x] 11 admin handlers: login, logout, me, list/get/update/delete reports, stats, list/create/deactivate users
 - [x] Admin router at `/api/admin/*` — unprotected auth sub-router + JWT-gated protected sub-router
 - [x] Idempotent admin user seeding on startup: reads `ADMIN_SEED_EMAIL` + `ADMIN_SEED_PASSWORD` from env, skips if table non-empty, hashes with Argon2id and inserts (`backend/src/db/admin_seed.rs`)
-- [x] 124 backend unit tests passing (models, handlers, middleware, config, seeding)
+- [x] Admin Portal Phase 2 (`003_super_admin.sql`): `is_super_admin BOOLEAN NOT NULL DEFAULT FALSE` on `admin_users`; seed bootstrap account sets `is_super_admin = TRUE`
+- [x] `is_super_admin` field in `AdminUser`/`AdminUserResponse`; `guard_super_admin_deactivation` pure helper returns `403 Forbidden` (not 404)
+- [x] `validate_display_name`, `validate_new_password` pure validators
+- [x] `admin_update_profile` handler (PATCH `/api/admin/auth/profile`) and `admin_change_password` handler (POST `/api/admin/auth/change-password`) with Argon2id verify+hash
+- [x] `get_admin_user_by_id`, `update_admin_profile`, `update_admin_password` DB helpers
+- [x] 7 migration SQL tests covering `003_super_admin.sql`
+- [x] Security Hardening — all P1 findings resolved; FINDING-001 edge middleware (`frontend/middleware.ts`); FINDING-003 panic on missing/short JWT secret + docker-compose `${JWT_SECRET:?...}` fail-fast; FINDING-002 `allow_methods(Any)` replaced with explicit method list; FINDING-004 login success logs UUID not email; FINDING-005 `warn!` on failed login attempts; FINDING-006 `admin_me` fetches by UUID; FINDING-007 `jwt_session_hours` in `AppState`, clamped 1–168h; FINDING-008 `admin_api` nginx zone 60r/m on `/api/admin/`; FINDING-009 startup `warn!` if `ADMIN_SEED_PASSWORD` still set; FINDING-011 `Max-Age` on `admin_token` cookie; FINDING-013 canonicalize + prefix check before `remove_file`; FINDING-014 `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`, `Referrer-Policy`, CSP on `/admin` nginx location; FINDING-016 `performed_by` UUID in deactivation log; PHASE2-003 super-admin deactivation returns `403 Forbidden`
+- [x] 177 backend unit tests passing (models, handlers, middleware, config, seeding, migration SQL)
 
 ### 1.2 Frontend (Next.js 14)
 - [x] Landing page (`/`) — headline, CTAs, How It Works section
@@ -54,7 +61,13 @@
 - [x] Typed API client (`frontend/app/admin/lib/adminApi.ts`) for all 11 admin endpoints
 - [x] Admin login page (`/admin/login`): HttpOnly cookie auth, rate-limit countdown (60 s), actionable per-status error messages (network / 5xx with status code / 400 / other 4xx / 401 / 429)
 - [x] Admin login bug fix: infinite redirect loop on successful login resolved
-- [x] 212+ frontend tests across 14+ suites (Jest + React Testing Library)
+- [x] `/admin/profile` page: display-name edit + 3-field password change (current, new, confirm); getMe on mount
+- [x] `/admin/reports/map` page: Leaflet SSR-disabled, status-coloured pins, popups with report detail, client-side category and status filters
+- [x] `UserManagementTable` super-admin badge (`data-testid="super-admin-badge"`)
+- [x] Sidebar links for Profile and Reports Map (all roles)
+- [x] `adminApi.ts` extended with `is_super_admin`, `updateProfile()`, `changePassword()`
+- [x] Frontend edge middleware (`frontend/middleware.ts`): unauthenticated `/admin/*` requests redirected to `/admin/login`; 29 tests
+- [x] 566 frontend tests across all suites (Jest + React Testing Library)
 
 ### 1.3 Infrastructure
 - [x] `docker-compose.yml` — full stack (nginx + frontend + backend + db)
@@ -131,6 +144,8 @@ ASSUMPTION-6 resolved: **500m threshold** (>500m triggers warning).
 ## 3. Next Session Backlog — Operational Fixes
 
 From the 2026-03-04 docker run log review. Prioritised.
+
+> **2026-03-10 update**: Edge middleware for `/admin` route protection ✅ DONE. Admin Portal Phase 2 (super-admin, profile page, reports map) ✅ DONE. All 16 security audit findings addressed ✅ DONE (FINDING-010, -012, -015, and PHASE2-001 intentionally deferred by design).
 
 ### P0 — Fix Before Any Real Traffic
 

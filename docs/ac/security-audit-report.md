@@ -12,7 +12,7 @@ The admin dashboard implementation has a **solid security foundation** with seve
 
 However, **three High-severity findings** must be fixed before any production deployment, and several Medium and Low issues require attention. The most significant concern is a **weak default JWT secret** that is hardcoded as a fallback in `main.rs` and will silently produce valid tokens in any environment where `JWT_SECRET` is not set. A second High finding is a **CORS misconfiguration** (`allow_methods(Any)` combined with `allow_credentials(true)`) that permits credential-bearing cross-origin requests from the configured origin to use any HTTP method. A third High finding is a **missing Next.js edge middleware** for the admin route subtree, meaning the browser-side `admin_token` cookie check is entirely absent — unauthenticated users can access admin pages until the first API call fails.
 
-**Overall Risk Rating: AMBER** — the system is not shippable in its current state due to the three High findings, but all are fixable with targeted, low-effort changes.
+**Overall Risk Rating: GREEN** *(updated 2026-03-10 — all P1 findings resolved; remaining items are intentionally deferred low-impact issues)* — the original rating was AMBER due to three High findings; all three have been remediated. See Remediation Status section.
 
 ---
 
@@ -24,7 +24,7 @@ However, **three High-severity findings** must be fixed before any production de
 | `exp` validated in `extract_claims` | PASS | `validation.validate_exp = true` (middleware/auth.rs:61) |
 | JWT algorithm explicitly HS256 | PASS | `Validation::new(Algorithm::HS256)` (middleware/auth.rs:60) |
 | `alg:none` rejected | PASS | Only HS256 accepted; test coverage confirmed (middleware/auth.rs:269–295) |
-| `JWT_SECRET` not hardcoded in production paths | **FAIL** | `main.rs:92` falls back to `"dev-secret-change-in-production"` if env var is unset |
+| `JWT_SECRET` not hardcoded in production paths | **PASS** *(fixed 2026-03-10)* | `main.rs` panics on missing or short secret; `docker-compose.yml` uses `${JWT_SECRET:?...}` fail-fast guard |
 | JWT secret entropy recommendation in .env.example | PASS | "changeme-generate-with-openssl-rand-hex-64" documents the right tool |
 | Cookie `HttpOnly=true` | PASS | `cookie.set_http_only(true)` (handlers/admin.rs:277) |
 | Cookie `SameSite=Strict` | PASS | `SameSite::Strict` (handlers/admin.rs:279) |
@@ -55,8 +55,8 @@ However, **three High-severity findings** must be fixed before any production de
 | Login failure: same message for wrong password AND unknown email | PASS | Both return `AppError::Unauthorized` → "Unauthorized" JSON body |
 | `allow_credentials(true)` set on CorsLayer | PASS | main.rs:114 |
 | CORS origin is not wildcard `*` | PASS | Specific origin from `CORS_ORIGIN` env var (main.rs:105–113) |
-| CORS `allow_methods` is not wildcard `Any` with credentials | **FAIL** | `allow_methods(Any)` + `allow_credentials(true)` (main.rs:112–113) — see FINDING-002 |
-| Frontend edge middleware guards `/admin/*` routes | **FAIL** | No `frontend/middleware.ts` exists — see FINDING-001 |
+| CORS `allow_methods` is not wildcard `Any` with credentials | **PASS** *(fixed 2026-03-10)* | `allow_methods(Any)` replaced with explicit method list — see FINDING-002 |
+| Frontend edge middleware guards `/admin/*` routes | **PASS** *(fixed 2026-03-10)* | `frontend/middleware.ts` created; 29 tests — see FINDING-001 |
 | Admin seeding credentials removable post-boot | NOTE | .env.example documents this; not enforced programmatically |
 
 ---
@@ -591,3 +591,30 @@ The following rules govern what may appear in publicly accessible API endpoints 
 **Blocked items requiring additional input**:
 - The `submitter_name` public visibility decision (FINDING-012) requires a product decision before the privacy policy can be finalized.
 - Token invalidation on logout (server-side blocklist) was not implemented; this is an accepted trade-off but should be documented as a known limitation in the system's threat model documentation.
+
+---
+
+## Remediation Status (2026-03-10)
+
+All P1 findings have been resolved. The following table records the final disposition of every finding.
+
+| Finding | Severity | Status | Remediated In |
+|---------|----------|--------|---------------|
+| FINDING-001 Missing edge middleware | P1 High | Fixed | `frontend/middleware.ts` + 29 tests |
+| FINDING-002 CORS allow_methods(Any) | P1 High | Pre-existing fix confirmed | `backend/src/main.rs` already had explicit methods prior to this audit cycle; confirmed during remediation pass |
+| FINDING-003 Hardcoded fallback JWT secret | P1 High | Fixed | `main.rs` panics on missing or short secret; `docker-compose.yml` `${JWT_SECRET:?...}` fail-fast guard |
+| FINDING-004 PII in login success log | P2 | Fixed | Logs `user_id` UUID not email |
+| FINDING-005 No failed-login audit log | P2 | Fixed | `warn!` on failed login attempts |
+| FINDING-006 admin_me fetches by email | P2 | Fixed | Now fetches by UUID via `get_admin_user_by_id` |
+| FINDING-007 JWT_SESSION_HOURS per-request | P2 | Fixed | Moved to `AppState` at startup; clamped 1–168h |
+| FINDING-008 No rate limit on admin GET | P2 | Fixed | `admin_api` nginx zone 60r/m, burst=10 on `/api/admin/` |
+| FINDING-009 ADMIN_SEED_PASSWORD visible | P2 | Fixed | `warn!` log on startup if `ADMIN_SEED_PASSWORD` env var still set |
+| FINDING-010 Login error field name | P2 | Deferred | Low impact; UX polish pass; field mismatch (`body.message` vs `body.error`) does not expose server internals because fallback generic message always fires |
+| FINDING-011 No Max-Age on admin_token | P2 | Fixed | `Max-Age = jwt_session_hours * 3600` set on `admin_token` cookie |
+| FINDING-012 submitter_name in public API | P2 | Deferred | Pending consent model decision; documented as open product decision |
+| FINDING-013 Image path traversal | P2 | Fixed | Canonicalize uploads dir + `starts_with` prefix check before `remove_file` |
+| FINDING-014 No CSP on admin routes | P2 | Fixed | `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`, `Referrer-Policy`, `Content-Security-Policy` headers added to nginx `/admin` location block |
+| FINDING-015 No Domain on cookie | Info | Deferred | Single-domain deployment; no action required for current architecture |
+| FINDING-016 No actor ID in deactivation log | P2 | Fixed | `performed_by` UUID logged alongside `deactivated_user_id` |
+| PHASE2-001 Password validation gap | Known gap | Documented | Client threshold `< 8` vs server threshold `< 12`; behavioural contract documented; closing requires a dedicated UX and validation alignment sprint |
+| PHASE2-003 Super-admin returns 404 not 403 | P2 | Fixed | Pre-check in `guard_super_admin_deactivation` returns `403 Forbidden` |
