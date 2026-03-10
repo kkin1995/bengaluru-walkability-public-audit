@@ -31,4 +31,8 @@ bytes = "1"
 jsonwebtoken = "9"
 argon2 = "0.5"
 axum-extra = { version = "0.9", features = ["cookie"] }
+# `time` is a transitive dep of `cookie` 0.18; declare it directly so we can
+# use `time::Duration` for Cookie::set_max_age without relying on a re-export
+# path that axum-extra does not expose.
+time = "0.3"
 base64 = "0.22"

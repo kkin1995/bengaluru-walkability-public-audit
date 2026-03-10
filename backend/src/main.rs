@@ -50,6 +50,10 @@ pub struct AppState {
     pub api_base_url: String,
     /// HMAC-SHA256 key bytes for signing and verifying admin_token JWTs.
     pub jwt_secret: Arc<Vec<u8>>,
+    /// FINDING-007: JWT session duration in hours, read once at startup from
+    /// JWT_SESSION_HOURS env var (default 24, clamped to 1–168). Stored here so
+    /// the login handler does not re-read the env on every request.
+    pub jwt_session_hours: u64,
 }
 
 #[tokio::main]
@@ -100,11 +104,19 @@ async fn main() {
 
     let jwt_secret = jwt_secret.into_bytes();
 
+    // FINDING-007: Read JWT_SESSION_HOURS once at startup; clamp to 1–168 hours.
+    let jwt_session_hours: u64 = std::env::var("JWT_SESSION_HOURS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(24)
+        .clamp(1, 168);
+
     let state = AppState {
         pool: Arc::new(pool),
         uploads_dir: config.uploads_dir.clone(),
         api_base_url,
         jwt_secret: Arc::new(jwt_secret),
+        jwt_session_hours,
     };
 
     // CORS — allow_credentials(true) is required for the admin_token cookie to be
@@ -128,9 +140,9 @@ async fn main() {
         .allow_credentials(true);
 
     use handlers::admin::{
-        admin_create_user, admin_deactivate_user, admin_delete_report, admin_get_report,
-        admin_get_stats, admin_list_reports, admin_list_users, admin_login, admin_logout,
-        admin_me, admin_update_report_status,
+        admin_change_password, admin_create_user, admin_deactivate_user, admin_delete_report,
+        admin_get_report, admin_get_stats, admin_list_reports, admin_list_users, admin_login,
+        admin_logout, admin_me, admin_update_profile, admin_update_report_status,
     };
     use middleware::auth::require_auth;
 
@@ -146,6 +158,8 @@ async fn main() {
     let admin_protected_router = Router::new()
         .route("/api/admin/auth/logout", post(admin_logout))
         .route("/api/admin/auth/me", get(admin_me))
+        .route("/api/admin/auth/profile", patch(admin_update_profile))
+        .route("/api/admin/auth/change-password", post(admin_change_password))
         .route("/api/admin/reports", get(admin_list_reports))
         .route("/api/admin/reports/:id", get(admin_get_report))
         .route("/api/admin/reports/:id/status", patch(admin_update_report_status))

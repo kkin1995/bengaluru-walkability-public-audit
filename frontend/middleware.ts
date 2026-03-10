@@ -4,12 +4,19 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-pathname', pathname);
+  // Only guard /admin routes — pass through all other paths unconditionally.
+  // In production the matcher config (below) ensures this function is only
+  // invoked for /admin/:path*, but when called directly in tests it receives
+  // arbitrary paths, so we must handle them explicitly.
+  if (!pathname.startsWith('/admin')) {
+    return NextResponse.next();
+  }
 
   // Allow /admin/login through unconditionally — prevents redirect loop.
   if (pathname.startsWith('/admin/login')) {
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    const response = NextResponse.next();
+    response.headers.set('x-pathname', pathname);
+    return response;
   }
 
   // Check for admin_token cookie on all other /admin/* paths.
@@ -20,7 +27,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  // Authenticated: pass through and inject x-pathname into the response
+  // headers so downstream layout components can read the current path
+  // without client-side JS.
+  const response = NextResponse.next();
+  response.headers.set('x-pathname', pathname);
+  return response;
 }
 
 export const config = {
