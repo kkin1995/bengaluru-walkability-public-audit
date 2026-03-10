@@ -10,7 +10,7 @@ import { BENGALURU_CENTER } from "../../../lib/constants";
 // ── Pure color function ────────────────────────────────────────────────────────
 
 /** Maps report status to a pin fill color hex string. */
-export function getPinColor(status: string): string {
+function getPinColor(status: string): string {
   switch (status) {
     case "submitted":
       return "#6B7280";
