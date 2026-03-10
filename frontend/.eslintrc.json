@@ -1,5 +1,6 @@
 {
   "extends": "next/core-web-vitals",
+  "ignorePatterns": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
   "rules": {
     "@typescript-eslint/no-var-requires": "off"
   }
