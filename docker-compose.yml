@@ -62,16 +62,23 @@ services:
     build:
       context: ./frontend
       args:
-        # P3-3: Must be the nginx proxy URL (http://localhost), NOT the internal Docker hostname
-        # http://backend:3001. NEXT_PUBLIC_* vars are inlined into browser JS at build time,
-        # so the browser — which has no access to Docker's internal DNS — would fail every
-        # API call if we used the internal hostname.
-        NEXT_PUBLIC_API_URL: http://localhost
+        # P3-3: Set to "" so the bundle uses relative URLs (e.g. /api/...) at runtime.
+        # Relative URLs resolve against whatever host the browser loaded the page from,
+        # so LAN devices, port-forwarded hosts, and production domains all work without
+        # a rebuild. nginx already proxies /api/* → backend:3001 and /uploads/* correctly.
+        # Never use http://localhost here — it resolves to the requesting device's own
+        # loopback and breaks every API call from mobile or remote clients.
+        NEXT_PUBLIC_API_URL: ""
     depends_on:
       - backend
     environment:
       # Runtime fallback — unused by the built bundle but kept for local `next start` runs.
-      NEXT_PUBLIC_API_URL: http://localhost
+      NEXT_PUBLIC_API_URL: ""
+      # Server-side only — NOT baked at build time. Used by Next.js server components
+      # (e.g. admin/layout.tsx) to make server-to-server fetch calls to the backend via
+      # Docker's internal network. Never use localhost here; inside the container that
+      # resolves to the frontend container itself, not the backend service.
+      INTERNAL_API_URL: http://backend:3001
     # P1-2: Health check so nginx only starts once Next.js is serving pages.
     # node:20-alpine ships wget but not curl; use wget instead.
     # Use 127.0.0.1 explicitly — Alpine resolves 'localhost' to ::1 (IPv6) but

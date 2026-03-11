@@ -11,6 +11,7 @@ import ReviewStrip from "../components/ReviewStrip";
 import { BilingualText } from "../components/BilingualText";
 import { t } from "../lib/translations";
 import { BENGALURU_BOUNDS, BENGALURU_CENTER } from "../lib/constants";
+import { API_BASE_URL } from "../lib/config";
 
 // react-leaflet uses window — must disable SSR
 const LocationMap = dynamic(() => import("../components/LocationMap"), {
@@ -118,7 +119,6 @@ export default function ReportPage() {
     setError(null);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
       const body = new FormData();
       body.append("photo", form.file);
       body.append("lat", String(form.lat));
@@ -130,7 +130,7 @@ export default function ReportPage() {
       if (form.name) body.append("name", form.name.slice(0, 100));
       if (form.contact) body.append("contact", form.contact.slice(0, 200));
 
-      const res = await fetch(`${apiUrl}/api/reports`, {
+      const res = await fetch(`${API_BASE_URL}/api/reports`, {
         method: "POST",
         body,
       });

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { API_BASE_URL as BASE } from "@/app/lib/config";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const RATE_LIMIT_SECONDS = 60;
 
 export default function LoginPage() {

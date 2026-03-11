@@ -1,5 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { INTERNAL_API_URL } from '@/app/lib/config';
 
 export default async function AdminLayout({
   children,
@@ -21,11 +22,10 @@ export default async function AdminLayout({
   }
 
   // Verify token is still valid by calling /api/admin/auth/me.
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
   let role = 'reviewer';
 
   try {
-    const res = await fetch(`${apiUrl}/api/admin/auth/me`, {
+    const res = await fetch(`${INTERNAL_API_URL}/api/admin/auth/me`, {
       headers: {
         Cookie: `admin_token=${token.value}`,
       },

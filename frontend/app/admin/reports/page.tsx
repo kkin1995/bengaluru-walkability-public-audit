@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   getAdminReports,
@@ -16,7 +16,7 @@ type PageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
-export default function ReportsPage(props: PageProps) {
+function ReportsPageContent(props: PageProps) {
   const injectedRole = (props as any).role as "admin" | "reviewer" | undefined;
   const searchParams = useSearchParams();
 
@@ -109,5 +109,13 @@ export default function ReportsPage(props: PageProps) {
         />
       </div>
     </div>
+  );
+}
+
+export default function ReportsPage(props: PageProps) {
+  return (
+    <Suspense fallback={<div className="animate-pulse p-6">Loading...</div>}>
+      <ReportsPageContent {...props} />
+    </Suspense>
   );
 }
