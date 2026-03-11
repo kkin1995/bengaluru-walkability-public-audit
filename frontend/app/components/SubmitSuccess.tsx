@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { CheckCircle2, Map, Share2, RefreshCw } from "lucide-react";
 
 interface SubmitSuccessProps {
@@ -38,13 +37,13 @@ export default function SubmitSuccess({ onReset }: SubmitSuccessProps) {
       </p>
 
       <div className="w-full max-w-xs space-y-3">
-        <Link
+        <a
           href="/map"
           className="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-2xl transition-colors"
         >
           <Map className="w-5 h-5" />
           View on Map
-        </Link>
+        </a>
 
         <button
           onClick={handleShare}

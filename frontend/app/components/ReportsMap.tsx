@@ -74,6 +74,16 @@ export default function ReportsMap({ apiUrl }: ReportsMapProps) {
 
   useEffect(() => {
     fetchReports();
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        fetchReports();
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [fetchReports]);
 
   if (loading) {

@@ -1,9 +1,12 @@
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft, Camera } from "lucide-react";
+import { API_BASE_URL } from "@/app/lib/config";
+
+export const dynamic = 'force-dynamic';
 
 // Disable SSR — Leaflet requires window
-const ReportsMap = dynamic(() => import("../components/ReportsMap"), {
+const ReportsMap = nextDynamic(() => import("../components/ReportsMap"), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center h-full bg-gray-50 text-gray-500">
@@ -13,8 +16,6 @@ const ReportsMap = dynamic(() => import("../components/ReportsMap"), {
 });
 
 export default function MapPage() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-
   return (
     <main className="h-screen flex flex-col bg-white">
       {/* Header */}
@@ -63,7 +64,7 @@ export default function MapPage() {
 
       {/* Map — fills remaining space */}
       <div className="flex-1">
-        <ReportsMap apiUrl={apiUrl} />
+        <ReportsMap apiUrl={API_BASE_URL} />
       </div>
     </main>
   );
