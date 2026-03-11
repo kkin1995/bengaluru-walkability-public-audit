@@ -108,39 +108,39 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| WARD-01 | TBD | Pending |
-| WARD-02 | TBD | Pending |
-| WARD-03 | TBD | Pending |
-| WARD-04 | TBD | Pending |
-| ABUSE-01 | TBD | Pending |
-| ABUSE-02 | TBD | Pending |
-| ABUSE-03 | TBD | Pending |
-| ABUSE-04 | TBD | Pending |
-| ABUSE-05 | TBD | Pending |
-| ABUSE-06 | TBD | Pending |
-| WFLOW-01 | TBD | Pending |
-| WFLOW-02 | TBD | Pending |
-| WFLOW-03 | TBD | Pending |
-| WFLOW-04 | TBD | Pending |
-| WFLOW-05 | TBD | Pending |
-| MAP-01 | TBD | Pending |
-| MAP-02 | TBD | Pending |
-| MAP-03 | TBD | Pending |
-| EXPORT-01 | TBD | Pending |
-| EXPORT-02 | TBD | Pending |
-| EXPORT-03 | TBD | Pending |
-| ANALYTICS-01 | TBD | Pending |
-| ANALYTICS-02 | TBD | Pending |
-| ANALYTICS-03 | TBD | Pending |
-| ANALYTICS-04 | TBD | Pending |
-| ANALYTICS-05 | TBD | Pending |
+| WARD-01 | Phase 1 | Pending |
+| WARD-02 | Phase 1 | Pending |
+| WARD-03 | Phase 1 | Pending |
+| WARD-04 | Phase 1 | Pending |
+| ABUSE-01 | Phase 2 | Pending |
+| ABUSE-02 | Phase 2 | Pending |
+| ABUSE-03 | Phase 2 | Pending |
+| ABUSE-04 | Phase 2 | Pending |
+| ABUSE-05 | Phase 2 | Pending |
+| ABUSE-06 | Phase 2 | Pending |
+| WFLOW-01 | Phase 3 | Pending |
+| WFLOW-02 | Phase 3 | Pending |
+| WFLOW-03 | Phase 3 | Pending |
+| WFLOW-04 | Phase 3 | Pending |
+| WFLOW-05 | Phase 3 | Pending |
+| MAP-01 | Phase 3 | Pending |
+| MAP-02 | Phase 4 | Pending |
+| MAP-03 | Phase 3 | Pending |
+| EXPORT-01 | Phase 4 | Pending |
+| EXPORT-02 | Phase 4 | Pending |
+| EXPORT-03 | Phase 4 | Pending |
+| ANALYTICS-01 | Phase 4 | Pending |
+| ANALYTICS-02 | Phase 4 | Pending |
+| ANALYTICS-03 | Phase 4 | Pending |
+| ANALYTICS-04 | Phase 4 | Pending |
+| ANALYTICS-05 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 26 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 26 ⚠️
+- Mapped to phases: 26
+- Unmapped: 0
 
 ---
 
 *Requirements defined: 2026-03-11*
-*Last updated: 2026-03-11 after initial scoping with project owner*
+*Last updated: 2026-03-11 — traceability updated after roadmap creation*
