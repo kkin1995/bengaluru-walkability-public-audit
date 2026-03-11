@@ -57,11 +57,13 @@ export default function PhotoCapture({ onPhoto }: PhotoCaptureProps) {
     setPreview(objectUrl);
 
     // Extract EXIF from original file BEFORE compression (canvas re-encoding strips EXIF).
-    // Use require() rather than import() so Jest module mocks work correctly without
-    // Babel's _interopRequireWildcard double-wrapping the default export.
+    // Compat pattern: exifr@7 ships UMD — webpack sees a flat export object with no `.default`
+    // property. The Jest mock wraps it under `.default`. Using `exifrModule.default ?? exifrModule`
+    // handles both environments without modifying the mock or adding a Babel interop plugin.
     let gps: GpsCoords | null = null;
     try {
-      const exifr = require("exifr").default as { gps: (f: File) => Promise<{ latitude: number; longitude: number } | null> };
+      const exifrModule = require("exifr");
+      const exifr = (exifrModule.default ?? exifrModule) as { gps: (f: File) => Promise<{ latitude: number; longitude: number } | null> };
       const result = await exifr.gps(file);
       if (result?.latitude && result?.longitude) {
         gps = { latitude: result.latitude, longitude: result.longitude };
