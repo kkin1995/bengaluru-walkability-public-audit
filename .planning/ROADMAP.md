@@ -28,12 +28,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. The organization hierarchy table exists and can represent GBA → corporation → ward office relationships without any code changes (data-only configuration)
   3. An admin user can be assigned to an organization, and that assignment controls which reports they see in the triage queue
   4. Ward boundary data is stored in PostGIS with SRID 4326 enforced, and a check constraint prevents mismatched spatial references
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 Plans:
 - [ ] 01-01-PLAN.md — GBA ward KML download, GeoJSON conversion, wards + organizations migration SQL
 - [ ] 01-02-PLAN.md — Ward and Organization Rust models, get_ward_for_point query, org CRUD API endpoints
 - [ ] 01-03-PLAN.md — Admin dashboard ward column (reports queue) and org assignment UI (users page)
+- [ ] 01-04-PLAN.md — Gap closure: fix admin reports JSON shape contract and add ward_name JOIN
 
 ### Phase 2: Anti-Abuse and Data Quality
 **Goal**: The platform can withstand anonymous public submissions without spam, bots, or duplicate flooding corrupting the dataset before GBA launch
@@ -95,7 +96,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Ward Foundation | 3/3 | Complete   | 2026-03-12 |
+| 1. Ward Foundation | 3/4 | Gap closure in progress | 2026-03-12 |
 | 2. Anti-Abuse and Data Quality | 0/2 | Not started | - |
 | 3. Government Triage Workflow | 0/3 | Not started | - |
 | 4. Export and Public Analytics | 0/4 | Not started | - |
