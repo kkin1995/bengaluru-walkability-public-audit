@@ -31,3 +31,4 @@ Thumbs.db
 
 # KML input files (raw downloads, converted to GeoJSON in data/)
 input/
+.planning/config.json
