@@ -394,14 +394,27 @@ pub async fn admin_me(
 
 /// GET /api/admin/reports — paginated report list with full PII.
 /// Accessible by both admin and reviewer roles.
+/// Fetches the calling admin's org_id from the DB (via claims.sub) and passes
+/// it to both list and count queries so org-scoped admins only see reports in
+/// their assigned org's ward subtree (WARD-03).
 pub async fn admin_list_reports(
-    Extension(_claims): Extension<AuthJwtClaims>,
+    Extension(claims): Extension<AuthJwtClaims>,
     State(state): State<Arc<AppState>>,
     Query(params): Query<AdminReportFilters>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let page = params.page.unwrap_or(1).max(1);
     let limit = params.limit.unwrap_or(20);
     let limit = if limit <= 0 { 20 } else { limit.clamp(1, 200) };
+
+    // Fetch the calling admin's org_id from the DB. JwtClaims does not carry
+    // org_id (it would require token re-issue on every assignment change), so
+    // we look it up per-request using claims.sub.
+    let admin_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| AppError::Unauthorized)?;
+    let admin_user = admin_queries::get_admin_user_by_id(&state.pool, admin_id)
+        .await?
+        .ok_or(AppError::Unauthorized)?;
+    let org_id = admin_user.org_id;
 
     let (items, total_count) = tokio::try_join!(
         admin_queries::list_admin_reports(
@@ -413,6 +426,7 @@ pub async fn admin_list_reports(
             params.date_to,
             page,
             limit,
+            org_id,
         ),
         admin_queries::count_admin_reports(
             &state.pool,
@@ -421,6 +435,7 @@ pub async fn admin_list_reports(
             params.severity.as_deref(),
             params.date_from,
             params.date_to,
+            org_id,
         ),
     )?;
 
