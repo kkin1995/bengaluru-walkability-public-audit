@@ -70,6 +70,10 @@ pub struct AdminUser {
     /// Set to TRUE only for the seeded first admin user (AC-SA-BE-2-S1).
     /// Cannot be set via the user-management API (AC-SA-BE-5-F1).
     pub is_super_admin: bool,
+    /// Organization assignment (Phase 1 Ward Foundation).
+    /// When Some, the admin sees only reports in wards under this org's subtree.
+    /// When None, the admin has an unscoped (all-reports) view.
+    pub org_id: Option<Uuid>,
 }
 
 impl AdminUser {
@@ -502,6 +506,8 @@ mod tests {
             last_login_at: Some(now),
             // Phase 2: default to false; tests that need true override this field.
             is_super_admin: false,
+            // Phase 1 Ward Foundation: default to None (unscoped / super-admin view).
+            org_id: None,
         }
     }
 

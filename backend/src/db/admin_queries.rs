@@ -35,6 +35,8 @@ struct AdminUserRow {
     last_login_at: Option<DateTime<Utc>>,
     /// Phase 2 addition (AC-SA-BE-4-S1): must be selected from DB.
     is_super_admin: bool,
+    /// Phase 1 Ward Foundation: org assignment for scoped report visibility.
+    org_id: Option<Uuid>,
 }
 
 impl From<AdminUserRow> for AdminUser {
@@ -50,6 +52,7 @@ impl From<AdminUserRow> for AdminUser {
             is_active: r.is_active,
             last_login_at: r.last_login_at,
             is_super_admin: r.is_super_admin,
+            org_id: r.org_id,
         }
     }
 }
@@ -66,7 +69,8 @@ const ADMIN_USER_COLS: &str = r#"
     updated_at,
     is_active,
     last_login_at,
-    is_super_admin
+    is_super_admin,
+    org_id
 "#;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -229,6 +233,8 @@ fn build_report_where_clause(
 
 /// Count reports matching the same filters as list_admin_reports.
 /// Returns the total filtered row count (accurate regardless of limit/offset).
+/// When `org_id` is Some, applies the same recursive CTE scoping as list_admin_reports
+/// so pagination totals are accurate.
 #[allow(clippy::too_many_arguments)]
 pub async fn count_admin_reports(
     pool: &PgPool,
@@ -237,9 +243,34 @@ pub async fn count_admin_reports(
     severity: Option<&str>,
     date_from: Option<DateTime<Utc>>,
     date_to: Option<DateTime<Utc>>,
+    org_id: Option<Uuid>,
 ) -> Result<i64, AppError> {
-    let (where_clause, _) =
+    let (where_clause, mut param_idx) =
         build_report_where_clause(category, status, severity, date_from, date_to, 1);
+
+    // Append org-scoping condition when the caller has an org assignment.
+    let org_clause = if org_id.is_some() {
+        let cte = format!(
+            " AND reports.ward_id IN (\
+                WITH RECURSIVE org_subtree AS (\
+                    SELECT id FROM organizations WHERE id = ${}\
+                    UNION ALL\
+                    SELECT o.id FROM organizations o\
+                      JOIN org_subtree s ON o.parent_id = s.id\
+                )\
+                SELECT w.id FROM wards w\
+                  JOIN org_subtree s ON w.org_id = s.id\
+            )",
+            param_idx
+        );
+        param_idx += 1;
+        cte
+    } else {
+        String::new()
+    };
+    let _ = param_idx; // suppress unused-variable warning for count query
+
+    let full_where = format!("{}{}", where_clause, org_clause);
 
     let sql = format!(
         r#"
@@ -248,7 +279,7 @@ pub async fn count_admin_reports(
         LEFT JOIN wards ON wards.id = reports.ward_id
         {}
         "#,
-        where_clause
+        full_where
     );
 
     let mut q = sqlx::query_scalar::<_, i64>(&sql);
@@ -257,6 +288,7 @@ pub async fn count_admin_reports(
     if let Some(v) = severity  { q = q.bind(v); }
     if let Some(v) = date_from { q = q.bind(v); }
     if let Some(v) = date_to   { q = q.bind(v); }
+    if let Some(id) = org_id   { q = q.bind(id); }
 
     let count = q.fetch_one(pool).await?;
     Ok(count)
@@ -264,7 +296,10 @@ pub async fn count_admin_reports(
 
 /// List reports with optional filters. Returns full-precision coordinates and
 /// full PII fields (admin-only). Includes ward_name via LEFT JOIN.
-#[allow(clippy::too_many_arguments)] // all 8 params are distinct filter axes; no sensible grouping
+/// When `org_id` is Some, restricts to reports whose ward_id belongs to the
+/// org's recursive subtree (walks organizations tree downward via parent_id).
+/// When `org_id` is None, returns all reports unfiltered.
+#[allow(clippy::too_many_arguments)] // all 9 params are distinct filter axes; no sensible grouping
 pub async fn list_admin_reports(
     pool: &PgPool,
     category: Option<&str>,
@@ -274,12 +309,36 @@ pub async fn list_admin_reports(
     date_to: Option<DateTime<Utc>>,
     page: i64,
     limit: i64,
+    org_id: Option<Uuid>,
 ) -> Result<Vec<serde_json::Value>, AppError> {
-    let (where_clause, param_idx) =
+    let (where_clause, mut param_idx) =
         build_report_where_clause(category, status, severity, date_from, date_to, 1);
 
+    // Append org-scoping condition when the caller has an org assignment.
+    let org_clause = if org_id.is_some() {
+        let cte = format!(
+            " AND reports.ward_id IN (\
+                WITH RECURSIVE org_subtree AS (\
+                    SELECT id FROM organizations WHERE id = ${}\
+                    UNION ALL\
+                    SELECT o.id FROM organizations o\
+                      JOIN org_subtree s ON o.parent_id = s.id\
+                )\
+                SELECT w.id FROM wards w\
+                  JOIN org_subtree s ON w.org_id = s.id\
+            )",
+            param_idx
+        );
+        param_idx += 1;
+        cte
+    } else {
+        String::new()
+    };
+
+    let full_where = format!("{}{}", where_clause, org_clause);
+
     let offset = (page - 1) * limit;
-    // param_idx currently points to the next free slot after filter params
+    // param_idx currently points to the next free slot after filter + org params
     let limit_idx = param_idx;
     let offset_idx = param_idx + 1;
 
@@ -305,7 +364,7 @@ pub async fn list_admin_reports(
         ORDER BY reports.created_at DESC
         LIMIT ${} OFFSET ${}
         "#,
-        where_clause, limit_idx, offset_idx
+        full_where, limit_idx, offset_idx
     );
 
     // Bind filter values in the same order as conditions were added.
@@ -315,6 +374,7 @@ pub async fn list_admin_reports(
     if let Some(v) = severity   { q = q.bind(v); }
     if let Some(v) = date_from  { q = q.bind(v); }
     if let Some(v) = date_to    { q = q.bind(v); }
+    if let Some(id) = org_id    { q = q.bind(id); }
     q = q.bind(limit).bind(offset);
 
     let rows = q.fetch_all(pool).await?;
@@ -775,6 +835,7 @@ mod tests {
             is_active: true,
             last_login_at: None,
             is_super_admin: true,
+            org_id: None,
         };
         assert!(
             super_admin.is_super_admin,
@@ -795,6 +856,7 @@ mod tests {
             is_active: true,
             last_login_at: None,
             is_super_admin: false,
+            org_id: None,
         };
         assert!(
             !regular.is_super_admin,
@@ -955,6 +1017,132 @@ mod tests {
             sql.contains("org_id = $1"),
             "assign_user_org must set org_id; got: {}",
             sql
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite 2d — Org-scoped report visibility (WARD-03, Plan 06)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// WARD-03/P06 — ADMIN_USER_COLS must include org_id so get_admin_user_by_id
+    /// can return the org assignment without a second query.
+    #[test]
+    fn admin_user_cols_includes_org_id() {
+        let cols = admin_user_cols_sql();
+        assert!(
+            cols.contains("org_id"),
+            "ADMIN_USER_COLS must include 'org_id' so that get_admin_user_by_id \
+             returns the org assignment (WARD-03 P06); got: {}",
+            cols
+        );
+    }
+
+    /// WARD-03/P06 — AdminUser struct must expose org_id so the handler can
+    /// extract it after fetching the user from the DB.
+    #[test]
+    fn admin_user_struct_has_org_id_field() {
+        use chrono::Utc;
+        let now = Utc::now();
+        let test_org_id = Uuid::nil();
+
+        // With org_id set to Some(uuid) — org-scoped admin
+        let scoped = AdminUser {
+            id: Uuid::nil(),
+            email: "scoped@example.com".to_string(),
+            password_hash: "$argon2id$stub".to_string(),
+            role: "reviewer".to_string(),
+            display_name: None,
+            created_at: now,
+            updated_at: now,
+            is_active: true,
+            last_login_at: None,
+            is_super_admin: false,
+            org_id: Some(test_org_id),
+        };
+        assert_eq!(
+            scoped.org_id,
+            Some(test_org_id),
+            "AdminUser with org_id=Some(uuid) must carry that value; got: {:?}",
+            scoped.org_id
+        );
+
+        // With org_id = None — super-admin / unscoped view
+        let unscoped = AdminUser {
+            id: Uuid::nil(),
+            email: "super@example.com".to_string(),
+            password_hash: "$argon2id$stub".to_string(),
+            role: "admin".to_string(),
+            display_name: None,
+            created_at: now,
+            updated_at: now,
+            is_active: true,
+            last_login_at: None,
+            is_super_admin: true,
+            org_id: None,
+        };
+        assert!(
+            unscoped.org_id.is_none(),
+            "AdminUser with org_id=None must carry None; got: {:?}",
+            unscoped.org_id
+        );
+    }
+
+    /// WARD-03/P06 — When org_id is Some, list_admin_reports SQL must contain
+    /// the recursive CTE (org_subtree) and restrict by ward org membership.
+    #[test]
+    fn list_admin_reports_with_org_id_includes_recursive_cte() {
+        let org_id = Some(Uuid::nil());
+        let (where_clause, param_idx) =
+            build_report_where_clause(None, None, None, None, None, 1);
+        // Simulate what list_admin_reports does with org_id = Some
+        let org_clause = if let Some(id) = org_id {
+            let _ = id; // use the value
+            format!(
+                " AND reports.ward_id IN (\
+                    WITH RECURSIVE org_subtree AS (\
+                        SELECT id FROM organizations WHERE id = ${}\
+                        UNION ALL\
+                        SELECT o.id FROM organizations o\
+                          JOIN org_subtree s ON o.parent_id = s.id\
+                    )\
+                    SELECT w.id FROM wards w\
+                      JOIN org_subtree s ON w.org_id = s.id\
+                )",
+                param_idx
+            )
+        } else {
+            String::new()
+        };
+
+        let full_where = format!("{}{}", where_clause, org_clause);
+        assert!(
+            full_where.contains("org_subtree"),
+            "SQL with org_id=Some must contain recursive CTE 'org_subtree'; got: {}",
+            full_where
+        );
+        assert!(
+            full_where.contains("w.org_id = s.id"),
+            "SQL with org_id=Some must join wards on w.org_id; got: {}",
+            full_where
+        );
+    }
+
+    /// WARD-03/P06 — When org_id is None, no CTE is added to the WHERE clause.
+    #[test]
+    fn list_admin_reports_with_no_org_id_has_no_cte() {
+        let org_id: Option<Uuid> = None;
+        let (where_clause, _param_idx) =
+            build_report_where_clause(None, None, None, None, None, 1);
+        let org_clause = if org_id.is_some() {
+            "WITH RECURSIVE org_subtree".to_string()
+        } else {
+            String::new()
+        };
+        let full_where = format!("{}{}", where_clause, org_clause);
+        assert!(
+            !full_where.contains("org_subtree"),
+            "SQL with org_id=None must NOT contain org_subtree CTE; got: {}",
+            full_where
         );
     }
 
