@@ -21,6 +21,7 @@ export interface AdminUser {
   is_super_admin: boolean;
   created_at: string;
   last_login_at: string | null;
+  org_id: string | null;
 }
 
 export interface UpdateProfilePayload {
@@ -47,6 +48,16 @@ export interface AdminReport {
   submitter_contact: string | null;
   status: string;
   location_source: string;
+  ward_name: string | null;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  org_type: "gba" | "corporation" | "ward_office";
+  parent_id: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AdminReportListResponse {
@@ -216,5 +227,24 @@ export async function changePassword(data: ChangePasswordPayload): Promise<void>
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
+  });
+}
+
+// ─── Organizations ─────────────────────────────────────────────────────────────
+
+export async function listOrganizations(): Promise<Organization[]> {
+  return apiFetch<Organization[]>(`${BASE}/api/admin/organizations`, {
+    method: "GET",
+  });
+}
+
+export async function assignUserOrg(
+  userId: string,
+  orgId: string | null
+): Promise<void> {
+  await apiFetch<void>(`${BASE}/api/admin/users/${userId}/org`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ org_id: orgId }),
   });
 }

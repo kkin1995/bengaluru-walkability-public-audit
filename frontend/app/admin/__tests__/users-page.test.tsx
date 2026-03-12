@@ -49,6 +49,8 @@ jest.mock("../lib/adminApi", () => ({
   getAdminReport: jest.fn(),
   updateReportStatus: jest.fn(),
   deleteReport: jest.fn(),
+  listOrganizations: jest.fn().mockResolvedValue([]),
+  assignUserOrg: jest.fn(),
 }));
 
 // ── UserManagementTable mock ───────────────────────────────────────────────

@@ -9,6 +9,7 @@ interface Report {
   status: string;
   created_at: string;
   image_path?: string;
+  ward_name?: string | null;
 }
 
 interface ReportsTableProps {
@@ -64,6 +65,9 @@ export default function ReportsTable({
               Status
             </th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Ward
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Date
             </th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -82,6 +86,9 @@ export default function ReportsTable({
               </td>
               <td className="px-4 py-3">
                 <StatusBadge status={report.status} />
+              </td>
+              <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                {report.ward_name ?? "—"}
               </td>
               <td className="px-4 py-3 text-sm text-gray-500">
                 {new Date(report.created_at).toLocaleDateString()}
