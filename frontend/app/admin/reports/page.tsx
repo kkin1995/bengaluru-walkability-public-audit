@@ -60,7 +60,7 @@ function ReportsPageContent(props: PageProps) {
       if (sts) filters.status = sts;
       const hasFilters = Object.keys(filters).length > 0;
       const res = await getAdminReports(hasFilters ? filters : undefined);
-      setReports(res.data);
+      setReports(res.data ?? []);
     } catch {
       setReports([]);
     } finally {

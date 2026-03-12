@@ -403,23 +403,37 @@ pub async fn admin_list_reports(
     let limit = params.limit.unwrap_or(20);
     let limit = if limit <= 0 { 20 } else { limit.clamp(1, 200) };
 
-    let items = admin_queries::list_admin_reports(
-        &state.pool,
-        params.category.as_deref(),
-        params.status.as_deref(),
-        params.severity.as_deref(),
-        params.date_from,
-        params.date_to,
-        page,
-        limit,
-    )
-    .await?;
+    let (items, total_count) = tokio::try_join!(
+        admin_queries::list_admin_reports(
+            &state.pool,
+            params.category.as_deref(),
+            params.status.as_deref(),
+            params.severity.as_deref(),
+            params.date_from,
+            params.date_to,
+            page,
+            limit,
+        ),
+        admin_queries::count_admin_reports(
+            &state.pool,
+            params.category.as_deref(),
+            params.status.as_deref(),
+            params.severity.as_deref(),
+            params.date_from,
+            params.date_to,
+        ),
+    )?;
+
+    let total_pages = ((total_count + limit - 1) / limit).max(1);
 
     Ok(Json(serde_json::json!({
-        "page": page,
-        "limit": limit,
-        "count": items.len(),
-        "items": items,
+        "data": items,
+        "pagination": {
+            "page": page,
+            "limit": limit,
+            "total_count": total_count,
+            "total_pages": total_pages,
+        }
     })))
 }
 

@@ -103,7 +103,7 @@ export default function ReportsMapPage() {
     setFetchError(null);
     try {
       const result = await getAdminReports({ limit: 200, page: 1 });
-      setReports(result.data);
+      setReports(result.data ?? []);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       if (message.includes("401")) {
