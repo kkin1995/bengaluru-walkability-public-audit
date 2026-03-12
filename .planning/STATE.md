@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-ward-foundation 01-03-PLAN.md
-last_updated: "2026-03-12T04:44:48.368Z"
-last_activity: 2026-03-11 — Roadmap created; 26 v1 requirements mapped across 4 phases
+stopped_at: Completed 01-ward-foundation 01-04-PLAN.md
+last_updated: "2026-03-12T09:35:27Z"
+last_activity: 2026-03-12 — Plan 04 complete: admin reports JSON shape fixed, ward LEFT JOIN added
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 0
+  total_plans: 4
+  completed_plans: 4
+  percent: 15
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 Phase: 1 of 4 (Ward Foundation)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-03-11 — Roadmap created; 26 v1 requirements mapped across 4 phases
+Plan: 4 of 4 in current phase (all plans complete)
+Status: Phase 1 complete — ready for Phase 2
+Last activity: 2026-03-12 — Plan 04 complete: admin reports JSON shape fixed, ward LEFT JOIN added
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 15%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-ward-foundation P01 | 4 | 3 tasks | 9 files |
 | Phase 01-ward-foundation P02 | 5 | 2 tasks | 9 files |
 | Phase 01-ward-foundation P03 | 25 | 3 tasks | 7 files |
+| Phase 01-ward-foundation P04 | 15 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 01-02]: Ward lookup failure is non-fatal: unwrap_or_else logs warning and stores NULL ward_id — report submission is never blocked by PostGIS unavailability
 - [Phase Phase 01-ward-foundation]: unpkg.com added to nginx admin CSP style-src and img-src — Leaflet CDN requires both directives for CSS and marker PNG icons
 - [Phase Phase 01-ward-foundation]: ReportsTable null guard (!reports) added defensively — typed prop can be undefined during Leaflet SSR hydration
+- [Phase 01-04]: build_report_where_clause() extracted as shared helper — single source of truth for filter logic prevents WHERE clause drift between list and count queries
+- [Phase 01-04]: tokio::try_join! used to run list_admin_reports and count_admin_reports concurrently — single round-trip overhead
+- [Phase 01-04]: total_pages = ceil(total_count / limit).max(1) — minimum 1 so frontend pagination never receives total_pages: 0
 
 ### Pending Todos
 
@@ -80,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T04:44:34.114Z
-Stopped at: Completed 01-ward-foundation 01-03-PLAN.md
+Last session: 2026-03-12T09:35:27Z
+Stopped at: Completed 01-ward-foundation 01-04-PLAN.md
 Resume file: None
