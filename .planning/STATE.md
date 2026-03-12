@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-ward-foundation 01-01-PLAN.md
-last_updated: "2026-03-12T04:19:40.849Z"
+stopped_at: Completed 01-ward-foundation 01-02-PLAN.md
+last_updated: "2026-03-12T04:27:25.675Z"
 last_activity: 2026-03-11 — Roadmap created; 26 v1 requirements mapped across 4 phases
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01-ward-foundation P01 | 4 | 3 tasks | 9 files |
+| Phase 01-ward-foundation P02 | 5 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 01-ward-foundation]: ST_Multi() wraps every ward INSERT so all boundary rows are MULTIPOLYGON — avoids mixed-type column violations in PostGIS
 - [Phase 01-ward-foundation]: org_type stored as TEXT + CHECK constraint not ENUM — allows extending allowed values without ALTER TYPE migration
 - [Phase 01-ward-foundation]: organizations table seeded empty at migration time — GBA corp structure unconfirmed pending Arun Pai engagement
+- [Phase 01-02]: ST_MakePoint takes longitude first (X) then latitude (Y) —  is longitude,  is latitude in get_ward_for_point; tested to prevent coordinate-order regression
+- [Phase 01-02]: Ward lookup failure is non-fatal: unwrap_or_else logs warning and stores NULL ward_id — report submission is never blocked by PostGIS unavailability
 
 ### Pending Todos
 
@@ -74,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T04:19:40.848Z
-Stopped at: Completed 01-ward-foundation 01-01-PLAN.md
+Last session: 2026-03-12T04:27:25.674Z
+Stopped at: Completed 01-ward-foundation 01-02-PLAN.md
 Resume file: None
