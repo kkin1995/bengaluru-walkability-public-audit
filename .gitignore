@@ -28,3 +28,6 @@ Thumbs.db
 
 # Claude Code agent memory
 .claude/
+
+# KML input files (raw downloads, converted to GeoJSON in data/)
+input/
