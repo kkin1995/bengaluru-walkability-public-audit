@@ -735,6 +735,45 @@ pub async fn admin_change_password(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// § 3b — Organization handlers (Phase 1 — Ward Foundation)
+// ─────────────────────────────────────────────────────────────────────────────
+
+use crate::models::organization::OrganizationResponse;
+
+/// GET /api/admin/organizations — list all organizations.
+/// Accessible by any authenticated admin user (admin or reviewer).
+pub async fn admin_list_organizations(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<OrganizationResponse>>, AppError> {
+    let orgs = admin_queries::list_organizations(&state.pool).await?;
+    Ok(Json(orgs.into_iter().map(OrganizationResponse::from).collect()))
+}
+
+/// Request body for PATCH /api/admin/users/:id/org.
+/// `org_id = null` clears the assignment (unscoped / super-admin view).
+#[derive(serde::Deserialize)]
+pub struct AssignOrgRequest {
+    pub org_id: Option<Uuid>,
+}
+
+/// PATCH /api/admin/users/:id/org — assign (or clear) an organization for a user.
+/// Admin role required.
+pub async fn admin_assign_user_org(
+    Extension(claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+    Path(user_id): Path<Uuid>,
+    Json(body): Json<AssignOrgRequest>,
+) -> Result<StatusCode, AppError> {
+    // Require admin role to manage user org assignments.
+    crate::middleware::auth::require_role(&claims, "admin")
+        .map_err(|_| AppError::Forbidden)?;
+
+    admin_queries::assign_user_org(&state.pool, user_id, body.org_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // § 4 — Pure unit tests
 //
 // Requirements covered:
@@ -1505,6 +1544,36 @@ mod tests {
             matches!(err, AppError::Unauthorized),
             "AppError::Unauthorized must exist as a unit variant so the change-password \
              handler can return it when the JWT cookie is absent (AC-PR-BE-3-F5)"
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite: AssignOrgRequest deserialization (WARD-03)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// WARD-03 — AssignOrgRequest must accept null org_id to clear assignment.
+    #[test]
+    fn assign_org_request_deserializes_with_null_org_id() {
+        let json = r#"{"org_id": null}"#;
+        let req: super::AssignOrgRequest = serde_json::from_str(json).unwrap();
+        assert!(
+            req.org_id.is_none(),
+            "AssignOrgRequest with org_id=null must deserialize to None; \
+             clearing org assignment requires null support"
+        );
+    }
+
+    /// WARD-03 — AssignOrgRequest must accept a UUID string for org_id.
+    #[test]
+    fn assign_org_request_deserializes_with_uuid() {
+        use uuid::Uuid;
+        let id = Uuid::nil();
+        let json = format!(r#"{{"org_id": "{}"}}"#, id);
+        let req: super::AssignOrgRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            req.org_id,
+            Some(id),
+            "AssignOrgRequest must deserialize org_id UUID string to Some(Uuid)"
         );
     }
 }

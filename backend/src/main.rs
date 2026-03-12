@@ -141,9 +141,10 @@ async fn main() {
         .allow_credentials(true);
 
     use handlers::admin::{
-        admin_change_password, admin_create_user, admin_deactivate_user, admin_delete_report,
-        admin_get_report, admin_get_stats, admin_list_reports, admin_list_users, admin_login,
-        admin_logout, admin_me, admin_update_profile, admin_update_report_status,
+        admin_assign_user_org, admin_change_password, admin_create_user, admin_deactivate_user,
+        admin_delete_report, admin_get_report, admin_get_stats, admin_list_organizations,
+        admin_list_reports, admin_list_users, admin_login, admin_logout, admin_me,
+        admin_update_profile, admin_update_report_status,
     };
     use middleware::auth::require_auth;
 
@@ -171,6 +172,8 @@ async fn main() {
             get(admin_list_users).post(admin_create_user),
         )
         .route("/api/admin/users/:id", delete(admin_deactivate_user))
+        .route("/api/admin/users/:id/org", patch(admin_assign_user_org))
+        .route("/api/admin/organizations", get(admin_list_organizations))
         .layer(axum::middleware::from_fn_with_state(
             arc_state.clone(),
             require_auth,

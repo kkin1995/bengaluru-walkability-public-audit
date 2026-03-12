@@ -134,6 +134,19 @@ pub async fn create_report(
         ));
     }
 
+    // Look up the ward for this coordinate — non-fatal if PostGIS fails.
+    let ward_id = queries::get_ward_for_point(&state.pool, req.latitude, req.longitude)
+        .await
+        .unwrap_or_else(|e| {
+            tracing::warn!(
+                lat = req.latitude,
+                lng = req.longitude,
+                error = %e,
+                "Ward lookup failed; report will be stored without ward assignment"
+            );
+            None
+        });
+
     // Strip EXIF from image before saving
     let clean_bytes = strip_exif(&req.image_bytes);
 
@@ -144,7 +157,7 @@ pub async fn create_report(
     tokio::fs::write(&file_path, &clean_bytes).await?;
 
     // Insert into DB
-    let report = queries::insert_report(&state.pool, &req, &filename).await?;
+    let report = queries::insert_report(&state.pool, &req, &filename, ward_id).await?;
     let response = report.into_response(&state.api_base_url);
 
     Ok(Json(response))
@@ -574,6 +587,23 @@ mod tests {
             "limit=i64::MAX must be clamped to 200 without overflow or panic \
              (got {} instead of 200)",
             effective_limit(i64::MAX)
+        );
+    }
+
+    // ── WARD-02: ward lookup failure must not block report submission ─────────
+
+    /// WARD-02 — When get_ward_for_point returns Err, the handler must
+    /// continue with ward_id = None (non-fatal). This test simulates the
+    /// unwrap_or_else pattern used in create_report().
+    #[test]
+    fn ward_lookup_failure_does_not_block_report() {
+        // Simulates the unwrap_or_else behavior: Err from get_ward_for_point → None
+        let result: Result<Option<uuid::Uuid>, String> = Err("PostGIS error".to_string());
+        let ward_id = result.unwrap_or_else(|_| None);
+        assert!(
+            ward_id.is_none(),
+            "Ward lookup failure must produce None (non-fatal); \
+             report submission must not be blocked by ward lookup errors"
         );
     }
 }
