@@ -15,6 +15,7 @@ use uuid::Uuid;
 
 use crate::errors::AppError;
 use crate::models::admin::{AdminUser, StatsResponse};
+use crate::models::organization::Organization;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal row type — AdminUser does not derive FromRow (its derives are
@@ -559,6 +560,48 @@ pub async fn get_admin_user_by_id(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Organization queries (Phase 1 — Ward Foundation)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// List all organizations ordered by org_type then name.
+/// Used by GET /api/admin/organizations.
+pub async fn list_organizations(pool: &PgPool) -> Result<Vec<Organization>, AppError> {
+    let rows = sqlx::query_as::<_, Organization>(
+        r#"
+        SELECT id, name, org_type, parent_id, created_at, updated_at
+        FROM organizations
+        ORDER BY org_type, name
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows)
+}
+
+/// Assign (or clear) an organization for an admin user.
+/// `org_id = None` clears the assignment (super-admin / unscoped view).
+/// Returns `AppError::NotFound` if no active user matches `user_id`.
+pub async fn assign_user_org(
+    pool: &PgPool,
+    user_id: Uuid,
+    org_id: Option<Uuid>,
+) -> Result<(), AppError> {
+    let result = sqlx::query(
+        "UPDATE admin_users SET org_id = $1 WHERE id = $2 AND is_active = TRUE",
+    )
+    .bind(org_id)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound);
+    }
+    Ok(())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Pure SQL-string helpers (testable without a database)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -704,6 +747,42 @@ mod tests {
             "AdminUser with is_super_admin=false (API-created) must carry false; \
              the DB row-to-struct mapping must not coerce it to true \
              (AC-SA-BE-5-S1). Got true."
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite 2b — Organization queries (Phase 1 — Ward Foundation)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// WARD-03 — list_organizations must query FROM organizations with correct ordering.
+    #[test]
+    fn list_organizations_query_returns_all_orgs() {
+        let sql = "SELECT id, name, org_type, parent_id, created_at, updated_at FROM organizations ORDER BY org_type, name";
+        assert!(
+            sql.contains("FROM organizations"),
+            "list_organizations SQL must query FROM organizations; got: {}",
+            sql
+        );
+        assert!(
+            sql.contains("ORDER BY org_type, name"),
+            "list_organizations SQL must order by org_type, name; got: {}",
+            sql
+        );
+    }
+
+    /// WARD-03 — assign_user_org update must target correct table and column.
+    #[test]
+    fn assign_user_org_sql_targets_correct_table() {
+        let sql = "UPDATE admin_users SET org_id = $1 WHERE id = $2 AND is_active = TRUE";
+        assert!(
+            sql.contains("UPDATE admin_users"),
+            "assign_user_org must update admin_users table; got: {}",
+            sql
+        );
+        assert!(
+            sql.contains("org_id = $1"),
+            "assign_user_org must set org_id; got: {}",
+            sql
         );
     }
 

@@ -5,3 +5,5 @@ pub mod report;
 // it is a module path declaration only. The impl-engineer will keep this line
 // when they fill in the admin.rs structs.
 pub mod admin;
+pub mod ward;
+pub mod organization;

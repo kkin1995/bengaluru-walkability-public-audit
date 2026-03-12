@@ -21,6 +21,9 @@ pub struct Report {
     pub submitter_contact: Option<String>,
     pub status: String,
     pub location_source: String,
+    /// Ward the report falls in — auto-populated at creation time via PostGIS ST_Within.
+    /// NULL when the point does not match any ward polygon (or ward lookup fails).
+    pub ward_id: Option<Uuid>,
 }
 
 /// JSON response shape
@@ -37,6 +40,9 @@ pub struct ReportResponse {
     pub submitter_name: Option<String>,
     pub status: String,
     pub location_source: String,
+    /// Ward name — None in public endpoint (admin handler joins and populates).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ward_name: Option<String>,
 }
 
 impl Report {
@@ -54,6 +60,8 @@ impl Report {
             submitter_name: self.submitter_name,
             status: self.status,
             location_source: self.location_source,
+            // Public endpoint never exposes ward_name — admin handler populates it when needed.
+            ward_name: None,
         }
     }
 }
@@ -119,6 +127,7 @@ mod tests {
             submitter_contact: None,
             status: "new".to_string(),
             location_source: "manual_pin".to_string(),
+            ward_id: None,
         }
     }
 
@@ -353,6 +362,7 @@ mod tests {
         // We verify the field is simply absent from the serialised JSON.
         let report = Report {
             submitter_contact: Some("user@example.com".to_string()),
+            ward_id: None,
             ..make_report(12.9716, 77.5946)
         };
         let response = report.into_response("http://localhost:3001");
