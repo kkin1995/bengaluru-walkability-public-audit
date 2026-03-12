@@ -16,6 +16,7 @@ mod db;
 mod errors;
 mod handlers;
 mod middleware;
+mod migrations_tests;
 mod models;
 
 use config::Config;
