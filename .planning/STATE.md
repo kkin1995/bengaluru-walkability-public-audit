@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Completed 01-ward-foundation 01-04-PLAN.md
-last_updated: "2026-03-12T09:35:27Z"
-last_activity: 2026-03-12 — Plan 04 complete: admin reports JSON shape fixed, ward LEFT JOIN added
+status: completed
+stopped_at: Completed 01-ward-foundation 01-05-PLAN.md
+last_updated: "2026-03-12T09:57:47.187Z"
+last_activity: "2026-03-12 — Plan 04 complete: admin reports JSON shape fixed, ward LEFT JOIN added"
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  completed_phases: 0
+  total_plans: 6
+  completed_plans: 5
   percent: 15
 ---
 
@@ -54,6 +54,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 01-ward-foundation P02 | 5 | 2 tasks | 9 files |
 | Phase 01-ward-foundation P03 | 25 | 3 tasks | 7 files |
 | Phase 01-ward-foundation P04 | 15 | 2 tasks | 4 files |
+| Phase 01-ward-foundation P05 | 5 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,7 @@ Progress: [█░░░░░░░░░] 15%
 - [Phase 01-04]: build_report_where_clause() extracted as shared helper — single source of truth for filter logic prevents WHERE clause drift between list and count queries
 - [Phase 01-04]: tokio::try_join! used to run list_admin_reports and count_admin_reports concurrently — single round-trip overhead
 - [Phase 01-04]: total_pages = ceil(total_count / limit).max(1) — minimum 1 so frontend pagination never receives total_pages: 0
+- [Phase 01-ward-foundation]: Two-word surgical fix: wards.name → wards.ward_name in both production SQL and test SQL — nothing else changed
 
 ### Pending Todos
 
@@ -84,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T09:35:27Z
-Stopped at: Completed 01-ward-foundation 01-04-PLAN.md
+Last session: 2026-03-12T09:57:47.185Z
+Stopped at: Completed 01-ward-foundation 01-05-PLAN.md
 Resume file: None
