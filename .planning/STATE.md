@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 01-ward-foundation 01-05-PLAN.md
-last_updated: "2026-03-12T09:57:47.187Z"
+stopped_at: Completed 01-ward-foundation 01-06-PLAN.md
+last_updated: "2026-03-12T10:03:54.028Z"
 last_activity: "2026-03-12 — Plan 04 complete: admin reports JSON shape fixed, ward LEFT JOIN added"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
   percent: 15
 ---
 
@@ -55,6 +55,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 01-ward-foundation P03 | 25 | 3 tasks | 7 files |
 | Phase 01-ward-foundation P04 | 15 | 2 tasks | 4 files |
 | Phase 01-ward-foundation P05 | 5 | 1 tasks | 1 files |
+| Phase 01-ward-foundation P06 | 3 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Progress: [█░░░░░░░░░] 15%
 - [Phase 01-04]: tokio::try_join! used to run list_admin_reports and count_admin_reports concurrently — single round-trip overhead
 - [Phase 01-04]: total_pages = ceil(total_count / limit).max(1) — minimum 1 so frontend pagination never receives total_pages: 0
 - [Phase 01-ward-foundation]: Two-word surgical fix: wards.name → wards.ward_name in both production SQL and test SQL — nothing else changed
+- [Phase 01-06]: org_id NOT stored in JwtClaims — fetched from DB per request via claims.sub to avoid token re-issue on every org reassignment
+- [Phase 01-06]: wards.org_id FK added via migration 006 — enables direct JOIN in recursive CTE scoping query; NULL initially so org-scoped admins see zero reports until data is seeded
 
 ### Pending Todos
 
@@ -86,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T09:57:47.185Z
-Stopped at: Completed 01-ward-foundation 01-05-PLAN.md
+Last session: 2026-03-12T10:03:54.027Z
+Stopped at: Completed 01-ward-foundation 01-06-PLAN.md
 Resume file: None
