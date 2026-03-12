@@ -12,9 +12,9 @@ Requirements for MVP — scoped for soft launch with Walkaluru / GBA.
 ### Ward & Spatial Routing
 
 - [ ] **WARD-01**: Reports are automatically assigned to the correct Bengaluru ward via PostGIS `ST_Within` query at submission time
-- [ ] **WARD-02**: An `organizations` table stores the flexible GBA → corporation → ward office hierarchy as data (not hardcoded), with self-referential parent_id
+- [x] **WARD-02**: An `organizations` table stores the flexible GBA → corporation → ward office hierarchy as data (not hardcoded), with self-referential parent_id
 - [ ] **WARD-03**: Each admin user is assigned to an organization, controlling which reports they see and can act on
-- [ ] **WARD-04**: Ward boundary data for Bengaluru is imported into PostGIS and kept as the spatial source of truth for routing
+- [x] **WARD-04**: Ward boundary data for Bengaluru is imported into PostGIS and kept as the spatial source of truth for routing
 
 ### Anti-Abuse & Data Quality
 
@@ -109,9 +109,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | WARD-01 | Phase 1 | Pending |
-| WARD-02 | Phase 1 | Pending |
+| WARD-02 | Phase 1 | Complete |
 | WARD-03 | Phase 1 | Pending |
-| WARD-04 | Phase 1 | Pending |
+| WARD-04 | Phase 1 | Complete |
 | ABUSE-01 | Phase 2 | Pending |
 | ABUSE-02 | Phase 2 | Pending |
 | ABUSE-03 | Phase 2 | Pending |
