@@ -183,8 +183,87 @@ pub async fn deactivate_admin_user(
 // Admin report queries
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Build the dynamic WHERE clause and return (clause_string, next_param_idx).
+/// Shared by list_admin_reports and count_admin_reports so the WHERE logic is
+/// always in sync.
+fn build_report_where_clause(
+    category: Option<&str>,
+    status: Option<&str>,
+    severity: Option<&str>,
+    date_from: Option<DateTime<Utc>>,
+    date_to: Option<DateTime<Utc>>,
+    start_idx: i32,
+) -> (String, i32) {
+    let mut conditions: Vec<String> = Vec::new();
+    let mut param_idx = start_idx;
+
+    if category.is_some() {
+        conditions.push(format!("reports.category::TEXT = ${}", param_idx));
+        param_idx += 1;
+    }
+    if status.is_some() {
+        conditions.push(format!("reports.status::TEXT = ${}", param_idx));
+        param_idx += 1;
+    }
+    if severity.is_some() {
+        conditions.push(format!("reports.severity::TEXT = ${}", param_idx));
+        param_idx += 1;
+    }
+    if date_from.is_some() {
+        conditions.push(format!("reports.created_at >= ${}", param_idx));
+        param_idx += 1;
+    }
+    if date_to.is_some() {
+        conditions.push(format!("reports.created_at <= ${}", param_idx));
+        param_idx += 1;
+    }
+
+    let where_clause = if conditions.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", conditions.join(" AND "))
+    };
+
+    (where_clause, param_idx)
+}
+
+/// Count reports matching the same filters as list_admin_reports.
+/// Returns the total filtered row count (accurate regardless of limit/offset).
+#[allow(clippy::too_many_arguments)]
+pub async fn count_admin_reports(
+    pool: &PgPool,
+    category: Option<&str>,
+    status: Option<&str>,
+    severity: Option<&str>,
+    date_from: Option<DateTime<Utc>>,
+    date_to: Option<DateTime<Utc>>,
+) -> Result<i64, AppError> {
+    let (where_clause, _) =
+        build_report_where_clause(category, status, severity, date_from, date_to, 1);
+
+    let sql = format!(
+        r#"
+        SELECT COUNT(*)
+        FROM reports
+        LEFT JOIN wards ON wards.id = reports.ward_id
+        {}
+        "#,
+        where_clause
+    );
+
+    let mut q = sqlx::query_scalar::<_, i64>(&sql);
+    if let Some(v) = category  { q = q.bind(v); }
+    if let Some(v) = status    { q = q.bind(v); }
+    if let Some(v) = severity  { q = q.bind(v); }
+    if let Some(v) = date_from { q = q.bind(v); }
+    if let Some(v) = date_to   { q = q.bind(v); }
+
+    let count = q.fetch_one(pool).await?;
+    Ok(count)
+}
+
 /// List reports with optional filters. Returns full-precision coordinates and
-/// full PII fields (admin-only). Uses dynamic WHERE clause construction.
+/// full PII fields (admin-only). Includes ward_name via LEFT JOIN.
 #[allow(clippy::too_many_arguments)] // all 8 params are distinct filter axes; no sensible grouping
 pub async fn list_admin_reports(
     pool: &PgPool,
@@ -196,60 +275,34 @@ pub async fn list_admin_reports(
     page: i64,
     limit: i64,
 ) -> Result<Vec<serde_json::Value>, AppError> {
-    // Build the WHERE clause dynamically; bind parameter index starts at 1.
-    let mut conditions: Vec<String> = Vec::new();
-    let mut param_idx: i32 = 1;
-
-    if category.is_some() {
-        conditions.push(format!("category::TEXT = ${}", param_idx));
-        param_idx += 1;
-    }
-    if status.is_some() {
-        conditions.push(format!("status::TEXT = ${}", param_idx));
-        param_idx += 1;
-    }
-    if severity.is_some() {
-        conditions.push(format!("severity::TEXT = ${}", param_idx));
-        param_idx += 1;
-    }
-    if date_from.is_some() {
-        conditions.push(format!("created_at >= ${}", param_idx));
-        param_idx += 1;
-    }
-    if date_to.is_some() {
-        conditions.push(format!("created_at <= ${}", param_idx));
-        param_idx += 1;
-    }
-
-    let where_clause = if conditions.is_empty() {
-        String::new()
-    } else {
-        format!("WHERE {}", conditions.join(" AND "))
-    };
+    let (where_clause, param_idx) =
+        build_report_where_clause(category, status, severity, date_from, date_to, 1);
 
     let offset = (page - 1) * limit;
-    // param_idx currently points to the next free slot
+    // param_idx currently points to the next free slot after filter params
     let limit_idx = param_idx;
     let offset_idx = param_idx + 1;
 
     let sql = format!(
         r#"
         SELECT
-            id,
-            created_at,
-            image_path,
-            latitude,
-            longitude,
-            category::TEXT AS category,
-            severity::TEXT AS severity,
-            description,
-            submitter_name,
-            submitter_contact,
-            status::TEXT AS status,
-            location_source::TEXT AS location_source
+            reports.id,
+            reports.created_at,
+            reports.image_path,
+            reports.latitude,
+            reports.longitude,
+            reports.category::TEXT AS category,
+            reports.severity::TEXT AS severity,
+            reports.description,
+            reports.submitter_name,
+            reports.submitter_contact,
+            reports.status::TEXT AS status,
+            reports.location_source::TEXT AS location_source,
+            wards.name AS ward_name
         FROM reports
+        LEFT JOIN wards ON wards.id = reports.ward_id
         {}
-        ORDER BY created_at DESC
+        ORDER BY reports.created_at DESC
         LIMIT ${} OFFSET ${}
         "#,
         where_clause, limit_idx, offset_idx
@@ -282,6 +335,7 @@ pub async fn list_admin_reports(
                 "submitter_contact": row.get::<Option<String>, _>("submitter_contact"),
                 "status":            row.get::<String, _>("status"),
                 "location_source":   row.get::<String, _>("location_source"),
+                "ward_name":         row.get::<Option<String>, _>("ward_name"),
             })
         })
         .collect();
@@ -767,6 +821,124 @@ mod tests {
             sql.contains("ORDER BY org_type, name"),
             "list_organizations SQL must order by org_type, name; got: {}",
             sql
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite 2c — list_admin_reports ward JOIN and count_admin_reports (WARD-03)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// WARD-03 — list_admin_reports SQL must include LEFT JOIN wards so that
+    /// ward_name is populated for reports that fall within a ward boundary.
+    #[test]
+    fn list_admin_reports_sql_includes_ward_join() {
+        // Build the SQL the same way list_admin_reports does (no filters).
+        let (where_clause, param_idx) =
+            build_report_where_clause(None, None, None, None, None, 1);
+        let limit_idx = param_idx;
+        let offset_idx = param_idx + 1;
+        let sql = format!(
+            r#"
+            SELECT
+                reports.id,
+                reports.created_at,
+                reports.image_path,
+                reports.latitude,
+                reports.longitude,
+                reports.category::TEXT AS category,
+                reports.severity::TEXT AS severity,
+                reports.description,
+                reports.submitter_name,
+                reports.submitter_contact,
+                reports.status::TEXT AS status,
+                reports.location_source::TEXT AS location_source,
+                wards.name AS ward_name
+            FROM reports
+            LEFT JOIN wards ON wards.id = reports.ward_id
+            {}
+            ORDER BY reports.created_at DESC
+            LIMIT ${} OFFSET ${}
+            "#,
+            where_clause, limit_idx, offset_idx
+        );
+        assert!(
+            sql.contains("LEFT JOIN wards"),
+            "list_admin_reports SQL must include LEFT JOIN wards; got: {}",
+            sql
+        );
+        assert!(
+            sql.contains("ward_name"),
+            "list_admin_reports SQL must select ward_name; got: {}",
+            sql
+        );
+    }
+
+    /// WARD-03 — count_admin_reports SQL must include LEFT JOIN wards and
+    /// SELECT COUNT(*) so the total matches across the same filter set.
+    #[test]
+    fn count_admin_reports_sql_includes_ward_join_and_count() {
+        let (where_clause, _) =
+            build_report_where_clause(None, None, None, None, None, 1);
+        let sql = format!(
+            r#"
+            SELECT COUNT(*)
+            FROM reports
+            LEFT JOIN wards ON wards.id = reports.ward_id
+            {}
+            "#,
+            where_clause
+        );
+        assert!(
+            sql.contains("COUNT(*)"),
+            "count_admin_reports SQL must include COUNT(*); got: {}",
+            sql
+        );
+        assert!(
+            sql.contains("LEFT JOIN wards"),
+            "count_admin_reports SQL must include LEFT JOIN wards; got: {}",
+            sql
+        );
+    }
+
+    /// WARD-03 — build_report_where_clause with all filters must produce
+    /// a clause with 5 conditions and advance param_idx to 6.
+    #[test]
+    fn build_report_where_clause_all_filters_advances_param_idx() {
+        use chrono::Utc;
+        let now = Utc::now();
+        let (clause, next_idx) = build_report_where_clause(
+            Some("broken_footpath"),
+            Some("submitted"),
+            Some("high"),
+            Some(now),
+            Some(now),
+            1,
+        );
+        assert!(
+            clause.starts_with("WHERE "),
+            "All-filter clause must start with WHERE; got: {}",
+            clause
+        );
+        assert_eq!(
+            next_idx, 6,
+            "With 5 filters starting at index 1, next param_idx must be 6"
+        );
+    }
+
+    /// WARD-03 — build_report_where_clause with no filters must produce
+    /// an empty string and leave param_idx at 1.
+    #[test]
+    fn build_report_where_clause_no_filters_is_empty() {
+        let (clause, next_idx) =
+            build_report_where_clause(None, None, None, None, None, 1);
+        assert!(
+            clause.is_empty(),
+            "No-filter clause must be empty; got: {:?}",
+            clause
+        );
+        assert_eq!(
+            next_idx, 1,
+            "With no filters, param_idx must remain at 1"
         );
     }
 
