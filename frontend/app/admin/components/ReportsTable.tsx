@@ -20,6 +20,7 @@ interface ReportsTableProps {
   isLoading?: boolean;
   onCategoryChange?: (value: string) => void;
   onStatusFilter?: (value: string) => void;
+  onUpdateStatus?: (id: string) => void;
 }
 
 export default function ReportsTable({
@@ -28,6 +29,7 @@ export default function ReportsTable({
   onStatusChange,
   onDelete,
   isLoading,
+  onUpdateStatus,
 }: ReportsTableProps) {
   if (isLoading) {
     return (
@@ -95,7 +97,7 @@ export default function ReportsTable({
               </td>
               <td className="px-4 py-3 text-sm space-x-2">
                 <button
-                  onClick={() => onStatusChange(report.id)}
+                  onClick={() => (onUpdateStatus ?? onStatusChange)(report.id)}
                   className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
                   aria-label={`Change status for report ${report.id}`}
                 >

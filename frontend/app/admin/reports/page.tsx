@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import {
   getAdminReports,
   deleteReport,
+  updateReportStatus,
   getMe,
   type AdminReport,
   type AdminReportFilters,
@@ -45,6 +46,12 @@ function ReportsPageContent(props: PageProps) {
   );
   const [reports, setReports] = useState<AdminReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Status-change modal state
+  const [changingStatusId, setChangingStatusId] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<string>("submitted");
+  const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
+  const [isStatusUpdating, setIsStatusUpdating] = useState(false);
 
   // Use ref to avoid stale closure in callbacks
   const categoryRef = useRef(category);
@@ -94,6 +101,28 @@ function ReportsPageContent(props: PageProps) {
     }
   }
 
+  function handleUpdateStatus(id: string) {
+    const report = reports.find((r) => r.id === id);
+    setPendingStatus(report?.status ?? "submitted");
+    setStatusUpdateError(null);
+    setChangingStatusId(id);
+  }
+
+  async function confirmStatusUpdate() {
+    if (!changingStatusId) return;
+    setIsStatusUpdating(true);
+    setStatusUpdateError(null);
+    try {
+      await updateReportStatus(changingStatusId, pendingStatus);
+      setChangingStatusId(null);
+      await fetchReports(categoryRef.current, statusRef.current);
+    } catch {
+      setStatusUpdateError("Failed to update status. Please try again.");
+    } finally {
+      setIsStatusUpdating(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -103,10 +132,69 @@ function ReportsPageContent(props: PageProps) {
           reports={reports}
           role={role}
           onStatusChange={handleStatusChange}
+          onUpdateStatus={handleUpdateStatus}
           onDelete={handleDelete}
           isLoading={isLoading}
           onCategoryChange={handleCategoryChange}
         />
+
+        {changingStatusId !== null && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="change-status-title"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          >
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm mx-4">
+              <h2
+                id="change-status-title"
+                className="text-lg font-semibold text-gray-900 mb-4"
+              >
+                Change Report Status
+              </h2>
+
+              <label
+                htmlFor="status-select"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                New status
+              </label>
+              <select
+                id="status-select"
+                value={pendingStatus}
+                onChange={(e) => setPendingStatus(e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="submitted">Submitted</option>
+                <option value="under_review">Under Review</option>
+                <option value="resolved">Resolved</option>
+              </select>
+
+              {statusUpdateError && (
+                <p role="alert" className="text-sm text-red-600 mb-3">
+                  {statusUpdateError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setChangingStatusId(null)}
+                  disabled={isStatusUpdating}
+                  className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmStatusUpdate}
+                  disabled={isStatusUpdating}
+                  className="px-4 py-2 text-sm text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isStatusUpdating ? "Saving..." : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
