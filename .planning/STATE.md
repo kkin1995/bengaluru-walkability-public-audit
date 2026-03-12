@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-ward-foundation 01-02-PLAN.md
-last_updated: "2026-03-12T04:27:25.675Z"
+stopped_at: Completed 01-ward-foundation 01-03-PLAN.md
+last_updated: "2026-03-12T04:44:48.368Z"
 last_activity: 2026-03-11 — Roadmap created; 26 v1 requirements mapped across 4 phases
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 01-ward-foundation P01 | 4 | 3 tasks | 9 files |
 | Phase 01-ward-foundation P02 | 5 | 2 tasks | 9 files |
+| Phase 01-ward-foundation P03 | 25 | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 01-ward-foundation]: organizations table seeded empty at migration time — GBA corp structure unconfirmed pending Arun Pai engagement
 - [Phase 01-02]: ST_MakePoint takes longitude first (X) then latitude (Y) —  is longitude,  is latitude in get_ward_for_point; tested to prevent coordinate-order regression
 - [Phase 01-02]: Ward lookup failure is non-fatal: unwrap_or_else logs warning and stores NULL ward_id — report submission is never blocked by PostGIS unavailability
+- [Phase Phase 01-ward-foundation]: unpkg.com added to nginx admin CSP style-src and img-src — Leaflet CDN requires both directives for CSS and marker PNG icons
+- [Phase Phase 01-ward-foundation]: ReportsTable null guard (!reports) added defensively — typed prop can be undefined during Leaflet SSR hydration
 
 ### Pending Todos
 
@@ -77,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T04:27:25.674Z
-Stopped at: Completed 01-ward-foundation 01-02-PLAN.md
+Last session: 2026-03-12T04:44:34.114Z
+Stopped at: Completed 01-ward-foundation 01-03-PLAN.md
 Resume file: None
