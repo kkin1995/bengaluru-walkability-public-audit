@@ -298,7 +298,7 @@ pub async fn list_admin_reports(
             reports.submitter_contact,
             reports.status::TEXT AS status,
             reports.location_source::TEXT AS location_source,
-            wards.name AS ward_name
+            wards.ward_name AS ward_name
         FROM reports
         LEFT JOIN wards ON wards.id = reports.ward_id
         {}
@@ -852,7 +852,7 @@ mod tests {
                 reports.submitter_contact,
                 reports.status::TEXT AS status,
                 reports.location_source::TEXT AS location_source,
-                wards.name AS ward_name
+                wards.ward_name AS ward_name
             FROM reports
             LEFT JOIN wards ON wards.id = reports.ward_id
             {}
