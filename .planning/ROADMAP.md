@@ -49,11 +49,11 @@ Plans:
   4. When multiple users report the same location within 50m (same category), the duplicate_confidence field is set to high — visible to admins as a severity signal
   5. An identical photo (same SHA256) submitted a second time is silently rejected without storing a duplicate image
   6. The admin triage queue shows duplicate_count on each report so high-count reports sort toward the top
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: Governor rate limiting middleware and honeypot field (backend Axum middleware, frontend hidden field)
-- [ ] 02-02: Proximity duplicate detection and photo hash dedup (ST_DWithin query, SHA256 check, schema additions, admin queue display)
+- [ ] 02-01-PLAN.md — Rate limiting (governor, IP+geohash-6 key) and honeypot (website field, CSS off-screen, fake 200) with migration 007 schema additions
+- [ ] 02-02-PLAN.md — Photo hash dedup (SHA256 before EXIF strip), async proximity dedup job (ST_DWithin 50m, 5-min poll), admin queue duplicate signals
 
 ### Phase 3: Government Triage Workflow
 **Goal**: GBA admins can move reports through a full status lifecycle, assign reports to the correct corporation or ward office, attach resolution evidence, and the public map reflects every status change in real time
