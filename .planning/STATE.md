@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed 02-anti-abuse-and-data-quality/02-01-PLAN.md
-last_updated: "2026-03-13T04:58:16.137Z"
-last_activity: "2026-03-12 — Plan 04 complete: admin reports JSON shape fixed, ward LEFT JOIN added"
+status: in_progress
+stopped_at: Completed 02-anti-abuse-and-data-quality/02-02-PLAN.md
+last_updated: "2026-03-13T06:30:00.000Z"
+last_activity: "2026-03-13 — Plan 02-02 complete: photo hash dedup, proximity dedup job, admin queue duplicate signals"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 8
-  completed_plans: 7
-  percent: 15
+  total_plans: 9
+  completed_plans: 8
+  percent: 20
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase 1 — Ward Foundation
+**Current focus:** Phase 2 — Anti-Abuse and Data Quality
 
 ## Current Position
 
-Phase: 1 of 4 (Ward Foundation)
-Plan: 4 of 4 in current phase (all plans complete)
-Status: Phase 1 complete — ready for Phase 2
-Last activity: 2026-03-12 — Plan 04 complete: admin reports JSON shape fixed, ward LEFT JOIN added
+Phase: 2 of 4 (Anti-Abuse and Data Quality)
+Plan: 2 of 2 in current phase (Phase 2 complete)
+Status: Phase 2 complete — ready for Phase 3
+Last activity: 2026-03-13 — Plan 02-02 complete: photo hash dedup, proximity dedup job, admin queue duplicate signals
 
-Progress: [█░░░░░░░░░] 15%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 01-ward-foundation P05 | 5 | 1 tasks | 1 files |
 | Phase 01-ward-foundation P06 | 3 | 2 tasks | 4 files |
 | Phase 02-anti-abuse-and-data-quality P01 | 5 | 2 tasks | 8 files |
+| Phase 02-anti-abuse-and-data-quality P02 | 6 | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,13 @@ Progress: [█░░░░░░░░░] 15%
 - [Phase 02-01]: geohash precision=6 gives ~1.2km x 0.6km cells for anti-flood rate limiting; key format is {ip}:{geohash6}
 - [Phase 02-01]: Honeypot uses position:absolute;left:-9999px (not display:none) — bots detect display:none via computed style; fake success returns nil UUID with no error signal
 - [Phase 02-01]: axum::serve uses into_make_service_with_connect_info::<SocketAddr>() to enable ConnectInfo extractor; X-Real-IP header read first, TCP peer as fallback
+- [Phase 02-02]: SHA256 hash computed from raw image bytes BEFORE strip_exif — re-uploads of same photo match regardless of client-side EXIF handling
+- [Phase 02-02]: Photo hash match returns fake HTTP 200 (same as honeypot) — bots and double-tapping users get no error signal
+- [Phase 02-02]: Dedup job scans last 15 minutes on each 5-minute poll — balances completeness vs DB load
+- [Phase 02-02]: duplicate_confidence promoted to 'high' only when COUNT(DISTINCT submitter_ip) >= 2 — single-IP flood does not gain high confidence
+- [Phase 02-02]: ADMIN_REPORT_DEDUP_COLS constant extracted for SQL-string unit testing without live DB
+- [Phase 02-02]: Expandable row fetches duplicates on first expand only — avoids N+1 on page load
+- [Phase 02-02]: duplicate_of_id query param reuses existing admin reports endpoint rather than adding dedicated route
 
 ### Pending Todos
 
@@ -93,6 +101,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T04:58:16.135Z
-Stopped at: Completed 02-anti-abuse-and-data-quality/02-01-PLAN.md
+Last session: 2026-03-13T06:30:00.000Z
+Stopped at: Completed 02-anti-abuse-and-data-quality/02-02-PLAN.md
 Resume file: None
