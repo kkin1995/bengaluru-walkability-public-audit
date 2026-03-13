@@ -13,7 +13,7 @@ The citizen-facing submission and admin dashboard already exist. This milestone 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Ward Foundation** - Import ward boundaries, auto-tag all reports to wards, build flexible organization hierarchy (completed 2026-03-12)
-- [x] **Phase 2: Anti-Abuse and Data Quality** - Per-IP rate limiting, honeypot, proximity duplicate flagging, photo hash dedup (completed 2026-03-13)
+- [ ] **Phase 2: Anti-Abuse and Data Quality** - Per-IP rate limiting, honeypot, proximity duplicate flagging, photo hash dedup (gap closure in progress)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
@@ -49,11 +49,12 @@ Plans:
   4. When multiple users report the same location within 50m (same category), the duplicate_confidence field is set to high — visible to admins as a severity signal
   5. An identical photo (same SHA256) submitted a second time is silently rejected without storing a duplicate image
   6. The admin triage queue shows duplicate_count on each report so high-count reports sort toward the top
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
 - [ ] 02-01-PLAN.md — Rate limiting (governor, IP+geohash-6 key) and honeypot (website field, CSS off-screen, fake 200) with migration 007 schema additions
 - [ ] 02-02-PLAN.md — Photo hash dedup (SHA256 before EXIF strip), async proximity dedup job (ST_DWithin 50m, 5-min poll), admin queue duplicate signals
+- [ ] 02-03-PLAN.md — Gap closure: fix duplicate sub-table rendering (ward_name, dates, StatusBadge, clickable rows) and create /admin/reports/[id] detail page
 
 ### Phase 3: Government Triage Workflow
 **Goal**: GBA admins can move reports through a full status lifecycle, assign reports to the correct corporation or ward office, attach resolution evidence, and the public map reflects every status change in real time
@@ -99,6 +100,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Ward Foundation | 6/6 | Complete   | 2026-03-12 |
-| 2. Anti-Abuse and Data Quality | 2/2 | Complete   | 2026-03-13 |
+| 2. Anti-Abuse and Data Quality | 2/3 | Gap closure | 2026-03-13 |
 | 3. Government Triage Workflow | 0/3 | Not started | - |
 | 4. Export and Public Analytics | 0/4 | Not started | - |
