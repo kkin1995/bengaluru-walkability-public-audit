@@ -4,6 +4,8 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 /// Raw database row — maps to the `wards` table.
+// Constructed by sqlx::query_as at runtime; clippy cannot see that usage.
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct Ward {
     pub id: Uuid,
@@ -14,6 +16,8 @@ pub struct Ward {
 }
 
 /// JSON response shape for ward data.
+// Constructed via From<Ward> at runtime; clippy cannot see the DB-driven usage.
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct WardResponse {
     pub id: Uuid,

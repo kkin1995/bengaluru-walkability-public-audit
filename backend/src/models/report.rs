@@ -23,18 +23,28 @@ pub struct Report {
     pub location_source: String,
     /// Ward the report falls in — auto-populated at creation time via PostGIS ST_Within.
     /// NULL when the point does not match any ward polygon (or ward lookup fails).
+    // Populated by sqlx::query_as at runtime; not yet read in production handlers.
+    #[allow(dead_code)]
     pub ward_id: Option<Uuid>,
     // ── Phase 02-02: Deduplication fields ───────────────────────────────────
     /// SHA256 hex of raw image bytes (computed before EXIF strip).
     /// Used for exact-duplicate photo detection.
+    // Populated by sqlx::query_as at runtime; read by the dedup background job.
+    #[allow(dead_code)]
     pub photo_hash: Option<String>,
     /// Points to the original report this row is a duplicate of.
     /// NULL means this is an original (non-duplicate) report.
+    // Populated by sqlx::query_as at runtime; read by the dedup background job.
+    #[allow(dead_code)]
     pub duplicate_of_id: Option<Uuid>,
     /// Count of reports linked to this original (via duplicate_of_id = self.id).
     /// Incremented atomically by the dedup background job.
+    // Populated by sqlx::query_as at runtime; read by the dedup background job.
+    #[allow(dead_code)]
     pub duplicate_count: i32,
     /// 'low' or 'high' — set to 'high' when distinct submitter IPs >= 2.
+    // Populated by sqlx::query_as at runtime; read by the dedup background job.
+    #[allow(dead_code)]
     pub duplicate_confidence: Option<String>,
     /// Client IP stored for dedup confidence calculation.
     /// Admin-only; never included in ReportResponse.
