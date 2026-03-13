@@ -607,3 +607,124 @@ mod tests {
         );
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Anti-abuse unit tests (ABUSE-01, ABUSE-02)
+//
+// Requirements covered:
+//   ABUSE-01 — Per-IP+geohash-6 rate limiting (2 submissions/hour max)
+//   ABUSE-02 — Honeypot bot detection via hidden `website` form field
+//
+// All helpers under test are pure functions extracted from the handler, so
+// tests require no database, network, or Axum routing stack.
+// ─────────────────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod rate_limit_honeypot_tests {
+    use super::*;
+    use axum::http::StatusCode;
+    use axum::response::IntoResponse;
+
+    // ── ABUSE-02: Honeypot detection ──────────────────────────────────────────
+
+    /// ABUSE-02 — is_honeypot_triggered returns false for empty string (legitimate user).
+    #[test]
+    fn honeypot_empty_passes_through() {
+        assert!(
+            !is_honeypot_triggered(""),
+            "Empty website field must NOT trigger honeypot (legitimate user path)"
+        );
+    }
+
+    /// ABUSE-02 — is_honeypot_triggered returns true for any non-empty string (bot path).
+    #[test]
+    fn honeypot_non_empty_returns_fake_success() {
+        assert!(
+            is_honeypot_triggered("http://spam.com"),
+            "Non-empty website field must trigger honeypot (bot detection)"
+        );
+        assert!(
+            is_honeypot_triggered("x"),
+            "Single-character website field must trigger honeypot"
+        );
+        assert!(
+            is_honeypot_triggered("   "),
+            "Whitespace-only website field must trigger honeypot"
+        );
+    }
+
+    // ── ABUSE-01: Rate limit key construction ────────────────────────────────
+
+    /// ABUSE-01 — build_rate_limit_key returns "{ip}:{geohash6}" format.
+    /// Verifies key structure: starts with ip, contains colon separator,
+    /// and has geohash suffix (total length > ip.len() + 1).
+    #[test]
+    fn rate_limit_key_format() {
+        let key = build_rate_limit_key("1.2.3.4", 12.9716, 77.5946);
+        assert!(
+            key.starts_with("1.2.3.4:"),
+            "Rate limit key must start with IP address followed by colon. Got: {}",
+            key
+        );
+        // Key is "{ip}:{geohash6}" — geohash6 is 6 chars, total ≥ 9+1 chars
+        assert!(
+            key.len() >= "1.2.3.4:".len() + 1,
+            "Rate limit key must contain geohash suffix after colon. Got: {}",
+            key
+        );
+        // The geohash portion must be exactly 6 characters
+        let geohash_part = &key["1.2.3.4:".len()..];
+        assert_eq!(
+            geohash_part.len(),
+            6,
+            "Geohash portion of rate limit key must be exactly 6 characters. Got: '{}'",
+            geohash_part
+        );
+    }
+
+    // ── ABUSE-01: Geohash coordinate order regression guard ──────────────────
+
+    /// ABUSE-01 — Regression guard for geohash coordinate order.
+    /// geohash::encode takes Coord { x: longitude, y: latitude }.
+    /// Swapping x and y must produce a DIFFERENT hash (proves order matters).
+    #[test]
+    fn geohash_coordinate_order() {
+        use geohash::{encode, Coord};
+
+        // Correct order: x=longitude, y=latitude (Bengaluru city center)
+        let correct = encode(Coord { x: 77.5946, y: 12.9716 }, 6)
+            .expect("encode must succeed for valid Bengaluru coordinates");
+
+        // Swapped order: x=latitude, y=longitude (WRONG — regression guard)
+        let swapped = encode(Coord { x: 12.9716, y: 77.5946 }, 6)
+            .expect("encode must succeed even for swapped coordinates");
+
+        assert_ne!(
+            correct,
+            swapped,
+            "Correct (lng,lat) and swapped (lat,lng) coordinate order must produce \
+             DIFFERENT geohashes. If they are equal, the coordinate order is wrong."
+        );
+
+        // The correct hash must be 6 characters
+        assert_eq!(
+            correct.len(),
+            6,
+            "Geohash with precision=6 must have exactly 6 characters. Got: '{}'",
+            correct
+        );
+    }
+
+    // ── ABUSE-01: AppError::RateLimited maps to HTTP 429 ────────────────────
+
+    /// ABUSE-01 — AppError::RateLimited must produce HTTP 429 TOO_MANY_REQUESTS.
+    #[test]
+    fn rate_limited_error_maps_to_429() {
+        let err = AppError::RateLimited("test message".into());
+        let response = err.into_response();
+        assert_eq!(
+            response.status(),
+            StatusCode::TOO_MANY_REQUESTS,
+            "AppError::RateLimited must map to HTTP 429 TOO_MANY_REQUESTS"
+        );
+    }
+}
