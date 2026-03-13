@@ -79,6 +79,9 @@ pub struct CreateReportRequest {
     pub submitter_name: Option<String>,
     pub submitter_contact: Option<String>,
     pub location_source: String,
+    /// Client IP set by the create_report handler after rate-limit check.
+    /// Stored here for Plan 02 deduplication pipeline; not yet wired to SQL INSERT.
+    pub submitter_ip: Option<String>,
 }
 
 /// Query params for list endpoint

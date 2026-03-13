@@ -41,6 +41,12 @@ pub enum AppError {
     /// HTTP 409 — resource already exists (e.g. duplicate email on user create).
     #[error("Conflict: {0}")]
     Conflict(String),
+
+    /// HTTP 429 — rate limit exceeded for this IP+location cell.
+    /// Used by create_report when the same IP+geohash-6 cell submits more
+    /// than 2 reports per hour.
+    #[error("Rate limited: {0}")]
+    RateLimited(String),
 }
 
 impl IntoResponse for AppError {
@@ -67,6 +73,7 @@ impl IntoResponse for AppError {
                 (StatusCode::FORBIDDEN, "Forbidden".to_string())
             }
             AppError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
+            AppError::RateLimited(msg) => (StatusCode::TOO_MANY_REQUESTS, msg.clone()),
         };
 
         (status, Json(json!({ "error": message }))).into_response()

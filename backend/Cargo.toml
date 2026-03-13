@@ -36,3 +36,7 @@ axum-extra = { version = "0.9", features = ["cookie"] }
 # path that axum-extra does not expose.
 time = "0.3"
 base64 = "0.22"
+governor = "0.10"
+geohash = "0.13"
+sha2 = "0.10"
+digest = "0.10"

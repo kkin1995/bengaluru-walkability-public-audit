@@ -129,6 +129,10 @@ export default function ReportPage() {
       if (form.description) body.append("description", form.description);
       if (form.name) body.append("name", form.name.slice(0, 100));
       if (form.contact) body.append("contact", form.contact.slice(0, 200));
+      // ABUSE-02: Honeypot — read value from the DOM input. Legitimate users
+      // never interact with this off-screen field; bots may fill it.
+      const honeypotEl = document.querySelector('input[name="website"]') as HTMLInputElement | null;
+      body.append("website", honeypotEl?.value ?? "");
 
       const res = await fetch(`${API_BASE_URL}/api/reports`, {
         method: "POST",
@@ -429,6 +433,19 @@ export default function ReportPage() {
           </div>
         )}
       </div>
+
+      {/* ABUSE-02: Honeypot — hidden from humans via CSS off-screen positioning.
+          Bots typically fill all visible inputs; this field being filled triggers
+          silent fake-success on the backend. Using position:absolute (not display:none)
+          prevents sophisticated bots from detecting the honeypot via style inspection. */}
+      <input
+        type="text"
+        name="website"
+        tabIndex={-1}
+        autoComplete="off"
+        style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px' }}
+        aria-hidden="true"
+      />
 
       {/* Footer actions — sticky fixed bar */}
       <footer className="fixed bottom-0 left-0 right-0 bg-white shadow-lg px-4 pt-4 pb-6 border-t border-gray-100 z-10 max-w-lg mx-auto">

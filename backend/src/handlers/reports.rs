@@ -13,8 +13,69 @@ use crate::{
     AppState,
 };
 
+// ── Anti-abuse pure helper functions ────────────────────────────────────────
+//
+// These are extracted as top-level functions (not methods) so they can be
+// called from both the handler and the unit test module without requiring
+// any I/O infrastructure.
+
+/// ABUSE-02: Returns true when the honeypot `website` field is non-empty.
+/// Legitimate users never fill this field; bots typically fill all inputs.
+fn is_honeypot_triggered(website_field: &str) -> bool {
+    !website_field.is_empty()
+}
+
+/// ABUSE-01: Builds the rate-limit key as "{ip}:{geohash6}".
+/// geohash::encode takes Coord { x: longitude, y: latitude } — do NOT swap.
+/// Precision 6 gives ~1.2 km × 0.6 km cells — appropriate for hyperlocal dedup.
+fn build_rate_limit_key(ip: &str, lat: f64, lng: f64) -> String {
+    use geohash::{encode, Coord};
+    let cell = encode(Coord { x: lng, y: lat }, 6usize)
+        .unwrap_or_else(|_| "000000".to_string());
+    format!("{}:{}", ip, cell)
+}
+
+/// Extracts the real client IP from X-Real-IP header (set by nginx) or falls
+/// back to the TCP peer address. Never panics — returns "unknown" as last resort.
+fn extract_client_ip(
+    headers: &axum::http::HeaderMap,
+    peer_addr: Option<std::net::SocketAddr>,
+) -> String {
+    headers
+        .get("x-real-ip")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| {
+            peer_addr
+                .map(|a| a.ip().to_string())
+                .unwrap_or_else(|| "unknown".to_string())
+        })
+}
+
+/// ABUSE-02: Returns a fake HTTP 200 ReportResponse-shaped body for honeypot
+/// submissions. The nil UUID signals bot detection without revealing it.
+fn fake_success_response() -> ReportResponse {
+    use chrono::Utc;
+    ReportResponse {
+        id: Uuid::nil(),
+        created_at: Utc::now(),
+        image_url: String::new(),
+        latitude: 0.0,
+        longitude: 0.0,
+        category: "no_footpath".to_string(),
+        severity: "medium".to_string(),
+        description: None,
+        submitter_name: None,
+        status: "submitted".to_string(),
+        location_source: "manual_pin".to_string(),
+        ward_name: None,
+    }
+}
+
 pub async fn create_report(
     State(state): State<AppState>,
+    axum::extract::ConnectInfo(peer_addr): axum::extract::ConnectInfo<std::net::SocketAddr>,
+    headers: axum::http::HeaderMap,
     mut multipart: Multipart,
 ) -> Result<Json<ReportResponse>, AppError> {
     let mut req = CreateReportRequest::default();
@@ -100,6 +161,14 @@ pub async fn create_report(
                     .await
                     .map_err(|e| AppError::BadRequest(e.to_string()))?;
             }
+            "website" => {
+                // ABUSE-02: Honeypot field — legitimate users never fill this.
+                // Return a fake success response silently; bots get no error signal.
+                let text = field.text().await.unwrap_or_default();
+                if is_honeypot_triggered(&text) {
+                    return Ok(Json(fake_success_response()));
+                }
+            }
             _ => {
                 // consume and discard unknown fields
                 let _ = field.bytes().await;
@@ -133,6 +202,20 @@ pub async fn create_report(
             "Please drop the pin within Bengaluru".into(),
         ));
     }
+
+    // ABUSE-01: Rate limit check — 2 submissions/hour per IP+geohash-6 cell.
+    // Checked after bbox validation so out-of-bounds submissions never consume quota.
+    let client_ip = extract_client_ip(&headers, Some(peer_addr));
+    let rate_key = build_rate_limit_key(&client_ip, req.latitude, req.longitude);
+    if state.rate_limiter.check_key(&rate_key).is_err() {
+        return Err(AppError::RateLimited(
+            "You've submitted too many reports from this area recently. Try again in an hour."
+                .into(),
+        ));
+    }
+
+    // Store submitter_ip for Plan 02 deduplication pipeline.
+    req.submitter_ip = Some(client_ip);
 
     // Look up the ward for this coordinate — non-fatal if PostGIS fails.
     let ward_id = queries::get_ward_for_point(&state.pool, req.latitude, req.longitude)
