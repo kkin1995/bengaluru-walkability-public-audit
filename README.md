@@ -172,9 +172,10 @@ npm run dev
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `NEXT_PUBLIC_API_URL` | ✅ | `http://localhost:3001` | Public URL the browser uses to reach the API |
+| `NEXT_PUBLIC_API_URL` | | `""` (relative) | API base URL for browser requests. Set to `http://localhost:3001` for local dev; leave empty in Docker (relative URLs via nginx proxy). Inlined at build time — pass as a Docker build arg. |
+| `INTERNAL_API_URL` | | `http://localhost:3001` | Server-side API URL for SSR/RSC requests. Set to `http://backend:3001` in Docker Compose. |
 
-> **Important:** `NEXT_PUBLIC_*` variables are inlined by webpack at **build time**. In Docker they must be passed as `build.args` in `docker-compose.yml` — runtime environment variables have no effect on the built bundle.
+> **Config rule:** All env-var-based configuration is centralized in `frontend/app/lib/config.ts`. Never read `process.env.*` directly in component files.
 
 ---
 
@@ -284,6 +285,8 @@ All `/api/admin/*` endpoints require a valid `admin_token` HttpOnly cookie (set 
 | `POST` | `/api/admin/auth/login` | Login — sets `admin_token` cookie |
 | `POST` | `/api/admin/auth/logout` | Logout — clears cookie |
 | `GET` | `/api/admin/auth/me` | Current admin user info |
+| `PATCH` | `/api/admin/auth/profile` | Update display name |
+| `POST` | `/api/admin/auth/change-password` | Change password (Argon2id verify + hash) |
 | `GET` | `/api/admin/reports` | List reports with full PII and exact coordinates |
 | `GET` | `/api/admin/reports/:id` | Get single report (admin view) |
 | `PATCH` | `/api/admin/reports/:id/status` | Update report status |
@@ -291,7 +294,7 @@ All `/api/admin/*` endpoints require a valid `admin_token` HttpOnly cookie (set 
 | `GET` | `/api/admin/stats` | Aggregate counts by status, category, severity |
 | `GET` | `/api/admin/users` | List admin users |
 | `POST` | `/api/admin/users` | Create admin user |
-| `DELETE` | `/api/admin/users/:id` | Deactivate admin user |
+| `DELETE` | `/api/admin/users/:id` | Deactivate admin user (blocked for super-admins) |
 
 ---
 
@@ -299,7 +302,8 @@ All `/api/admin/*` endpoints require a valid `admin_token` HttpOnly cookie (set 
 
 Schema is defined in `backend/migrations/` and applied automatically on startup.
 - `001_init.sql` — public reports, enums, indexes, triggers
-- `002_admin.sql` — `admin_users` table and `user_role` enum
+- `002_admin.sql` — `admin_users`, `status_history`, `user_role` enum
+- `003_super_admin.sql` — `is_super_admin BOOLEAN` column on `admin_users`
 
 ### Enums
 
@@ -355,6 +359,7 @@ Audit trail for every status transition.
 | `role` | `user_role` | `admin` · `reviewer` |
 | `display_name` | `TEXT` | Optional |
 | `is_active` | `BOOL` | DEFAULT `true`; set `false` to deactivate without deleting |
+| `is_super_admin` | `BOOL` | DEFAULT `false`; super-admins cannot be deactivated |
 | `last_login_at` | `TIMESTAMPTZ` | Updated on successful login |
 | `created_at` | `TIMESTAMPTZ` | Immutable |
 | `updated_at` | `TIMESTAMPTZ` | Auto-touched by trigger |
@@ -374,6 +379,12 @@ Scaffolded for future Priority Walking Network (PWN) analysis. Each has `locatio
 | `/` | `app/page.tsx` | Landing page — hero, CTAs, how-it-works |
 | `/report` | `app/report/page.tsx` | 4-step report wizard |
 | `/map` | `app/map/page.tsx` | Full-screen public map with legend |
+| `/admin` | `app/admin/dashboard/page.tsx` | Stats overview (JWT-protected) |
+| `/admin/reports` | `app/admin/reports/page.tsx` | Report list with filters + status updates |
+| `/admin/reports/map` | `app/admin/reports/map/page.tsx` | Admin map view with status-coloured pins |
+| `/admin/users` | `app/admin/users/page.tsx` | Admin user management |
+| `/admin/profile` | `app/admin/profile/page.tsx` | Edit display name + change password |
+| `/admin/login` | `app/admin/login/page.tsx` | Admin login |
 
 ### Report Wizard Steps
 
@@ -423,19 +434,19 @@ npm run test:coverage
 
 ### Test inventory
 
-**Backend — 124 tests** (`cargo test`, no live DB required)
+**Backend — 177 tests** (`cargo test`, no live DB required)
 
 | Module | Tests |
 |--------|-------|
 | `models/report.rs` | Coordinate rounding, image URL construction, contact field absent from JSON |
 | `models/admin.rs` | Admin user response (no password hash), JWT claims, validation helpers |
 | `handlers/reports.rs` | Bengaluru bbox (all corners + just-outside edges), default field population, limit capping |
-| `handlers/admin.rs` | `validate_status`, `validate_create_user_request`, `require_role` pure functions |
+| `handlers/admin.rs` | `validate_status`, `validate_create_user_request`, `require_role`, `guard_super_admin_deactivation` pure functions |
 | `middleware/auth.rs` | JWT extract/verify, expired/wrong-key/alg-none rejection, role checks |
 | `config.rs` | `PUBLIC_URL` resolution |
 | `db/admin_seed.rs` | `should_seed` guards, Argon2id hash format + verifiability + unique salt |
 
-**Frontend — 212+ tests across 14+ suites** (`npm test`)
+**Frontend — 535+ tests across 15+ suites** (`npm test`)
 
 | Suite | Tests |
 |-------|-------|
@@ -449,11 +460,13 @@ npm run test:coverage
 | `components/__tests__/ReviewStrip.test.tsx` | Photo thumb, reverse geocode, category label |
 | `app/__tests__/home-page.test.tsx` | Hero copy, trust pills, CTAs |
 | `app/__tests__/report-page.test.tsx` | Full wizard flow, bbox gate, submit/error/success |
-| `admin/__tests__/adminApi.test.ts` | All 11 admin API client functions |
+| `admin/__tests__/adminApi.test.ts` | All admin API client functions |
 | `admin/__tests__/dashboard.test.tsx` | Stats cards, recent reports |
 | `admin/__tests__/reports-page.test.tsx` | Report list, filters, status update |
-| `admin/__tests__/users-page.test.tsx` | User list, create, deactivate |
-| `admin/login/__tests__/login-page.test.tsx` | Auth flow, 401/429/5xx/network/400/other-4xx error states, countdown |
+| `admin/__tests__/users-page.test.tsx` | User list, create, deactivate (super-admin badge) |
+| `admin/__tests__/profile-page.test.tsx` | Display name edit, password change, validation |
+| `admin/__tests__/reports-map-page.test.tsx` | Admin map with status-coloured pins, filters |
+| `admin/login/__tests__/login-page.test.tsx` | Auth flow, 401/429/5xx/network error states |
 
 ### Test infrastructure
 

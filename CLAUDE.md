@@ -19,7 +19,7 @@ bengaluru-walkability-public-audit/
 
 ### Option A: Full stack with Docker Compose
 ```bash
-cp backend/.env.example .env   # fill in secrets
+cp backend/.env.example backend/.env   # fill in secrets
 docker compose up --build
 # Visit http://localhost
 ```
@@ -62,6 +62,14 @@ cargo sqlx prepare --database-url "postgres://..."
 | GET | /api/reports/:id | Get single report |
 | GET | /health | Health check |
 | GET | /uploads/:filename | Serve uploaded images |
+| POST | /api/admin/auth/login | Admin login (sets HttpOnly cookie) |
+| POST | /api/admin/auth/logout | Admin logout |
+| GET | /api/admin/auth/me | Current admin user |
+| PATCH | /api/admin/auth/profile | Update display name |
+| POST | /api/admin/auth/change-password | Change password (Argon2id) |
+| GET/PATCH/DELETE | /api/admin/reports/* | Admin report management |
+| GET | /api/admin/stats | Aggregate counts |
+| GET/POST/DELETE | /api/admin/users/* | Admin user management |
 
 ### Environment Variables (backend/.env)
 ```
@@ -69,6 +77,10 @@ DATABASE_URL=postgres://walkability:secret@localhost:5432/walkability
 UPLOADS_DIR=./uploads
 PORT=3001
 CORS_ORIGIN=http://localhost:3000
+JWT_SECRET=<min-32-chars>
+ADMIN_SEED_EMAIL=admin@example.com
+ADMIN_SEED_PASSWORD=<min-12-chars>
+COOKIE_SECURE=false   # set true in production (HTTPS)
 ```
 
 ## Frontend (Next.js 14)
@@ -83,16 +95,23 @@ npm run lint      # ESLint
 
 ### Environment Variables (frontend/.env.local)
 ```
-NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_API_URL=http://localhost:3001   # local dev only; "" in Docker (relative URLs)
+INTERNAL_API_URL=http://localhost:3001      # server-side; http://backend:3001 in Docker
 ```
+
+**Config rule:** All env-var-based config must live in `frontend/app/lib/config.ts`. Never inline `process.env.*` directly in component files.
 
 ## Database
 
-Schema is in `backend/migrations/001_init.sql`. Applied automatically on backend startup via SQLx migrate.
+Schema applied automatically on startup via `sqlx::migrate!`. PostGIS extensions required: `postgis`, `pgcrypto`.
 
-PostGIS extensions required: `postgis`, `pgcrypto`.
+| Migration | Contents |
+|-----------|----------|
+| `001_init.sql` | `reports`, enums, indexes, triggers |
+| `002_admin.sql` | `admin_users`, `status_history`, `user_role` enum |
+| `003_super_admin.sql` | `is_super_admin BOOLEAN` column on `admin_users` |
 
-The `reports.location` column (GEOGRAPHY type) is auto-populated from lat/lng via a trigger — you never set it directly.
+The `reports.location` column (GEOGRAPHY type) is auto-populated from lat/lng via a trigger — never set it directly.
 
 ## Key Architectural Decisions
 
