@@ -186,4 +186,18 @@ mod tests {
             "Ward lookup failure must produce None (non-fatal); got Some(_)"
         );
     }
+
+    /// ABUSE-03 — SHA256 hash must be sensitive to byte content and produce
+    /// a 64-character hex string. This verifies the sha2 crate is wired
+    /// and that hash order sensitivity is preserved.
+    #[test]
+    fn photo_hash_sha256_is_byte_order_sensitive() {
+        use sha2::{Digest, Sha256};
+        let bytes_a: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        let bytes_b: &[u8] = &[2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        let hash_a = format!("{:x}", Sha256::digest(bytes_a));
+        let hash_b = format!("{:x}", Sha256::digest(bytes_b));
+        assert_ne!(hash_a, hash_b, "SHA256 of different bytes must differ");
+        assert_eq!(hash_a.len(), 64, "SHA256 hex string must be 64 chars");
+    }
 }

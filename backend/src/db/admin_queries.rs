@@ -479,7 +479,7 @@ pub async fn update_report_status(
     // Insert audit trail row.
     sqlx::query(
         r#"
-        INSERT INTO status_history (report_id, status, note, changed_by)
+        INSERT INTO status_history (report_id, new_status, note, changed_by)
         VALUES ($1, $2::report_status, $3, $4)
         "#,
     )
@@ -714,6 +714,19 @@ pub async fn assign_user_org(
     }
     Ok(())
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 02-02 — Dedup columns constant
+//
+// This constant is referenced by the unit test below to verify that
+// list_admin_reports SELECT includes the three deduplication columns.
+// Initialized to an empty string (RED state) — Task 2 sets the real value.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The three dedup columns that must appear in every list_admin_reports SELECT.
+/// Task 1 initialises this to "" so that admin_reports_includes_dedup_cols()
+/// fails (RED).  Task 2 sets the real column list and the test turns GREEN.
+pub const ADMIN_REPORT_DEDUP_COLS: &str = "";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure SQL-string helpers (testable without a database)
@@ -1124,6 +1137,30 @@ mod tests {
             full_where.contains("w.org_id = s.id"),
             "SQL with org_id=Some must join wards on w.org_id; got: {}",
             full_where
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite 5 — ABUSE-06: list_admin_reports must include dedup columns
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// ABUSE-06 — list_admin_reports SELECT must include the three dedup columns
+    /// so the frontend can show duplicate badges and Duplicate labels.
+    ///
+    /// RED PHASE: ADMIN_REPORT_DEDUP_COLS is "" until Task 2 sets the real value.
+    #[test]
+    fn admin_reports_includes_dedup_cols() {
+        assert!(
+            ADMIN_REPORT_DEDUP_COLS.contains("duplicate_count"),
+            "Admin reports SELECT must include duplicate_count (ABUSE-06)"
+        );
+        assert!(
+            ADMIN_REPORT_DEDUP_COLS.contains("duplicate_of_id"),
+            "Admin reports SELECT must include duplicate_of_id (ABUSE-06)"
+        );
+        assert!(
+            ADMIN_REPORT_DEDUP_COLS.contains("duplicate_confidence"),
+            "Admin reports SELECT must include duplicate_confidence (ABUSE-06)"
         );
     }
 
