@@ -18,7 +18,7 @@ Requirements for MVP — scoped for soft launch with Walkaluru / GBA.
 
 ### Anti-Abuse & Data Quality
 
-- [ ] **ABUSE-01**: Report submission is rate-limited at the application layer (max 5 reports/hour per IP) using `governor` crate, supplementing existing Nginx rate limiting
+- [ ] **ABUSE-01**: Report submission is rate-limited at the application layer (max 2 reports per IP per geohash-6 cell per hour) using `governor` crate, supplementing existing Nginx rate limiting — allows a citizen to report multiple issues while walking around, but throttles repeated submissions at the same ~100m location
 - [ ] **ABUSE-02**: A honeypot hidden field silently discards submissions from bots without any error message shown to human users
 - [ ] **ABUSE-03**: Reports within 50m of an existing open report of the same category are flagged as `potential_duplicate` with a `duplicate_count` increment on the original
 - [ ] **ABUSE-04**: When multiple users submit reports from the same location (within 50m, same category), `duplicate_confidence` is set to `high` — treated as a strong severity signal, not discarded
@@ -143,4 +143,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 ---
 
 *Requirements defined: 2026-03-11*
-*Last updated: 2026-03-11 — traceability updated after roadmap creation*
+*Last updated: 2026-03-13 — ABUSE-01 threshold updated to match locked implementation decision (2 reports/IP/geohash-6 cell/hour, not 5/IP)*
