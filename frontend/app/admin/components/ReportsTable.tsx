@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import StatusBadge from "./StatusBadge";
 import { getDuplicatesForReport, type AdminReport } from "../lib/adminApi";
 
@@ -193,27 +194,47 @@ export default function ReportsTable({
                           No duplicates loaded yet.
                         </p>
                       ) : (
-                        <table className="w-full text-xs">
+                        <table data-testid="dupe-subtable" className="w-full text-xs">
+                          <thead>
+                            <tr className="text-left text-gray-500 border-b border-gray-200">
+                              <th className="py-1 pr-2 font-medium">Ward</th>
+                              <th className="py-1 pr-2 font-medium">Date</th>
+                              <th className="py-1 pr-2 font-medium">Category</th>
+                              <th className="py-1 pr-2 font-medium">Status</th>
+                              <th className="py-1 font-medium">Severity</th>
+                            </tr>
+                          </thead>
                           <tbody>
                             {duplicateRows[report.id].map((dupe) => (
                               <tr
                                 key={dupe.id}
-                                className="border-b border-gray-100"
+                                className="border-b border-gray-100 cursor-pointer hover:bg-orange-50"
+                                onClick={() =>
+                                  window.location.assign(
+                                    `/admin/reports/${dupe.id}`
+                                  )
+                                }
                               >
                                 <td className="py-1 pr-2 text-gray-600">
-                                  {dupe.id.slice(0, 8)}
+                                  <a
+                                    href={`/admin/reports/${dupe.id}`}
+                                    className="sr-only"
+                                  >
+                                    View report
+                                  </a>
+                                  {dupe.ward_name ?? "—"}
                                 </td>
                                 <td className="py-1 pr-2 text-gray-600">
-                                  {dupe.created_at}
+                                  {new Date(dupe.created_at).toLocaleDateString()}
                                 </td>
                                 <td className="py-1 pr-2 text-gray-600">
                                   {dupe.category}
                                 </td>
                                 <td className="py-1 pr-2 text-gray-600">
-                                  {dupe.severity}
+                                  <StatusBadge status={dupe.status} />
                                 </td>
                                 <td className="py-1 text-gray-600">
-                                  {dupe.status}
+                                  {dupe.severity}
                                 </td>
                               </tr>
                             ))}

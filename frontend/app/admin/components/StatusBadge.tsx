@@ -39,6 +39,7 @@ export default function StatusBadge({ status }: StatusBadgeProps) {
   if (config) {
     return (
       <span
+        data-testid="status-badge"
         role="status"
         className={config.className}
         aria-label={config.ariaLabel}
@@ -51,6 +52,7 @@ export default function StatusBadge({ status }: StatusBadgeProps) {
   // Unknown status fallback — gray, aria-label contains raw value
   return (
     <span
+      data-testid="status-badge"
       role="status"
       className={FALLBACK_CONFIG.className}
       aria-label={`Status: ${status}`}
