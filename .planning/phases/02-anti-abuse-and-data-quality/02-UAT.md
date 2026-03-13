@@ -1,9 +1,9 @@
 ---
-status: complete
+status: resolved
 phase: 02-anti-abuse-and-data-quality
 source: [02-01-SUMMARY.md, 02-02-SUMMARY.md]
 started: 2026-03-13T00:00:00Z
-updated: 2026-03-13T00:00:00Z
+updated: 2026-03-13T12:00:00Z
 ---
 
 ## Current Test
@@ -55,11 +55,21 @@ skipped: 0
 ## Gaps
 
 - truth: "Expandable duplicate sub-table shows meaningful report details (category, status, date, ward) and provides a way to navigate to the full report (photo, description, audit log, submitter details)"
-  status: failed
+  status: resolved
   reason: "User reported: the sub-table shows a random string of characters like an ID which has no meaning to the viewer. Also, there is no way to click on any of the reports to see further details like a photo, an audit log, description, details of the submitter etc"
   severity: major
   test: 7
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "ReportsTable.tsx sub-table renders raw UUID slice as first column instead of ward_name; created_at is unformatted ISO string; no <thead> column headers; no detail route exists at /admin/reports/[id]/ — only the frontend rendering and route are missing, backend API and DB query are complete"
+  artifacts:
+    - path: "frontend/app/admin/components/ReportsTable.tsx"
+      issue: "Sub-table renders id.slice(0,8) instead of ward_name; missing <thead>; created_at unformatted; status not using StatusBadge; rows not clickable"
+    - path: "frontend/app/admin/reports/[id]/page.tsx"
+      issue: "File does not exist — detail route entirely absent despite backend GET /api/admin/reports/:id being complete"
+  missing:
+    - "Replace raw UUID column with ward_name in sub-table"
+    - "Format created_at with toLocaleDateString()"
+    - "Add <thead> with column labels"
+    - "Wrap status in StatusBadge"
+    - "Create frontend/app/admin/reports/[id]/page.tsx detail route using existing getAdminReport() in adminApi.ts"
+    - "Make sub-table rows link to /admin/reports/[id]"
   debug_session: ""
