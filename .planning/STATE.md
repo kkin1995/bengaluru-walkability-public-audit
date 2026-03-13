@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Phase 2 context gathered
-last_updated: "2026-03-13T04:24:22.869Z"
+stopped_at: Completed 02-anti-abuse-and-data-quality/02-01-PLAN.md
+last_updated: "2026-03-13T04:58:16.137Z"
 last_activity: "2026-03-12 — Plan 04 complete: admin reports JSON shape fixed, ward LEFT JOIN added"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
   percent: 15
 ---
 
@@ -56,6 +56,7 @@ Progress: [█░░░░░░░░░] 15%
 | Phase 01-ward-foundation P04 | 15 | 2 tasks | 4 files |
 | Phase 01-ward-foundation P05 | 5 | 1 tasks | 1 files |
 | Phase 01-ward-foundation P06 | 3 | 2 tasks | 4 files |
+| Phase 02-anti-abuse-and-data-quality P01 | 5 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,9 @@ Progress: [█░░░░░░░░░] 15%
 - [Phase 01-ward-foundation]: Two-word surgical fix: wards.name → wards.ward_name in both production SQL and test SQL — nothing else changed
 - [Phase 01-06]: org_id NOT stored in JwtClaims — fetched from DB per request via claims.sub to avoid token re-issue on every org reassignment
 - [Phase 01-06]: wards.org_id FK added via migration 006 — enables direct JOIN in recursive CTE scoping query; NULL initially so org-scoped admins see zero reports until data is seeded
+- [Phase 02-01]: geohash precision=6 gives ~1.2km x 0.6km cells for anti-flood rate limiting; key format is {ip}:{geohash6}
+- [Phase 02-01]: Honeypot uses position:absolute;left:-9999px (not display:none) — bots detect display:none via computed style; fake success returns nil UUID with no error signal
+- [Phase 02-01]: axum::serve uses into_make_service_with_connect_info::<SocketAddr>() to enable ConnectInfo extractor; X-Real-IP header read first, TCP peer as fallback
 
 ### Pending Todos
 
@@ -89,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T04:24:22.868Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-anti-abuse-and-data-quality/02-CONTEXT.md
+Last session: 2026-03-13T04:58:16.135Z
+Stopped at: Completed 02-anti-abuse-and-data-quality/02-01-PLAN.md
+Resume file: None

@@ -18,8 +18,8 @@ Requirements for MVP — scoped for soft launch with Walkaluru / GBA.
 
 ### Anti-Abuse & Data Quality
 
-- [ ] **ABUSE-01**: Report submission is rate-limited at the application layer (max 2 reports per IP per geohash-6 cell per hour) using `governor` crate, supplementing existing Nginx rate limiting — allows a citizen to report multiple issues while walking around, but throttles repeated submissions at the same ~100m location
-- [ ] **ABUSE-02**: A honeypot hidden field silently discards submissions from bots without any error message shown to human users
+- [x] **ABUSE-01**: Report submission is rate-limited at the application layer (max 2 reports per IP per geohash-6 cell per hour) using `governor` crate, supplementing existing Nginx rate limiting — allows a citizen to report multiple issues while walking around, but throttles repeated submissions at the same ~100m location
+- [x] **ABUSE-02**: A honeypot hidden field silently discards submissions from bots without any error message shown to human users
 - [ ] **ABUSE-03**: Reports within 50m of an existing open report of the same category are flagged as `potential_duplicate` with a `duplicate_count` increment on the original
 - [ ] **ABUSE-04**: When multiple users submit reports from the same location (within 50m, same category), `duplicate_confidence` is set to `high` — treated as a strong severity signal, not discarded
 - [ ] **ABUSE-05**: Exact duplicate photos (same SHA256 hash) are silently rejected at upload
@@ -112,8 +112,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WARD-02 | Phase 1 | Complete |
 | WARD-03 | Phase 1 | Complete |
 | WARD-04 | Phase 1 | Complete |
-| ABUSE-01 | Phase 2 | Pending |
-| ABUSE-02 | Phase 2 | Pending |
+| ABUSE-01 | Phase 2 | Complete |
+| ABUSE-02 | Phase 2 | Complete |
 | ABUSE-03 | Phase 2 | Pending |
 | ABUSE-04 | Phase 2 | Pending |
 | ABUSE-05 | Phase 2 | Pending |
