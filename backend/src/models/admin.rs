@@ -162,6 +162,9 @@ pub struct AdminReportFilters {
     pub date_to: Option<chrono::DateTime<chrono::Utc>>,
     pub page: Option<i64>,
     pub limit: Option<i64>,
+    /// When present, return only reports whose duplicate_of_id matches this UUID.
+    /// Used by the admin frontend expandable row to fetch linked duplicates.
+    pub duplicate_of_id: Option<uuid::Uuid>,
 }
 
 /// Body for PATCH /api/admin/reports/:id/status.

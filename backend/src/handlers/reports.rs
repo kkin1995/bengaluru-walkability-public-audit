@@ -190,6 +190,21 @@ pub async fn create_report(
         req.severity = "medium".to_string();
     }
 
+    // ABUSE-03: Compute SHA256 of raw bytes BEFORE EXIF stripping.
+    // This ensures re-uploads of the same photo produce the same hash regardless
+    // of client-side EXIF strip behaviour.
+    {
+        use sha2::{Digest, Sha256};
+        let photo_hash = format!("{:x}", Sha256::digest(&req.image_bytes));
+
+        // Check for exact duplicate photo — return fake success without writing anything
+        if queries::check_photo_hash_exists(&state.pool, &photo_hash).await? {
+            return Ok(Json(fake_success_response()));
+        }
+
+        req.photo_hash = Some(photo_hash);
+    }
+
     // Validate coordinates fall within Bengaluru
     const LAT_MIN: f64 = 12.7342;
     const LAT_MAX: f64 = 13.1739;
@@ -214,7 +229,7 @@ pub async fn create_report(
         ));
     }
 
-    // Store submitter_ip for Plan 02 deduplication pipeline.
+    // Store submitter_ip for deduplication confidence calculation.
     req.submitter_ip = Some(client_ip);
 
     // Look up the ward for this coordinate — non-fatal if PostGIS fails.

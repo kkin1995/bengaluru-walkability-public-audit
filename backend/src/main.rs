@@ -97,6 +97,14 @@ async fn main() {
 
     db::admin_seed::seed_admin_user(&pool).await;
 
+    // ABUSE-03/ABUSE-04: Spawn proximity deduplication background task.
+    // Polls every 5 minutes to find unlinked reports within 50m of same-category
+    // open reports and links them atomically via duplicate_of_id.
+    tokio::spawn(crate::db::dedup_job::run_dedup_loop(Arc::clone(
+        &Arc::new(pool.clone()),
+    )));
+    tracing::info!("Dedup background job started (5-minute poll interval)");
+
     let api_base_url = config.public_url.clone();
 
     let jwt_secret = std::env::var("JWT_SECRET")

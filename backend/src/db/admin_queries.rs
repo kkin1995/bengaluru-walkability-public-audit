@@ -357,14 +357,18 @@ pub async fn list_admin_reports(
             reports.submitter_contact,
             reports.status::TEXT AS status,
             reports.location_source::TEXT AS location_source,
-            wards.ward_name AS ward_name
+            wards.ward_name AS ward_name,
+            {dedup_cols}
         FROM reports
         LEFT JOIN wards ON wards.id = reports.ward_id
-        {}
+        {where_clause}
         ORDER BY reports.created_at DESC
-        LIMIT ${} OFFSET ${}
+        LIMIT ${limit_idx} OFFSET ${offset_idx}
         "#,
-        full_where, limit_idx, offset_idx
+        dedup_cols = ADMIN_REPORT_DEDUP_COLS,
+        where_clause = full_where,
+        limit_idx = limit_idx,
+        offset_idx = offset_idx,
     );
 
     // Bind filter values in the same order as conditions were added.
@@ -383,19 +387,68 @@ pub async fn list_admin_reports(
         .iter()
         .map(|row| {
             serde_json::json!({
-                "id":                row.get::<Uuid, _>("id"),
-                "created_at":        row.get::<DateTime<Utc>, _>("created_at"),
-                "image_path":        row.get::<String, _>("image_path"),
-                "latitude":          row.get::<f64, _>("latitude"),
-                "longitude":         row.get::<f64, _>("longitude"),
-                "category":          row.get::<String, _>("category"),
-                "severity":          row.get::<String, _>("severity"),
-                "description":       row.get::<Option<String>, _>("description"),
-                "submitter_name":    row.get::<Option<String>, _>("submitter_name"),
-                "submitter_contact": row.get::<Option<String>, _>("submitter_contact"),
-                "status":            row.get::<String, _>("status"),
-                "location_source":   row.get::<String, _>("location_source"),
-                "ward_name":         row.get::<Option<String>, _>("ward_name"),
+                "id":                   row.get::<Uuid, _>("id"),
+                "created_at":           row.get::<DateTime<Utc>, _>("created_at"),
+                "image_path":           row.get::<String, _>("image_path"),
+                "latitude":             row.get::<f64, _>("latitude"),
+                "longitude":            row.get::<f64, _>("longitude"),
+                "category":             row.get::<String, _>("category"),
+                "severity":             row.get::<String, _>("severity"),
+                "description":          row.get::<Option<String>, _>("description"),
+                "submitter_name":       row.get::<Option<String>, _>("submitter_name"),
+                "submitter_contact":    row.get::<Option<String>, _>("submitter_contact"),
+                "status":               row.get::<String, _>("status"),
+                "location_source":      row.get::<String, _>("location_source"),
+                "ward_name":            row.get::<Option<String>, _>("ward_name"),
+                "duplicate_count":      row.try_get::<i32, _>("duplicate_count").unwrap_or(0),
+                "duplicate_of_id":      row.try_get::<Option<Uuid>, _>("duplicate_of_id").unwrap_or(None),
+                "duplicate_confidence": row.try_get::<Option<String>, _>("duplicate_confidence").unwrap_or(None),
+            })
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Fetch all reports that are marked as duplicates of the given original report ID.
+/// Returns a lightweight JSON representation used by the admin frontend expandable row.
+pub async fn get_duplicate_reports_for_original(
+    pool: &PgPool,
+    original_id: Uuid,
+) -> Result<Vec<serde_json::Value>, AppError> {
+    let rows = sqlx::query(
+        r#"SELECT reports.id, reports.created_at, reports.image_path,
+                  reports.latitude, reports.longitude,
+                  reports.category::TEXT AS category, reports.severity::TEXT AS severity,
+                  reports.description, reports.submitter_name, reports.status::TEXT AS status,
+                  wards.ward_name AS ward_name
+           FROM reports
+           LEFT JOIN wards ON reports.ward_id = wards.id
+           WHERE reports.duplicate_of_id = $1
+           ORDER BY reports.created_at ASC"#,
+    )
+    .bind(original_id)
+    .fetch_all(pool)
+    .await?;
+
+    let result = rows
+        .iter()
+        .map(|row| {
+            serde_json::json!({
+                "id":               row.try_get::<Uuid, _>("id").ok().map(|u| u.to_string()),
+                "created_at":       row.try_get::<DateTime<Utc>, _>("created_at").ok(),
+                "image_path":       row.try_get::<String, _>("image_path").unwrap_or_default(),
+                "latitude":         row.try_get::<f64, _>("latitude").unwrap_or(0.0),
+                "longitude":        row.try_get::<f64, _>("longitude").unwrap_or(0.0),
+                "category":         row.try_get::<String, _>("category").unwrap_or_default(),
+                "severity":         row.try_get::<String, _>("severity").unwrap_or_default(),
+                "description":      row.try_get::<Option<String>, _>("description").unwrap_or(None),
+                "submitter_name":   row.try_get::<Option<String>, _>("submitter_name").unwrap_or(None),
+                "status":           row.try_get::<String, _>("status").unwrap_or_default(),
+                "ward_name":        row.try_get::<Option<String>, _>("ward_name").unwrap_or(None),
+                "duplicate_of_id":  null,
+                "duplicate_count":  0,
+                "duplicate_confidence": null,
             })
         })
         .collect();
@@ -724,9 +777,9 @@ pub async fn assign_user_org(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// The three dedup columns that must appear in every list_admin_reports SELECT.
-/// Task 1 initialises this to "" so that admin_reports_includes_dedup_cols()
-/// fails (RED).  Task 2 sets the real column list and the test turns GREEN.
-pub const ADMIN_REPORT_DEDUP_COLS: &str = "";
+/// Referenced by unit tests and used to build the SELECT dynamically.
+pub const ADMIN_REPORT_DEDUP_COLS: &str =
+    "reports.duplicate_count, reports.duplicate_of_id, reports.duplicate_confidence";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure SQL-string helpers (testable without a database)

@@ -24,6 +24,22 @@ pub struct Report {
     /// Ward the report falls in — auto-populated at creation time via PostGIS ST_Within.
     /// NULL when the point does not match any ward polygon (or ward lookup fails).
     pub ward_id: Option<Uuid>,
+    // ── Phase 02-02: Deduplication fields ───────────────────────────────────
+    /// SHA256 hex of raw image bytes (computed before EXIF strip).
+    /// Used for exact-duplicate photo detection.
+    pub photo_hash: Option<String>,
+    /// Points to the original report this row is a duplicate of.
+    /// NULL means this is an original (non-duplicate) report.
+    pub duplicate_of_id: Option<Uuid>,
+    /// Count of reports linked to this original (via duplicate_of_id = self.id).
+    /// Incremented atomically by the dedup background job.
+    pub duplicate_count: i32,
+    /// 'low' or 'high' — set to 'high' when distinct submitter IPs >= 2.
+    pub duplicate_confidence: Option<String>,
+    /// Client IP stored for dedup confidence calculation.
+    /// Admin-only; never included in ReportResponse.
+    #[allow(dead_code)]
+    pub submitter_ip: Option<String>,
 }
 
 /// JSON response shape
@@ -80,8 +96,10 @@ pub struct CreateReportRequest {
     pub submitter_contact: Option<String>,
     pub location_source: String,
     /// Client IP set by the create_report handler after rate-limit check.
-    /// Stored here for Plan 02 deduplication pipeline; not yet wired to SQL INSERT.
     pub submitter_ip: Option<String>,
+    /// SHA256 hex of raw image bytes, computed before EXIF strip.
+    /// Set by the create_report handler for exact-duplicate photo detection.
+    pub photo_hash: Option<String>,
 }
 
 /// Query params for list endpoint
@@ -131,6 +149,11 @@ mod tests {
             status: "new".to_string(),
             location_source: "manual_pin".to_string(),
             ward_id: None,
+            photo_hash: None,
+            duplicate_of_id: None,
+            duplicate_count: 0,
+            duplicate_confidence: None,
+            submitter_ip: None,
         }
     }
 

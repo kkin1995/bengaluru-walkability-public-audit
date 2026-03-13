@@ -35,6 +35,18 @@ pub async fn get_ward_for_point(
     Ok(row.map(|(id,)| id))
 }
 
+/// Check whether a photo with the given SHA256 hash already exists in the DB.
+/// Used by create_report to silently reject exact duplicate photo uploads.
+pub async fn check_photo_hash_exists(pool: &PgPool, hash: &str) -> Result<bool, AppError> {
+    let count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM reports WHERE photo_hash = $1",
+    )
+    .bind(hash)
+    .fetch_one(pool)
+    .await?;
+    Ok(count > 0)
+}
+
 pub async fn insert_report(
     pool: &PgPool,
     req: &CreateReportRequest,
@@ -45,9 +57,11 @@ pub async fn insert_report(
         r#"
         INSERT INTO reports
             (image_path, latitude, longitude, category, severity,
-             description, submitter_name, submitter_contact, location_source, ward_id)
+             description, submitter_name, submitter_contact, location_source, ward_id,
+             photo_hash, submitter_ip)
         VALUES ($1, $2, $3, $4::issue_category, $5::severity_level,
-                $6, $7, $8, $9::location_source, $10)
+                $6, $7, $8, $9::location_source, $10,
+                $11, $12)
         RETURNING
             id, created_at, image_path, latitude, longitude,
             category::TEXT AS category,
@@ -57,7 +71,12 @@ pub async fn insert_report(
             submitter_contact,
             status::TEXT AS status,
             location_source::TEXT AS location_source,
-            ward_id
+            ward_id,
+            photo_hash,
+            duplicate_of_id,
+            duplicate_count,
+            duplicate_confidence,
+            submitter_ip
         "#,
     )
     .bind(image_path)
@@ -70,6 +89,8 @@ pub async fn insert_report(
     .bind(req.submitter_contact.as_deref())
     .bind(&req.location_source)
     .bind(ward_id)
+    .bind(req.photo_hash.as_deref())
+    .bind(req.submitter_ip.as_deref())
     .fetch_one(pool)
     .await?;
 
@@ -96,7 +117,12 @@ pub async fn list_reports(
             submitter_contact,
             status::TEXT AS status,
             location_source::TEXT AS location_source,
-            ward_id
+            ward_id,
+            photo_hash,
+            duplicate_of_id,
+            duplicate_count,
+            duplicate_confidence,
+            submitter_ip
         FROM reports
         WHERE
             ($1::TEXT IS NULL OR category::TEXT = $1)
@@ -127,7 +153,12 @@ pub async fn get_report_by_id(pool: &PgPool, id: Uuid) -> Result<Report, AppErro
             submitter_contact,
             status::TEXT AS status,
             location_source::TEXT AS location_source,
-            ward_id
+            ward_id,
+            photo_hash,
+            duplicate_of_id,
+            duplicate_count,
+            duplicate_confidence,
+            submitter_ip
         FROM reports
         WHERE id = $1
         "#,

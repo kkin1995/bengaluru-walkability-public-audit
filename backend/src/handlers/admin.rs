@@ -402,6 +402,26 @@ pub async fn admin_list_reports(
     State(state): State<Arc<AppState>>,
     Query(params): Query<AdminReportFilters>,
 ) -> Result<Json<serde_json::Value>, AppError> {
+    // ABUSE-06: If duplicate_of_id is present, return only the linked duplicates
+    // for the expandable row — bypass the normal paginated list.
+    if let Some(original_id) = params.duplicate_of_id {
+        let duplicates = admin_queries::get_duplicate_reports_for_original(
+            &state.pool,
+            original_id,
+        )
+        .await?;
+        let count = duplicates.len() as i64;
+        return Ok(Json(serde_json::json!({
+            "data": duplicates,
+            "pagination": {
+                "page": 1,
+                "limit": count,
+                "total_count": count,
+                "total_pages": 1,
+            }
+        })));
+    }
+
     let page = params.page.unwrap_or(1).max(1);
     let limit = params.limit.unwrap_or(20);
     let limit = if limit <= 0 { 20 } else { limit.clamp(1, 200) };

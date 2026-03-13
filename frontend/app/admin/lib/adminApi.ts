@@ -49,6 +49,10 @@ export interface AdminReport {
   status: string;
   location_source: string;
   ward_name: string | null;
+  // ABUSE-06: Deduplication signals (Phase 02-02)
+  duplicate_count?: number;
+  duplicate_of_id?: string | null;
+  duplicate_confidence?: string | null;
 }
 
 export interface Organization {
@@ -184,6 +188,17 @@ export async function deleteReport(id: string): Promise<void> {
   return apiFetch<void>(`${BASE}/api/admin/reports/${id}`, {
     method: "DELETE",
   });
+}
+
+/// Fetch all duplicate reports linked to the given original report ID.
+/// Called by the admin frontend expandable row on expand.
+export async function getDuplicatesForReport(
+  originalId: string
+): Promise<AdminReport[]> {
+  const data = await apiFetch<AdminReportListResponse>(
+    `${BASE}/api/admin/reports?duplicate_of_id=${encodeURIComponent(originalId)}`
+  );
+  return data.data ?? [];
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
