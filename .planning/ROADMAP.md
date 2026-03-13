@@ -13,7 +13,7 @@ The citizen-facing submission and admin dashboard already exist. This milestone 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Ward Foundation** - Import ward boundaries, auto-tag all reports to wards, build flexible organization hierarchy (completed 2026-03-12)
-- [ ] **Phase 2: Anti-Abuse and Data Quality** - Per-IP rate limiting, honeypot, proximity duplicate flagging, photo hash dedup (gap closure in progress)
+- [x] **Phase 2: Anti-Abuse and Data Quality** - Per-IP rate limiting, honeypot, proximity duplicate flagging, photo hash dedup (gap closure in progress) (completed 2026-03-13)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
@@ -100,6 +100,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Ward Foundation | 6/6 | Complete   | 2026-03-12 |
-| 2. Anti-Abuse and Data Quality | 2/3 | Gap closure | 2026-03-13 |
+| 2. Anti-Abuse and Data Quality | 3/3 | Complete   | 2026-03-13 |
 | 3. Government Triage Workflow | 0/3 | Not started | - |
 | 4. Export and Public Analytics | 0/4 | Not started | - |
