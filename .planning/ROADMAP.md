@@ -66,12 +66,13 @@ Plans:
   3. An admin can add plain-text resolution notes when marking a report Resolved or Closed — notes are stored and visible in the admin detail view
   4. An admin can upload a resolution photo when marking a report Resolved — the after-photo is stored and linked to the report
   5. Public map pins display distinct colors for Open, In Progress, and Resolved — a citizen clicking any pin sees the current status in the popup
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 03-01: Status lifecycle expansion (DB migration for new statuses, status_history trigger/handler, backend API)
-- [ ] 03-02: Org assignment and resolution evidence (assign handler, resolution notes field, resolution photo upload)
-- [ ] 03-03: Public map status display (color-coded pins by status, status field in map popup)
+- [ ] 03-01-PLAN.md — DB migrations 008/009 (ENUM rename + add values), Report/ReportResponse struct extension, get_report_stats fix
+- [ ] 03-02-PLAN.md — Backend: expanded validate_status, resolve_report and assign_report_org DB fns, two new handler routes
+- [ ] 03-03-PLAN.md — Admin frontend: StatusBadge expansion, ResolveModal, OrgPicker, detail page wiring
+- [ ] 03-04-PLAN.md — Public map: STATUS_COLORS pin colors, popup status label + after-photo, map legend update
 
 ### Phase 4: Export and Public Analytics
 **Goal**: GBA planners can download actionable exports in their preferred format, citizens can see high-level progress statistics, and admins have ward-level analytics to identify where investment is most needed
@@ -101,5 +102,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Ward Foundation | 6/6 | Complete   | 2026-03-12 |
 | 2. Anti-Abuse and Data Quality | 3/3 | Complete   | 2026-03-13 |
-| 3. Government Triage Workflow | 0/3 | Not started | - |
+| 3. Government Triage Workflow | 0/4 | Not started | - |
 | 4. Export and Public Analytics | 0/4 | Not started | - |
