@@ -413,4 +413,22 @@ mod tests {
             "submitter_contact value must NOT appear in the public JSON response"
         );
     }
+
+    #[test]
+    fn test_response_omits_submitter_name() {
+        // Security/privacy: submitter_name must never appear in the public response.
+        // ReportResponse has no submitter_name field — this is a compile-time guarantee.
+        // We verify the field is simply absent from the serialised JSON.
+        let report = Report {
+            submitter_name: Some("John Doe".to_string()),
+            ..make_report(12.9716, 77.5946)
+        };
+        let response = report.into_response("http://localhost:3001");
+        let json = serde_json::to_string(&response).expect("serialisation must not fail");
+        assert!(
+            !json.contains("submitter_name"),
+            "submitter_name must NOT appear in the public JSON response, but got: {}",
+            json
+        );
+    }
 }
