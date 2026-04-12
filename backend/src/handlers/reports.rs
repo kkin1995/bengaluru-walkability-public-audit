@@ -65,7 +65,6 @@ fn fake_success_response() -> ReportResponse {
         category: "no_footpath".to_string(),
         severity: "medium".to_string(),
         description: None,
-        submitter_name: None,
         status: "submitted".to_string(),
         location_source: "manual_pin".to_string(),
         ward_name: None,

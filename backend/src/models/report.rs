@@ -63,7 +63,6 @@ pub struct ReportResponse {
     pub category: String,
     pub severity: String,
     pub description: Option<String>,
-    pub submitter_name: Option<String>,
     pub status: String,
     pub location_source: String,
     /// Ward name — None in public endpoint (admin handler joins and populates).
@@ -83,7 +82,6 @@ impl Report {
             category: self.category,
             severity: self.severity,
             description: self.description,
-            submitter_name: self.submitter_name,
             status: self.status,
             location_source: self.location_source,
             // Public endpoint never exposes ward_name — admin handler populates it when needed.
