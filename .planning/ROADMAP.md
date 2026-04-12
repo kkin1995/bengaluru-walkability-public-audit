@@ -56,6 +56,25 @@ Plans:
 - [ ] 02-02-PLAN.md — Photo hash dedup (SHA256 before EXIF strip), async proximity dedup job (ST_DWithin 50m, 5-min poll), admin queue duplicate signals
 - [ ] 02-03-PLAN.md — Gap closure: fix duplicate sub-table rendering (ward_name, dates, StatusBadge, clickable rows) and create /admin/reports/[id] detail page
 
+### Phase 02.1: OWASP Secure Coding Practices Audit and Hardening (INSERTED)
+
+**Goal:** All OWASP-relevant security findings on the public submission path and admin JWT auth path are remediated or formally accepted with documented rationale before GBA soft launch
+**Depends on:** Phase 02
+**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, SEC-06, SEC-07
+**Success Criteria** (what must be TRUE):
+  1. Public API responses (GET /api/reports, GET /api/reports/:id) do not contain submitter_name PII
+  2. All production handlers use the single canonical require_role from middleware (admin-is-superset semantics)
+  3. No .unwrap() calls on serde_json::to_value in production handler paths
+  4. COOKIE_SECURE defaults to true in production docker-compose
+  5. nginx.conf documents TLS termination expectations and CSP style-src has no unsafe-inline
+  6. Login page and password validation are hardened against information leakage and threshold mismatch
+  7. CI pipeline runs cargo audit and npm audit --audit-level=high on every PR
+**Plans**: 2 plans
+
+Plans:
+- [ ] 02.1-01-PLAN.md — Backend hardening: strip submitter_name from public API, remove duplicate require_role, fix serde_json unwraps
+- [ ] 02.1-02-PLAN.md — Config/frontend/CI hardening: COOKIE_SECURE default, TLS docs, CSP, login error, password threshold, dependency audits
+
 ### Phase 3: Government Triage Workflow
 **Goal**: GBA admins can move reports through a full status lifecycle, assign reports to the correct corporation or ward office, attach resolution evidence, and the public map reflects every status change in real time
 **Depends on**: Phase 2
@@ -96,11 +115,12 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 2.1 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Ward Foundation | 6/6 | Complete   | 2026-03-12 |
 | 2. Anti-Abuse and Data Quality | 3/3 | Complete   | 2026-03-13 |
+| 2.1 OWASP Hardening | 0/2 | Not started | - |
 | 3. Government Triage Workflow | 0/4 | Not started | - |
 | 4. Export and Public Analytics | 0/4 | Not started | - |
