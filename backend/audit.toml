@@ -1,0 +1,13 @@
+# Rust dependency vulnerability allowlist for cargo-audit.
+# Add CVE IDs here ONLY when no fix is available upstream and the risk
+# has been assessed and documented. Remove entries as fixes become available.
+#
+# Format:
+# [advisories]
+# ignore = ["RUSTSEC-YYYY-NNNN"]  # crate_name — reason and date assessed
+#
+# Run manually: cd backend && cargo audit
+# CI enforces this on every PR via .github/workflows/ci.yml
+
+[advisories]
+ignore = []
