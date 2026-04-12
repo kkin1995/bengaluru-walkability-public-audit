@@ -16,6 +16,7 @@ services:
       - target_cache:/app/target
     environment:
       CORS_ORIGIN: http://localhost:3000
+      COOKIE_SECURE: "false"
 
   frontend:
     build:
