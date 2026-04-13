@@ -27,6 +27,14 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 - ✓ CI/CD pipeline (GitHub Actions: frontend + backend + Docker build) — Phase 2
 - ✓ Structured logging with request ID propagation (tracing + json) — Phase 2
 - ✓ Optional reporter contact fields (name, phone) at submission — Phase 1
+- ✓ PII exclusion: submitter_name absent from public API at struct level (compile-time guarantee) — Phase 02.1
+- ✓ Single require_role with admin-is-superset semantics (no local duplicates) — Phase 02.1
+- ✓ No .unwrap() on serde_json serialization in production handlers — Phase 02.1
+- ✓ COOKIE_SECURE defaults to true in production; explicit false override for dev — Phase 02.1
+- ✓ CSP style-src without unsafe-inline; TLS termination documented in nginx — Phase 02.1
+- ✓ Login page never surfaces raw server error messages (A07 hardening) — Phase 02.1
+- ✓ Password validation threshold aligned frontend/backend (12 chars) — Phase 02.1
+- ✓ Dependency vulnerability scanning in CI (cargo audit + npm audit --audit-level=high) — Phase 02.1
 
 ### Active
 
@@ -96,4 +104,4 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 | PWN algorithm deferred | Need minimum 6–12 months of real report data to make algorithm meaningful | — Pending |
 
 ---
-*Last updated: 2026-03-11 after initialization*
+*Last updated: 2026-04-13 — Phase 02.1 complete (OWASP hardening)*
