@@ -174,30 +174,6 @@ pub fn validate_create_user_request(
     }
 }
 
-/// Enforce that the authenticated caller holds the required role.
-///
-/// # Contract (AC-ADMIN-USERS R-USR-1/2/3, AC-ADMIN-RPT R24)
-/// Returns `Ok(())` when `claims.role == required_role`.
-/// Returns `Err(AppError::Forbidden("Insufficient role".to_string()))` otherwise.
-///
-/// # Dependency on AppError::Forbidden
-/// This function will not compile until `AppError::Forbidden(String)` is added
-/// to `errors.rs`.  See the implementation instructions at the top of this file.
-///
-/// TODO: implement — replace todo!() with:
-///   if claims.role == required_role {
-///       Ok(())
-///   } else {
-///       Err(AppError::Forbidden("Insufficient role".to_string()))
-///   }
-#[allow(dead_code)] // used only in #[cfg(test)] tests in this file
-pub fn require_role(claims: &JwtClaims, required_role: &str) -> Result<(), AppError> {
-    if claims.role == required_role {
-        Ok(())
-    } else {
-        Err(AppError::Forbidden)
-    }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // § 2b — Phase 2 pure validation helpers (tested below, no I/O)
@@ -387,7 +363,7 @@ pub async fn admin_me(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    Ok(Json(serde_json::to_value(user.into_response()).unwrap()))
+    Ok(Json(serde_json::to_value(user.into_response()).map_err(|e| AppError::Internal(e.to_string()))?))
 }
 
 // ── Admin report handlers ─────────────────────────────────────────────────────
@@ -599,7 +575,7 @@ pub async fn admin_get_stats(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let stats = admin_queries::get_report_stats(&state.pool).await?;
-    Ok(Json(serde_json::to_value(stats).unwrap()))
+    Ok(Json(serde_json::to_value(stats).map_err(|e| AppError::Internal(e.to_string()))?))
 }
 
 // ── Admin user management handlers ───────────────────────────────────────────
@@ -614,8 +590,8 @@ pub async fn admin_list_users(
     let users = admin_queries::list_admin_users(&state.pool).await?;
     let responses: Vec<serde_json::Value> = users
         .into_iter()
-        .map(|u| serde_json::to_value(u.into_response()).unwrap())
-        .collect();
+        .map(|u| serde_json::to_value(u.into_response()).map_err(|e| AppError::Internal(e.to_string())))
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(Json(serde_json::json!(responses)))
 }
@@ -653,7 +629,7 @@ pub async fn admin_create_user(
         "Admin user created"
     );
 
-    let response = serde_json::to_value(user.into_response()).unwrap();
+    let response = serde_json::to_value(user.into_response()).map_err(|e| AppError::Internal(e.to_string()))?;
     Ok((StatusCode::CREATED, Json(response)))
 }
 
@@ -849,10 +825,11 @@ pub async fn admin_assign_user_org(
 #[cfg(test)]
 mod tests {
     use super::{
-        require_role, validate_change_password, validate_create_user_request,
-        validate_profile_display_name, validate_status, JwtClaims,
+        validate_change_password, validate_create_user_request,
+        validate_profile_display_name, validate_status,
     };
     use crate::errors::AppError;
+    use crate::middleware::auth::{require_role, JwtClaims};
 
     // ─────────────────────────────────────────────────────────────────────────
     // Test helpers

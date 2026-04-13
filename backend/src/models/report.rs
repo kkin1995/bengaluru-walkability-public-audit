@@ -14,6 +14,9 @@ pub struct Report {
     pub category: String,
     pub severity: String,
     pub description: Option<String>,
+    // Stored in DB for operator use but intentionally excluded from
+    // ReportResponse to protect submitter privacy in public API responses.
+    #[allow(dead_code)]
     pub submitter_name: Option<String>,
     // Stored in the DB for operator use but intentionally excluded from
     // ReportResponse to protect submitter privacy in public API responses.
