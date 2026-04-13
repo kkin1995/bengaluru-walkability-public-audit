@@ -42,6 +42,10 @@ jobs:
         working-directory: frontend
         run: npm test -- --passWithNoTests --watchAll=false
 
+      - name: Dependency audit (npm audit)
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
   backend-checks:
     name: "Backend — clippy + test"
     runs-on: ubuntu-latest
@@ -66,6 +70,13 @@ jobs:
       - name: Unit tests
         working-directory: backend
         run: cargo test
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Dependency audit (cargo audit)
+        working-directory: backend
+        run: cargo audit
 
   docker-build:
     name: "Docker — compose build"
