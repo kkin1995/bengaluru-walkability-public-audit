@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02.2-03-PLAN.md
-last_updated: "2026-04-14T09:45:49.089Z"
+stopped_at: Completed 02.2-01-PLAN.md
+last_updated: "2026-04-14T09:46:28.199Z"
 last_activity: 2026-04-14
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
   percent: 20
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 Phase: 02.2 (vercel-staging-deployment-and-pre-uat-hardening) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-14
 
@@ -62,6 +62,7 @@ Progress: [██░░░░░░░░] 20%
 | Phase 02-anti-abuse-and-data-quality P02 | 6 | 2 tasks | 11 files |
 | Phase 02-anti-abuse-and-data-quality P03 | 5 | 2 tasks | 5 files |
 | Phase 02.2 P03 | 5 | 1 tasks | 1 files |
+| Phase 02.2 P01 | 2 | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,9 @@ Progress: [██░░░░░░░░] 20%
 - [Phase 02-anti-abuse-and-data-quality]: data-testid='status-badge' added to StatusBadge component — makes badge presence testable across all consumer components without mocking
 - [Phase 02.2]: STAGING-SETUP.md is a standalone operational document at repo root — not embedded in planning files — so any future contributor finds it immediately
 - [Phase 02.2]: Deployment ordering constraint (Railway-first) is the highest-risk misconfiguration for Vercel+Railway split architecture; documented prominently before env var checklist in STAGING-SETUP.md
+- [Phase 02.2]: SameSite=None cookie required for Vercel+Railway cross-domain auth; Secure=true enforced by COOKIE_SECURE env var
+- [Phase 02.2]: Next.js rewrites() proxy /api/admin/* to INTERNAL_API_URL so admin cookie is set on Vercel domain
+- [Phase 02.2]: ADMIN_API_BASE_URL is hardcoded empty string (not env-var) so admin calls always use relative URLs; public /api/reports NOT proxied to avoid Vercel 4.5MB body limit
 
 ### Roadmap Evolution
 
@@ -114,6 +118,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T09:45:49.087Z
-Stopped at: Completed 02.2-03-PLAN.md
+Last session: 2026-04-14T09:46:28.197Z
+Stopped at: Completed 02.2-01-PLAN.md
 Resume file: None
