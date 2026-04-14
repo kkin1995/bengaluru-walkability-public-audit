@@ -56,6 +56,24 @@ Plans:
 - [ ] 02-02-PLAN.md — Photo hash dedup (SHA256 before EXIF strip), async proximity dedup job (ST_DWithin 50m, 5-min poll), admin queue duplicate signals
 - [ ] 02-03-PLAN.md — Gap closure: fix duplicate sub-table rendering (ward_name, dates, StatusBadge, clickable rows) and create /admin/reports/[id] detail page
 
+### Phase 02.2: Vercel Staging Deployment and Pre-UAT Hardening (INSERTED)
+
+**Goal:** Get the full stack onto a publicly accessible staging URL (staging-walkability.kinariwala.com) with cross-domain auth working so GBA/Walkaluru stakeholders can do UAT before Phase 3 ships
+**Depends on:** Phase 2
+**Requirements**: STAGING-01, STAGING-02, STAGING-03, STAGING-04, STAGING-05, STAGING-06
+**Success Criteria** (what must be TRUE):
+  1. Admin login works on staging: navigating to staging-walkability.kinariwala.com/admin/login and entering credentials produces a valid session cookie on the Vercel domain
+  2. Public report submission works on staging: a citizen can submit a photo with GPS coordinates via the staging URL
+  3. The deploy.yml workflow triggers smoke tests after push-to-main that verify Railway backend health and Vercel frontend reachability
+  4. A complete STAGING-SETUP.md exists with step-by-step provisioning for Railway, Vercel, DNS, and GitHub Actions secrets
+  5. All existing cargo test and npm run build pass with the cross-domain auth changes
+**Plans**: 3 plans
+
+Plans:
+- [ ] 02.2-01-PLAN.md — Backend SameSite cookie fix + Next.js admin API rewrites + split config for cross-domain auth
+- [ ] 02.2-02-PLAN.md — CI/CD smoke test wiring in deploy.yml + Railway config-as-code (railway.toml)
+- [ ] 02.2-03-PLAN.md — STAGING-SETUP.md operational guide with env var checklist and pre-UAT verification
+
 ### Phase 02.1: OWASP Secure Coding Practices Audit and Hardening (INSERTED)
 
 **Goal:** All OWASP-relevant security findings on the public submission path and admin JWT auth path are remediated or formally accepted with documented rationale before GBA soft launch
@@ -115,12 +133,13 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 2.1 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Ward Foundation | 6/6 | Complete   | 2026-03-12 |
 | 2. Anti-Abuse and Data Quality | 3/3 | Complete   | 2026-03-13 |
 | 2.1 OWASP Hardening | 0/2 | Not started | - |
+| 2.2 Staging Deployment | 0/3 | Not started | - |
 | 3. Government Triage Workflow | 0/4 | Not started | - |
 | 4. Export and Public Analytics | 0/4 | Not started | - |
