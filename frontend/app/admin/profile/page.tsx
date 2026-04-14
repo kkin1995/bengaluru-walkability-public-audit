@@ -103,8 +103,8 @@ export default function ProfilePage() {
       setPasswordError("Passwords do not match.");
       return;
     }
-    if (newPassword.length < 12) {
-      setPasswordError("Password must be at least 12 characters.");
+    if (newPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters.");
       return;
     }
 

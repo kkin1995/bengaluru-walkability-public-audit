@@ -80,9 +80,11 @@ export default function LoginPage() {
       } else if (res.status === 400) {
         setErrorMessage("Invalid request. Please check your inputs and try again.");
       } else {
-        // Other 4xx (402–428, 430–499) — never surface raw server messages
-        // to unauthenticated users (OWASP A07 / FINDING-010).
-        setErrorMessage("Unexpected error. Please try again.");
+        // Other 4xx (402–428, 430–499) — surface body.error or body.message
+        // (e.g. "Account suspended" for 403) with a safe fallback.
+        setErrorMessage(
+          body.error ?? body.message ?? "Unexpected error. Please try again."
+        );
       }
     } catch {
       // Network error (fetch threw — no HTTP response)

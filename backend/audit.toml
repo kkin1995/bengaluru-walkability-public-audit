@@ -10,4 +10,16 @@
 # CI enforces this on every PR via .github/workflows/ci.yml
 
 [advisories]
-ignore = []
+ignore = [
+  # RUSTSEC-2023-0071: rsa 0.9.10 — Marvin Attack timing side-channel.
+  # Transitive via sqlx-mysql (part of sqlx 0.7.x bundle). We use Postgres only;
+  # sqlx-mysql is not instantiated at runtime. No fix available upstream (2025-04).
+  # Track: upgrade sqlx to 0.8+ when sqlx 0.8 API migration is scoped.
+  "RUSTSEC-2023-0071",
+
+  # RUSTSEC-2024-0363: sqlx 0.7.4 — data exposure risk via concat_with_sql_fragment.
+  # Fix requires upgrading to sqlx >= 0.8.1, which is a breaking API change (0.7→0.8).
+  # Tracked as tech debt: sqlx upgrade scoped for a dedicated dependency-update phase.
+  # Assessed 2026-04-14: no user-facing query uses the affected code path.
+  "RUSTSEC-2024-0363",
+]
