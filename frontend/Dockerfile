@@ -15,6 +15,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # declared as ARG/ENV here, not just as runtime environment variables.
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NEXT_OUTPUT=standalone
+ENV NEXT_OUTPUT=$NEXT_OUTPUT
 RUN npm run build
 
 # Stage 3: Runtime (Next.js standalone output)
