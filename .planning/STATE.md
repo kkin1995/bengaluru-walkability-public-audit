@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02.2-01-PLAN.md
+stopped_at: Wave 1 complete — all 3 plans done
 last_updated: "2026-04-14T09:46:28.199Z"
 last_activity: 2026-04-14
 progress:
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 ## Current Position
 
-Phase: 02.2 (vercel-staging-deployment-and-pre-uat-hardening) — EXECUTING
-Plan: 3 of 3
-Status: Ready to execute
+Phase: 02.2 (vercel-staging-deployment-and-pre-uat-hardening) — WAVE 1 COMPLETE
+Plan: 3/3 complete
+Status: All plans done — running verification
 Last activity: 2026-04-14
 
 Progress: [██░░░░░░░░] 20%
@@ -61,8 +61,9 @@ Progress: [██░░░░░░░░] 20%
 | Phase 02-anti-abuse-and-data-quality P01 | 5 | 2 tasks | 8 files |
 | Phase 02-anti-abuse-and-data-quality P02 | 6 | 2 tasks | 11 files |
 | Phase 02-anti-abuse-and-data-quality P03 | 5 | 2 tasks | 5 files |
-| Phase 02.2 P03 | 5 | 1 tasks | 1 files |
 | Phase 02.2 P01 | 2 | 1 tasks | 5 files |
+| Phase 02.2 P02 | 12 | 2 tasks | 2 files |
+| Phase 02.2 P03 | 5 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,9 @@ Progress: [██░░░░░░░░] 20%
 - [Phase 02.2]: SameSite=None cookie required for Vercel+Railway cross-domain auth; Secure=true enforced by COOKIE_SECURE env var
 - [Phase 02.2]: Next.js rewrites() proxy /api/admin/* to INTERNAL_API_URL so admin cookie is set on Vercel domain
 - [Phase 02.2]: ADMIN_API_BASE_URL is hardcoded empty string (not env-var) so admin calls always use relative URLs; public /api/reports NOT proxied to avoid Vercel 4.5MB body limit
+- [Phase 02.2]: smoke-test job skips gracefully via if: secrets.RAILWAY_BACKEND_URL != '' — prevents CI failure before Railway is provisioned
+- [Phase 02.2]: dockerfilePath = 'Dockerfile' (relative to Root Directory = backend/) in railway.toml — not backend/Dockerfile
+- [Phase 02.2]: healthcheckTimeout = 300 in railway.toml to accommodate Rust Docker build cold-start on first deploy
 
 ### Roadmap Evolution
 
@@ -119,5 +123,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-14T09:46:28.197Z
-Stopped at: Completed 02.2-01-PLAN.md
+Stopped at: Wave 1 complete — all 3 plans done
 Resume file: None
