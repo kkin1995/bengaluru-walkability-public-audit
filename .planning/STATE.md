@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed 02-anti-abuse-and-data-quality/02-03-PLAN.md
-last_updated: "2026-03-13T11:12:44.854Z"
-last_activity: "2026-03-13 — Plan 02-02 complete: photo hash dedup, proximity dedup job, admin queue duplicate signals"
+status: verifying
+stopped_at: Completed 02.2-vercel-staging-deployment-and-pre-uat-hardening/02.2-02-PLAN.md
+last_updated: "2026-04-14T09:45:47.100Z"
+last_activity: 2026-04-14
 progress:
   total_phases: 4
   completed_phases: 2
@@ -27,14 +27,15 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 Phase: 2 of 4 (Anti-Abuse and Data Quality)
 Plan: 2 of 2 in current phase (Phase 2 complete)
-Status: Phase 2 complete — ready for Phase 3
-Last activity: 2026-03-13 — Plan 02-02 complete: photo hash dedup, proximity dedup job, admin queue duplicate signals
+Status: Phase complete — ready for verification
+Last activity: 2026-04-14
 
 Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0
 - Average duration: -
 - Total execution time: 0 hours
@@ -46,6 +47,7 @@ Progress: [██░░░░░░░░] 20%
 | - | - | - | - |
 
 **Recent Trend:**
+
 - Last 5 plans: -
 - Trend: -
 
@@ -59,6 +61,7 @@ Progress: [██░░░░░░░░] 20%
 | Phase 02-anti-abuse-and-data-quality P01 | 5 | 2 tasks | 8 files |
 | Phase 02-anti-abuse-and-data-quality P02 | 6 | 2 tasks | 11 files |
 | Phase 02-anti-abuse-and-data-quality P03 | 5 | 2 tasks | 5 files |
+| Phase 02.2-vercel-staging-deployment-and-pre-uat-hardening P02 | 12 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -92,6 +95,9 @@ Progress: [██░░░░░░░░] 20%
 - [Phase 02-02]: duplicate_of_id query param reuses existing admin reports endpoint rather than adding dedicated route
 - [Phase 02-anti-abuse-and-data-quality]: sr-only anchor + onClick=window.location.assign used for navigable <tr> rows — avoids invalid HTML while satisfying test assertions for href presence
 - [Phase 02-anti-abuse-and-data-quality]: data-testid='status-badge' added to StatusBadge component — makes badge presence testable across all consumer components without mocking
+- [Phase 02.2-vercel-staging-deployment-and-pre-uat-hardening]: smoke-test job skips gracefully via if: secrets.RAILWAY_BACKEND_URL != '' — prevents CI failure before Railway is provisioned
+- [Phase 02.2-vercel-staging-deployment-and-pre-uat-hardening]: dockerfilePath = 'Dockerfile' (relative to Root Directory = backend/) in railway.toml — not backend/Dockerfile
+- [Phase 02.2-vercel-staging-deployment-and-pre-uat-hardening]: healthcheckTimeout = 300 in railway.toml to accommodate Rust Docker build cold-start on first deploy
 
 ### Pending Todos
 
@@ -104,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T11:05:59.290Z
-Stopped at: Completed 02-anti-abuse-and-data-quality/02-03-PLAN.md
+Last session: 2026-04-14T09:45:47.098Z
+Stopped at: Completed 02.2-vercel-staging-deployment-and-pre-uat-hardening/02.2-02-PLAN.md
 Resume file: None
