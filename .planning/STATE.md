@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 3 context gathered
-last_updated: "2026-04-13T13:30:04.764Z"
-last_activity: 2026-04-13
+stopped_at: Completed 02.2-03-PLAN.md
+last_updated: "2026-04-14T09:45:49.089Z"
+last_activity: 2026-04-14
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 3
-  total_plans: 13
-  completed_plans: 11
+  total_plans: 16
+  completed_plans: 13
   percent: 20
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase 02.1 — owasp-secure-coding-practices-audit-and-hardening
+**Current focus:** Phase 02.2 — vercel-staging-deployment-and-pre-uat-hardening
 
 ## Current Position
 
-Phase: 03
-Plan: Not started
-Status: Executing Phase 02.1
-Last activity: 2026-04-13
+Phase: 02.2 (vercel-staging-deployment-and-pre-uat-hardening) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-04-14
 
 Progress: [██░░░░░░░░] 20%
 
@@ -61,6 +61,7 @@ Progress: [██░░░░░░░░] 20%
 | Phase 02-anti-abuse-and-data-quality P01 | 5 | 2 tasks | 8 files |
 | Phase 02-anti-abuse-and-data-quality P02 | 6 | 2 tasks | 11 files |
 | Phase 02-anti-abuse-and-data-quality P03 | 5 | 2 tasks | 5 files |
+| Phase 02.2 P03 | 5 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -94,10 +95,13 @@ Progress: [██░░░░░░░░] 20%
 - [Phase 02-02]: duplicate_of_id query param reuses existing admin reports endpoint rather than adding dedicated route
 - [Phase 02-anti-abuse-and-data-quality]: sr-only anchor + onClick=window.location.assign used for navigable <tr> rows — avoids invalid HTML while satisfying test assertions for href presence
 - [Phase 02-anti-abuse-and-data-quality]: data-testid='status-badge' added to StatusBadge component — makes badge presence testable across all consumer components without mocking
+- [Phase 02.2]: STAGING-SETUP.md is a standalone operational document at repo root — not embedded in planning files — so any future contributor finds it immediately
+- [Phase 02.2]: Deployment ordering constraint (Railway-first) is the highest-risk misconfiguration for Vercel+Railway split architecture; documented prominently before env var checklist in STAGING-SETUP.md
 
 ### Roadmap Evolution
 
 - Phase 02.1 inserted after Phase 02: OWASP Secure Coding Practices Audit and Hardening (URGENT)
+- Phase 02.2 inserted after Phase 02: Vercel Staging Deployment and Pre-UAT Hardening (URGENT) — traffic police contact may get app adopted by GBA; staging needed for partner UAT before Phase 3
 
 ### Pending Todos
 
@@ -110,6 +114,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T17:36:49.302Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-government-triage-workflow/03-CONTEXT.md
+Last session: 2026-04-14T09:45:49.087Z
+Stopped at: Completed 02.2-03-PLAN.md
+Resume file: None

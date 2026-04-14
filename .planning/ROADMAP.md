@@ -71,8 +71,8 @@ Plans:
 
 Plans:
 - [ ] 02.2-01-PLAN.md — Backend SameSite cookie fix + Next.js admin API rewrites + split config for cross-domain auth
-- [ ] 02.2-02-PLAN.md — CI/CD smoke test wiring in deploy.yml + Railway config-as-code (railway.toml)
-- [ ] 02.2-03-PLAN.md — STAGING-SETUP.md operational guide with env var checklist and pre-UAT verification
+- [x] 02.2-02-PLAN.md — CI/CD smoke test wiring in deploy.yml + Railway config-as-code (railway.toml)
+- [x] 02.2-03-PLAN.md — STAGING-SETUP.md operational guide with env var checklist and pre-UAT verification
 
 ### Phase 02.1: OWASP Secure Coding Practices Audit and Hardening (INSERTED)
 
