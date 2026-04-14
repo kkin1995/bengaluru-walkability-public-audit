@@ -1,14 +1,21 @@
 /**
  * Centralized runtime configuration.
  *
- * API_BASE_URL — client-side API base. Empty string means relative URLs
- * (/api/...) which nginx proxies to the backend regardless of what hostname
- * the browser is using (localhost, LAN IP, production domain).
+ * API_BASE_URL — client-side API base for PUBLIC endpoints (report
+ * submission, map). On staging this is the Railway backend URL
+ * (e.g. https://walkability-api.up.railway.app). In Docker (nginx proxy)
+ * this is "" (empty string = relative URLs).
  *
- * INTERNAL_API_URL — server-side only. Used by Next.js server components to
- * reach the backend via Docker internal networking. Never sent to the browser.
- * Set INTERNAL_API_URL=http://backend:3001 in docker-compose.yml environment.
+ * ADMIN_API_BASE_URL — client-side API base for ADMIN endpoints. Always ""
+ * (empty string = relative URLs). On staging, Next.js rewrites in
+ * next.config.mjs proxy /api/admin/* to the Railway backend, ensuring
+ * the auth cookie is set on the Vercel domain.
+ *
+ * INTERNAL_API_URL — server-side only. Used by Next.js server components
+ * (admin/layout.tsx) and Next.js rewrites to reach the backend. Never
+ * sent to the browser.
  */
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+export const ADMIN_API_BASE_URL = "";
 export const INTERNAL_API_URL =
   process.env.INTERNAL_API_URL ?? "http://localhost:3001";

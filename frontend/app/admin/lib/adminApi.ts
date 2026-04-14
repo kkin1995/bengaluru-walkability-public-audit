@@ -8,7 +8,7 @@
  *   - All 11 named exports must be present and callable  (R-API-3)
  */
 
-import { API_BASE_URL as BASE } from "@/app/lib/config";
+import { ADMIN_API_BASE_URL as BASE } from "@/app/lib/config";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 

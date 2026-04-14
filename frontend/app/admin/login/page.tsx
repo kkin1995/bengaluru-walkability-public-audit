@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { API_BASE_URL as BASE } from "@/app/lib/config";
+import { ADMIN_API_BASE_URL as BASE } from "@/app/lib/config";
 
 const RATE_LIMIT_SECONDS = 60;
 

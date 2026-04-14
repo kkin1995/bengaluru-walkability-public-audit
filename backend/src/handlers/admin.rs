@@ -315,7 +315,9 @@ pub async fn admin_login(
     let mut cookie = axum_extra::extract::cookie::Cookie::new("admin_token", token);
     cookie.set_http_only(true);
     cookie.set_path("/");
-    cookie.set_same_site(axum_extra::extract::cookie::SameSite::Strict);
+    // SameSite=None required for cross-domain Vercel+Railway staging.
+    // Requires Secure=true (enforced by COOKIE_SECURE=true in production/staging).
+    cookie.set_same_site(axum_extra::extract::cookie::SameSite::None);
     // FINDING-011: Set Max-Age so the browser discards the cookie after the session expires.
     cookie.set_max_age(time::Duration::seconds(jwt_session_hours * 3600));
     if cookie_secure {
