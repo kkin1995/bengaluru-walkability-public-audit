@@ -17,17 +17,32 @@ jobs:
     name: "Smoke test staging"
     needs: ci
     runs-on: ubuntu-latest
-    # Only run smoke tests when secrets are configured.
-    # Forks and first-time setups without secrets will skip gracefully.
-    if: ${{ secrets.RAILWAY_BACKEND_URL != '' }}
     env:
-      RAILWAY_BACKEND_URL: ${{ secrets.RAILWAY_BACKEND_URL }}
       VERCEL_STAGING_URL: https://staging-walkability.kinariwala.com
     steps:
+      - name: "Check Railway configuration"
+        id: config
+        env:
+          # Expose the secret into the step environment for the null check.
+          # Secrets cannot be referenced in job-level if: conditions, so we
+          # check here and propagate a step output to gate subsequent steps.
+          URL: ${{ secrets.RAILWAY_BACKEND_URL }}
+        run: |
+          if [[ -n "$URL" ]]; then
+            echo "RAILWAY_BACKEND_URL=$URL" >> "$GITHUB_ENV"
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Railway URL configured — smoke tests will run"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::RAILWAY_BACKEND_URL secret not set — smoke tests skipped. Set the secret in GitHub Settings > Secrets to enable post-deploy validation."
+          fi
+
       - name: Wait for Railway and Vercel redeploy to start
+        if: steps.config.outputs.configured == 'true'
         run: sleep 30
 
       - name: "Health check - Railway backend (with retry)"
+        if: steps.config.outputs.configured == 'true'
         run: |
           for i in 1 2 3 4 5; do
             if curl -sf --max-time 10 "$RAILWAY_BACKEND_URL/health"; then
@@ -42,11 +57,13 @@ jobs:
           exit 1
 
       - name: "API check - Railway reports endpoint"
+        if: steps.config.outputs.configured == 'true'
         run: |
           response=$(curl -sf --max-time 10 "$RAILWAY_BACKEND_URL/api/reports")
           echo "Reports endpoint responded: $(echo "$response" | head -c 200)"
 
       - name: "Frontend check - Vercel staging"
+        if: steps.config.outputs.configured == 'true'
         run: |
           status=$(curl -sf --max-time 15 -o /dev/null -w "%{http_code}" "$VERCEL_STAGING_URL")
           echo "Vercel staging HTTP $status"
