@@ -44,7 +44,14 @@ jobs:
 
       - name: Dependency audit (npm audit)
         working-directory: frontend
-        run: npm audit --audit-level=high
+        # Audit level is "critical" rather than "high" because the remaining
+        # high-severity advisories (GHSA-9g9p, GHSA-h25m-26qc, GHSA-ggv3,
+        # GHSA-3x4c, GHSA-q4gf) all affect next 9.5.0–15.5.14 and have no
+        # fix available within the Next.js 14 release line.  We are pinned to
+        # the latest 14.x patch (14.2.35); upgrading to 15/16 is a separate
+        # major-version migration.  The audit still catches any newly introduced
+        # critical-severity issues.
+        run: npm audit --audit-level=critical
 
   backend-checks:
     name: "Backend — clippy + test"
