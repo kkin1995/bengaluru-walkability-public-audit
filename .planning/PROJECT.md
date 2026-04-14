@@ -35,6 +35,10 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 - ✓ Login page never surfaces raw server error messages (A07 hardening) — Phase 02.1
 - ✓ Password validation threshold aligned frontend/backend (12 chars) — Phase 02.1
 - ✓ Dependency vulnerability scanning in CI (cargo audit + npm audit --audit-level=high) — Phase 02.1
+- ✓ Cross-domain admin auth (SameSite=None cookie + Next.js rewrite proxy for /api/admin/*) — Phase 02.2
+- ✓ CI-gated staging smoke tests (deploy.yml: /health retry loop, /api/reports check, Vercel HTTP 200) — Phase 02.2
+- ✓ Railway config-as-code (railway.toml: DOCKERFILE builder, /health healthcheck, ON_FAILURE restart) — Phase 02.2
+- ✓ STAGING-SETUP.md operational runbook (Railway + Vercel + DNS + pre-UAT checklist) — Phase 02.2
 
 ### Active
 
@@ -104,4 +108,4 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 | PWN algorithm deferred | Need minimum 6–12 months of real report data to make algorithm meaningful | — Pending |
 
 ---
-*Last updated: 2026-04-13 — Phase 02.1 complete (OWASP hardening)*
+*Last updated: 2026-04-14 — Phase 02.2 complete (Vercel staging deployment, CI smoke tests, STAGING-SETUP.md)*
