@@ -172,7 +172,11 @@ export default function ReportPage() {
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    if (!file) return;
+    handleFile(file).catch(() => {
+      setPhotoProcessing(false);
+      setError("Could not read photo. Please try a different image.");
+    });
   }
 
   function resetAll() {
