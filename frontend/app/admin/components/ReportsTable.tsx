@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import StatusBadge from "./StatusBadge";
 import { getDuplicatesForReport, type AdminReport } from "../lib/adminApi";
+import { getCategoryLabel } from "@/app/lib/translations";
 
 interface Report {
   id: string;
@@ -84,7 +85,11 @@ export default function ReportsTable({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto relative">
+      <div
+        className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-10 md:hidden"
+        aria-hidden="true"
+      />
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
@@ -113,7 +118,7 @@ export default function ReportsTable({
             <React.Fragment key={report.id}>
               <tr>
                 <td className="px-4 py-3 text-sm text-gray-900">
-                  {report.category}
+                  {getCategoryLabel(report.category).en}
                   {/* ABUSE-06: Duplicate label for reports that are duplicates */}
                   {report.duplicate_of_id && (
                     <span
@@ -228,7 +233,7 @@ export default function ReportsTable({
                                   {new Date(dupe.created_at).toLocaleDateString()}
                                 </td>
                                 <td className="py-1 pr-2 text-gray-600">
-                                  {dupe.category}
+                                  {getCategoryLabel(dupe.category).en}
                                 </td>
                                 <td className="py-1 pr-2 text-gray-600">
                                   <StatusBadge status={dupe.status} />
