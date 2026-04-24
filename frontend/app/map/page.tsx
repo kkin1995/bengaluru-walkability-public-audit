@@ -2,6 +2,7 @@ import nextDynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft, Camera } from "lucide-react";
 import { API_BASE_URL } from "@/app/lib/config";
+import { getCategoryLabel } from "@/app/lib/translations";
 
 export const dynamic = 'force-dynamic';
 
@@ -45,19 +46,21 @@ export default function MapPage() {
       {/* Legend */}
       <div className="flex gap-3 px-4 py-2 overflow-x-auto flex-shrink-0 border-b border-gray-50 bg-gray-50">
         {[
-          { label: "No footpath", color: "#ef4444" },
-          { label: "Broken", color: "#f97316" },
-          { label: "Blocked", color: "#eab308" },
-          { label: "Crossing", color: "#8b5cf6" },
-          { label: "Lighting", color: "#6b7280" },
-          { label: "Other", color: "#3b82f6" },
-        ].map(({ label, color }) => (
-          <div key={label} className="flex items-center gap-1.5 flex-shrink-0">
+          { key: "no_footpath", color: "#ef4444" },
+          { key: "broken_footpath", color: "#f97316" },
+          { key: "blocked_footpath", color: "#eab308" },
+          { key: "unsafe_crossing", color: "#8b5cf6" },
+          { key: "poor_lighting", color: "#6b7280" },
+          { key: "other", color: "#3b82f6" },
+        ].map(({ key, color }) => (
+          <div key={key} className="flex items-center gap-1.5 flex-shrink-0">
             <span
               className="w-3 h-3 rounded-full border-2 border-white shadow-sm"
               style={{ backgroundColor: color }}
             />
-            <span className="text-xs text-gray-600 whitespace-nowrap">{label}</span>
+            <span className="text-xs text-gray-600 whitespace-nowrap">
+              {getCategoryLabel(key).en}
+            </span>
           </div>
         ))}
       </div>
