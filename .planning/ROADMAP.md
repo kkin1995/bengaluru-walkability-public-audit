@@ -70,8 +70,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02.3-01-PLAN.md — Admin category labels (BUG-01), table scroll gradient (UX-01), map label consolidation (UX-03)
-- [ ] 02.3-02-PLAN.md — iOS camera UX label-wrapping fix (BUG-02)
+- [x] 02.3-01-PLAN.md — Admin category labels (BUG-01), table scroll gradient (UX-01), map label consolidation (UX-03)
+- [x] 02.3-02-PLAN.md — iOS camera UX label-wrapping fix (BUG-02)
 - [x] 02.3-03-PLAN.md — Admin sidebar extraction with mobile hamburger drawer (UX-02)
 
 ### Phase 02.3.1: Implement Walkable BLR UI redesign from design file on separate branch (INSERTED)
@@ -79,7 +79,7 @@ Plans:
 **Goal:** [Urgent work - to be planned]
 **Requirements**: TBD
 **Depends on:** Phase 02.3
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 02.3.1 to break down)
