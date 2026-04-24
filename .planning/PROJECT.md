@@ -108,4 +108,4 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 | PWN algorithm deferred | Need minimum 6–12 months of real report data to make algorithm meaningful | — Pending |
 
 ---
-*Last updated: 2026-04-14 — Phase 02.2 complete (Vercel staging deployment, CI smoke tests, STAGING-SETUP.md)*
+*Last updated: 2026-04-24 — Phase 02.3 complete (5 UAT bug fixes: admin category labels, iOS camera UX, mobile scroll affordance, admin mobile sidebar, map legend consistency)*
