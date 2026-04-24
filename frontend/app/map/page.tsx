@@ -1,74 +1,219 @@
-import nextDynamic from "next/dynamic";
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Camera } from "lucide-react";
+import nextDynamic from "next/dynamic";
 import { API_BASE_URL } from "@/app/lib/config";
-import { getCategoryLabel } from "@/app/lib/translations";
+import { Icon } from "@/app/components/ui/Icon";
+import { Btn } from "@/app/components/ui/Btn";
 
-export const dynamic = 'force-dynamic';
-
-// Disable SSR — Leaflet requires window
+// Leaflet requires `window` — ssr: false is mandatory (do not remove even in client component).
 const ReportsMap = nextDynamic(() => import("../components/ReportsMap"), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center h-full bg-gray-50 text-gray-500">
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100%",
+        color: "var(--muted)",
+        fontSize: 14,
+      }}
+    >
       Loading map…
     </div>
   ),
 });
 
+// Filter chip definitions (counts are placeholder until a count API exists)
+interface FilterChip {
+  value: string;
+  label: string;
+}
+
+const FILTERS: FilterChip[] = [
+  { value: "all", label: "All" },
+  { value: "broken_footpath", label: "Damaged" },
+  { value: "blocked_footpath", label: "Blocked" },
+  { value: "no_footpath", label: "No path" },
+  { value: "unsafe_crossing", label: "Crossing" },
+  { value: "poor_lighting", label: "Lighting" },
+];
+
 export default function MapPage() {
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+
   return (
-    <main className="h-screen flex flex-col bg-white">
-      {/* Header */}
-      <header className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 flex-shrink-0">
-        <Link
-          href="/"
-          className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-          aria-label="Back to home"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="font-bold text-gray-900">All Reports</h1>
-          <p className="text-xs text-gray-500">
-            Tap a marker to see photo and details
-          </p>
-        </div>
-        <Link
-          href="/report"
-          className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-3 py-2 rounded-xl transition-colors"
-        >
-          <Camera className="w-4 h-4" />
-          Report
-        </Link>
-      </header>
-
-      {/* Legend */}
-      <div className="flex gap-3 px-4 py-2 overflow-x-auto flex-shrink-0 border-b border-gray-50 bg-gray-50">
-        {[
-          { key: "no_footpath", color: "#ef4444" },
-          { key: "broken_footpath", color: "#f97316" },
-          { key: "blocked_footpath", color: "#eab308" },
-          { key: "unsafe_crossing", color: "#8b5cf6" },
-          { key: "poor_lighting", color: "#6b7280" },
-          { key: "other", color: "#3b82f6" },
-        ].map(({ key, color }) => (
-          <div key={key} className="flex items-center gap-1.5 flex-shrink-0">
-            <span
-              className="w-3 h-3 rounded-full border-2 border-white shadow-sm"
-              style={{ backgroundColor: color }}
-            />
-            <span className="text-xs text-gray-600 whitespace-nowrap">
-              {getCategoryLabel(key).en}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Map — fills remaining space */}
-      <div className="flex-1">
+    <main
+      style={{
+        height: "100dvh",
+        position: "relative",
+        background: "var(--bg)",
+        overflow: "hidden",
+      }}
+    >
+      {/* Map fills entire screen behind overlays */}
+      <div style={{ position: "absolute", inset: 0 }}>
         <ReportsMap apiUrl={API_BASE_URL} />
       </div>
+
+      {/* Top overlay bar: back + location pill + filter */}
+      <div
+        style={{
+          position: "absolute",
+          top: 16,
+          left: 16,
+          right: 16,
+          display: "flex",
+          gap: 8,
+          zIndex: 500,
+        }}
+      >
+        <Link
+          href="/"
+          className="press"
+          aria-label="Back to home"
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.95)",
+            border: "1px solid var(--border)",
+            display: "grid",
+            placeItems: "center",
+            backdropFilter: "blur(8px)",
+            boxShadow: "var(--shadow-md)",
+            color: "var(--ink)",
+            textDecoration: "none",
+          }}
+        >
+          <Icon name="arrow_left" size={20} />
+        </Link>
+        <div
+          role="search"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            background: "rgba(255,255,255,0.95)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--r-full)",
+            padding: "0 14px",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            backdropFilter: "blur(8px)",
+            boxShadow: "var(--shadow-md)",
+            overflow: "hidden",
+          }}
+        >
+          <Icon name="pin" size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 500,
+              color: "var(--ink-2)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            Bengaluru
+          </div>
+        </div>
+        <button
+          type="button"
+          className="press"
+          aria-label="Filter reports"
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.95)",
+            border: "1px solid var(--border)",
+            display: "grid",
+            placeItems: "center",
+            backdropFilter: "blur(8px)",
+            boxShadow: "var(--shadow-md)",
+            color: "var(--ink)",
+            cursor: "pointer",
+          }}
+        >
+          <Icon name="filter" size={18} />
+        </button>
+      </div>
+
+      {/* Filter chip strip — horizontal scroll */}
+      <div
+        className="no-scrollbar"
+        style={{
+          position: "absolute",
+          top: 76,
+          left: 0,
+          right: 0,
+          overflowX: "auto",
+          display: "flex",
+          gap: 8,
+          padding: "0 16px",
+          zIndex: 500,
+        }}
+        role="tablist"
+        aria-label="Report category filter"
+      >
+        {FILTERS.map((f) => {
+          const active = activeFilter === f.value;
+          return (
+            <button
+              key={f.value}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setActiveFilter(f.value)}
+              className="press"
+              style={{
+                padding: "8px 14px",
+                borderRadius: "var(--r-full)",
+                background: active ? "var(--ink)" : "rgba(255,255,255,0.95)",
+                color: active ? "#fafaf9" : "var(--ink-2)",
+                border: `1px solid ${active ? "var(--ink)" : "var(--border)"}`,
+                fontSize: 14,
+                fontWeight: 500,
+                whiteSpace: "nowrap",
+                backdropFilter: "blur(8px)",
+                boxShadow: active ? undefined : "var(--shadow-sm)",
+                flexShrink: 0,
+                cursor: "pointer",
+              }}
+            >
+              {f.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Floating Report here CTA */}
+      <Link
+        href="/report"
+        style={{
+          position: "absolute",
+          right: 16,
+          bottom: "calc(16px + env(safe-area-inset-bottom))",
+          zIndex: 500,
+          textDecoration: "none",
+        }}
+      >
+        <Btn
+          variant="accent"
+          size="lg"
+          style={{
+            borderRadius: "var(--r-full)",
+            boxShadow: "var(--shadow-lg)",
+          }}
+        >
+          <Icon name="camera" size={18} />
+          <span style={{ whiteSpace: "nowrap" }}>Report here</span>
+        </Btn>
+      </Link>
     </main>
   );
 }
