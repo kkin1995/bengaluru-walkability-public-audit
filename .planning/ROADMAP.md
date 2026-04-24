@@ -82,9 +82,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 02.3.1-01-PLAN.md — Branch setup + design-ref preservation + CSS variables + next/font + 5 UI primitives (Bi, Icon, Btn, Pill, SectionLabel) with tests
-- [ ] 02.3.1-02-PLAN.md — Home page (`/`) redesign + Map page (`/map`) overlay redesign + updated home-page tests
-- [ ] 02.3.1-03-PLAN.md — Report flow 2-step rewrite (Category → Confirm → Success) + CategoryGrid / SeverityGrid / SuccessCard components + updated report-page tests
+- [x] 02.3.1-01-PLAN.md — Branch setup + design-ref preservation + CSS variables + next/font + 5 UI primitives (Bi, Icon, Btn, Pill, SectionLabel) with tests
+- [x] 02.3.1-02-PLAN.md — Home page (`/`) redesign + Map page (`/map`) overlay redesign + updated home-page tests
+- [x] 02.3.1-03-PLAN.md — Report flow 2-step rewrite (Category → Confirm → Success) + CategoryGrid / SeverityGrid / SuccessCard components + updated report-page tests
 
 ### Phase 02.2: Vercel Staging Deployment and Pre-UAT Hardening (INSERTED)
 

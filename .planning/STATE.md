@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02.3.1-01-PLAN.md — design system foundation, fonts, 5 primitives
-last_updated: "2026-04-24T19:11:09.837Z"
-last_activity: 2026-04-24 -- Phase --phase execution started
+stopped_at: Completed Phase 02.3.1 — all 3 plans executed, 730/730 tests pass on ui-redesign branch
+last_updated: "2026-04-25T00:00:00.000Z"
+last_activity: 2026-04-25 -- Phase 02.3.1 execution complete (Wave 1 + Wave 2)
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 22
-  completed_plans: 18
-  percent: 82
+  completed_plans: 20
+  percent: 91
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase --phase — 02.3.1
+**Current focus:** Phase 02.3.1 — COMPLETE
 
 ## Current Position
 
-Phase: --phase (02.3.1) — EXECUTING
-Plan: 1 of --name
-Status: Executing Phase --phase
-Last activity: 2026-04-24 -- Phase --phase execution started
+Phase: 02.3.1 — COMPLETE (pending verification)
+Plan: 3 of 3
+Status: All plans executed; post-merge test gate passed (730/730)
+Last activity: 2026-04-25 -- Phase 02.3.1 execution complete (Wave 1 + Wave 2)
 
-Progress: [████████░░] 82%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -68,6 +68,8 @@ Progress: [████████░░] 82%
 | Phase 02.3 P02 | 15 | 2 tasks | 2 files |
 | Phase 02.3 P01 | 2min | 2 tasks | 4 files |
 | Phase 02.3.1 P01 | 35min | 3 tasks | 18 files |
+| Phase 02.3.1 P02 | 25min | 2 tasks | 3 files |
+| Phase 02.3.1 P03 | 40min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
