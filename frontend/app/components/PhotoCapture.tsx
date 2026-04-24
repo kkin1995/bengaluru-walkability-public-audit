@@ -141,40 +141,44 @@ export default function PhotoCapture({ onPhoto }: PhotoCaptureProps) {
         <p className="text-red-600 text-sm">{compressionError}</p>
       )}
 
-      {/* Hidden file inputs */}
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleInputChange}
-      />
-      <input
-        ref={galleryRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleInputChange}
-      />
-
-      {/* Take Photo — primary tap target */}
-      <button
-        onClick={() => cameraRef.current?.click()}
-        className="w-full flex flex-col items-center justify-center gap-3 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white py-10 rounded-2xl shadow transition-colors"
-      >
+      {/* Take Photo — label-wrapped input triggers camera directly on iOS */}
+      <label className="w-full flex flex-col items-center justify-center gap-3 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white py-10 rounded-2xl shadow transition-colors cursor-pointer">
         <Camera className="w-12 h-12" />
-        <BilingualText en="Take Photo" kn="ಫೋಟೋ ತೆಗೆಯಿರಿ" enClass="text-xl font-semibold" knClass="text-sm font-normal" containerClass="flex flex-col leading-tight" />
-      </button>
+        <BilingualText
+          en="Take Photo"
+          kn="ಫೋಟೋ ತೆಗೆಯಿರಿ"
+          enClass="text-xl font-semibold"
+          knClass="text-sm font-normal"
+          containerClass="flex flex-col leading-tight"
+        />
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="sr-only"
+          onChange={handleInputChange}
+        />
+      </label>
 
-      {/* Upload from Gallery — secondary */}
-      <button
-        onClick={() => galleryRef.current?.click()}
-        className="w-full flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 py-4 rounded-2xl transition-colors"
-      >
+      {/* Upload from Gallery — label-wrapped input WITHOUT capture opens photo library */}
+      <label className="w-full flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 py-4 rounded-2xl transition-colors cursor-pointer">
         <ImagePlus className="w-5 h-5" />
-        <BilingualText en="Upload from Gallery" kn="ಗ್ಯಾಲರಿಯಿಂದ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ" enClass="font-medium" knClass="text-sm font-normal" containerClass="flex flex-col leading-tight" />
-      </button>
+        <BilingualText
+          en="Upload from Gallery"
+          kn="ಗ್ಯಾಲರಿಯಿಂದ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ"
+          enClass="font-medium"
+          knClass="text-sm font-normal"
+          containerClass="flex flex-col leading-tight"
+        />
+        <input
+          ref={galleryRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          onChange={handleInputChange}
+        />
+      </label>
     </div>
   );
 }
