@@ -76,13 +76,15 @@ Plans:
 
 ### Phase 02.3.1: Implement Walkable BLR UI redesign from design file on separate branch (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** On a dedicated `ui-redesign` branch, implement a pixel-faithful Next.js redesign of the 5 citizen-facing screens (Home, Category step, Confirm step, Success, Public Map) per the Walkable BLR design file — introducing a CSS-variable design system, Google Fonts via next/font, and 5 TSX primitives (Bi, Icon, Btn, Pill, SectionLabel) — without merging to main.
+**Requirements**: UI-FOUNDATION, UI-HOME, UI-MAP, UI-REPORT-FLOW (phase-local; no global REQUIREMENTS.md IDs)
 **Depends on:** Phase 02.3
-**Plans:** 3/3 plans complete
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 02.3.1 to break down)
+- [ ] 02.3.1-01-PLAN.md — Branch setup + design-ref preservation + CSS variables + next/font + 5 UI primitives (Bi, Icon, Btn, Pill, SectionLabel) with tests
+- [ ] 02.3.1-02-PLAN.md — Home page (`/`) redesign + Map page (`/map`) overlay redesign + updated home-page tests
+- [ ] 02.3.1-03-PLAN.md — Report flow 2-step rewrite (Category → Confirm → Success) + CategoryGrid / SeverityGrid / SuccessCard components + updated report-page tests
 
 ### Phase 02.2: Vercel Staging Deployment and Pre-UAT Hardening (INSERTED)
 
