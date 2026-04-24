@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
 import { API_BASE_URL } from "@/app/lib/config";
@@ -26,24 +25,7 @@ const ReportsMap = nextDynamic(() => import("../components/ReportsMap"), {
   ),
 });
 
-// Filter chip definitions (counts are placeholder until a count API exists)
-interface FilterChip {
-  value: string;
-  label: string;
-}
-
-const FILTERS: FilterChip[] = [
-  { value: "all", label: "All" },
-  { value: "broken_footpath", label: "Damaged" },
-  { value: "blocked_footpath", label: "Blocked" },
-  { value: "no_footpath", label: "No path" },
-  { value: "unsafe_crossing", label: "Crossing" },
-  { value: "poor_lighting", label: "Lighting" },
-];
-
 export default function MapPage() {
-  const [activeFilter, setActiveFilter] = useState<string>("all");
-
   return (
     <main
       style={{
@@ -141,54 +123,6 @@ export default function MapPage() {
         >
           <Icon name="filter" size={18} />
         </button>
-      </div>
-
-      {/* Filter chip strip — horizontal scroll */}
-      <div
-        className="no-scrollbar"
-        style={{
-          position: "absolute",
-          top: 76,
-          left: 0,
-          right: 0,
-          overflowX: "auto",
-          display: "flex",
-          gap: 8,
-          padding: "0 16px",
-          zIndex: 500,
-        }}
-        role="tablist"
-        aria-label="Report category filter"
-      >
-        {FILTERS.map((f) => {
-          const active = activeFilter === f.value;
-          return (
-            <button
-              key={f.value}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setActiveFilter(f.value)}
-              className="press"
-              style={{
-                padding: "8px 14px",
-                borderRadius: "var(--r-full)",
-                background: active ? "var(--ink)" : "rgba(255,255,255,0.95)",
-                color: active ? "#fafaf9" : "var(--ink-2)",
-                border: `1px solid ${active ? "var(--ink)" : "var(--border)"}`,
-                fontSize: 14,
-                fontWeight: 500,
-                whiteSpace: "nowrap",
-                backdropFilter: "blur(8px)",
-                boxShadow: active ? undefined : "var(--shadow-sm)",
-                flexShrink: 0,
-                cursor: "pointer",
-              }}
-            >
-              {f.label}
-            </button>
-          );
-        })}
       </div>
 
       {/* Floating Report here CTA */}
