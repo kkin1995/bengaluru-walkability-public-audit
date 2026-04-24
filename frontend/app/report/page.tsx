@@ -77,12 +77,15 @@ async function compressImage(file: File): Promise<Blob | null> {
   if (file.size <= MAX_BYTES) return file;
   const url = URL.createObjectURL(file);
   const img = document.createElement("img");
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = reject;
-    img.src = url;
-  });
-  URL.revokeObjectURL(url);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = reject;
+      img.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
   const canvas = document.createElement("canvas");
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
