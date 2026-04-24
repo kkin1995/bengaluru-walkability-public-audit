@@ -18,6 +18,8 @@ const sharedModuleNameMapper = {
   "^@/(.*)$": "<rootDir>/$1",
   // Mock next/dynamic to render the component synchronously in tests
   "^next/dynamic$": "<rootDir>/__mocks__/nextDynamic.js",
+  // Mock next/font/google — font loading is build-time only, not available in Jest
+  "^next/font/google$": "<rootDir>/__mocks__/next/font/google.js",
   // Mock react-leaflet entirely — Leaflet requires a real browser DOM
   "^react-leaflet$": "<rootDir>/__mocks__/reactLeaflet.js",
   // Mock leaflet (required in ReportsMap via require())
