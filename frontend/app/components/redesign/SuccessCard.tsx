@@ -24,14 +24,15 @@ export function SuccessCard({
       text: "Help improve pedestrian infrastructure in Bengaluru — report issues near you!",
       url: typeof window !== "undefined" ? window.location.origin : "",
     };
-    if (typeof navigator !== "undefined" && "share" in navigator) {
+    const nav = typeof navigator !== "undefined" ? navigator : null;
+    if (nav && "share" in nav) {
       try {
-        await navigator.share(shareData);
+        await (nav as Navigator).share(shareData);
       } catch {
         /* user cancelled */
       }
-    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
-      await navigator.clipboard.writeText(shareData.url);
+    } else if (nav && "clipboard" in nav) {
+      await (nav as Navigator).clipboard.writeText(shareData.url);
     }
   }
 
