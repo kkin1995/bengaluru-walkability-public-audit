@@ -267,26 +267,38 @@ pub async fn list_reports(
     let limit = if params.limit <= 0 { 20 } else { params.limit.clamp(1, 200) };
     let page = params.page.max(1);
 
-    let reports = queries::list_reports(
-        &state.pool,
-        page,
-        limit,
-        params.category.as_deref(),
-        params.status.as_deref(),
-    )
-    .await?;
+    // Run the paginated list and the total count concurrently.
+    // count_reports is non-fatal: if it fails, we omit `total` from the response
+    // rather than failing the whole request.
+    let (reports_result, total_result) = tokio::join!(
+        queries::list_reports(
+            &state.pool,
+            page,
+            limit,
+            params.category.as_deref(),
+            params.status.as_deref(),
+        ),
+        queries::count_reports(&state.pool),
+    );
 
+    let reports = reports_result?;
     let items: Vec<ReportResponse> = reports
         .into_iter()
         .map(|r| r.into_response(&state.api_base_url))
         .collect();
 
-    Ok(Json(json!({
+    let mut response = json!({
         "page": page,
         "limit": limit,
         "count": items.len(),
         "items": items,
-    })))
+    });
+
+    if let Ok(total) = total_result {
+        response["total"] = json!(total);
+    }
+
+    Ok(Json(response))
 }
 
 pub async fn get_report(
