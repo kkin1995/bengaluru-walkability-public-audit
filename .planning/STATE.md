@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02.3.2-01-PLAN.md — gallery escape hatch, CategoryGrid 2-col, privacy row
-last_updated: "2026-04-25T13:15:54.232Z"
+stopped_at: Completed 02.3.2-02-PLAN.md — map chip filter strip, per-category counts, categoryFilter + onReportsLoaded props
+last_updated: "2026-04-25T13:20:40.948Z"
 last_activity: 2026-04-25 -- Phase --phase execution started
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 26
-  completed_plans: 22
-  percent: 85
+  completed_plans: 23
+  percent: 88
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 1 of --name
 Status: Executing Phase --phase
 Last activity: 2026-04-25 -- Phase --phase execution started
 
-Progress: [█████████░] 85%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Progress: [█████████░] 85%
 | Phase 02.3.1 P03 | 40min | 2 tasks | 8 files |
 | Phase 02.3.1 P04 | 4min | 2 tasks | 7 files |
 | Phase 02.3.2 P01 | 3min | 2 tasks | 3 files |
+| Phase 02.3.2 P02 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,9 @@ Progress: [█████████░] 85%
 - handleGalleryChange is an exact copy of handleChange — identical EXIF/compress/storePendingPhoto pipeline; behavioral difference is exclusively in the input element (no capture attribute)
 - CategoryGrid gridTemplateColumns reverted from 1fr 1fr 1fr to 1fr 1fr — UI-SPEC (approved 2026-04-25) is authoritative, overriding prior CONTEXT.md D-08 value
 - Privacy notice fontSize set to 13 (Caption scale) per UI-SPEC typography section, not 12 as originally in CONTEXT.md D-10
+- Ternary style split used for chip button styles (two complete style objects) rather than spread approach — avoids TypeScript union error where border appears in both base and conditional spread
+- categoryFilter passed as undefined (not 'all') when activeFilter === 'all' — keeps ReportsMap filter logic clean: undefined means show all
+- onReportsLoaded added to useCallback dependency array — required by exhaustive-deps; setAllReports identity is stable from useState
 
 ### Roadmap Evolution
 
@@ -146,8 +150,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-25T13:15:54.229Z
-Stopped at: Completed 02.3.2-01-PLAN.md — gallery escape hatch, CategoryGrid 2-col, privacy row
+Last session: 2026-04-25T13:20:40.943Z
+Stopped at: Completed 02.3.2-02-PLAN.md — map chip filter strip, per-category counts, categoryFilter + onReportsLoaded props
 Resume file: None
 
 **Planned Phase:** 02.3.1 (implement-walkable-blr-ui-redesign-from-design-file-on-separate-branch) — 4 plans — 2026-04-24T20:47:49.668Z
