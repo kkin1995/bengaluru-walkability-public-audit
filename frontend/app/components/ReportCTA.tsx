@@ -44,6 +44,8 @@ export function ReportCTA() {
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Reset so re-selecting the same file fires onChange next time (WR-02)
+    e.target.value = "";
     setProcessing(true);
 
     // Preview from original (matches report/page.tsx pattern)
@@ -84,6 +86,7 @@ export function ReportCTA() {
     if (file.size > MAX_BYTES) {
       const compressed = await compressImage(file);
       if (!compressed) {
+        URL.revokeObjectURL(previewUrl); // WR-01: revoke to prevent object URL leak
         setProcessing(false);
         // Can't compress — fall back to /report photo step so user sees error
         router.push("/report");
@@ -106,6 +109,8 @@ export function ReportCTA() {
   async function handleGalleryChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Reset so re-selecting the same file fires onChange next time (WR-02)
+    e.target.value = "";
     setProcessing(true);
 
     const previewUrl = URL.createObjectURL(file);
@@ -143,6 +148,7 @@ export function ReportCTA() {
     if (file.size > MAX_BYTES) {
       const compressed = await compressImage(file);
       if (!compressed) {
+        URL.revokeObjectURL(previewUrl); // WR-01: revoke to prevent object URL leak
         setProcessing(false);
         router.push("/report");
         return;
