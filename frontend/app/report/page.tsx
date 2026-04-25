@@ -371,7 +371,7 @@ export default function ReportPage() {
       if (form.contact) body.append("contact", form.contact.slice(0, 200));
       // ABUSE-02 honeypot: read value from the off-screen input (MUST remain in DOM)
       const honeypotEl = document.querySelector(
-        'input[name="website"]'
+        'input[data-hp="1"]'
       ) as HTMLInputElement | null;
       body.append("website", honeypotEl?.value ?? "");
 
@@ -558,7 +558,7 @@ export default function ReportPage() {
         {/* ABUSE-02 honeypot always present in the DOM */}
         <input
           type="text"
-          name="website"
+          data-hp="1"
           tabIndex={-1}
           autoComplete="off"
           aria-hidden="true"
@@ -761,7 +761,7 @@ export default function ReportPage() {
         {/* ABUSE-02 honeypot */}
         <input
           type="text"
-          name="website"
+          data-hp="1"
           tabIndex={-1}
           autoComplete="off"
           aria-hidden="true"
@@ -1241,7 +1241,7 @@ export default function ReportPage() {
       {/* ABUSE-02 honeypot — MUST remain for backend bot detection */}
       <input
         type="text"
-        name="website"
+        data-hp="1"
         tabIndex={-1}
         autoComplete="off"
         aria-hidden="true"
