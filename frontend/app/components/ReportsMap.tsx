@@ -31,9 +31,11 @@ interface Report {
 
 interface ReportsMapProps {
   apiUrl: string;
+  categoryFilter?: string;
+  onReportsLoaded?: (reports: Report[]) => void;
 }
 
-export default function ReportsMap({ apiUrl }: ReportsMapProps) {
+export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: ReportsMapProps) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,13 +62,15 @@ export default function ReportsMap({ apiUrl }: ReportsMapProps) {
       const res = await fetch(`${apiUrl}/api/reports?limit=200`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setReports(data.items ?? []);
+      const items: Report[] = data.items ?? [];
+      setReports(items);
+      onReportsLoaded?.(items);
     } catch {
       setError("Couldn't load reports — tap to retry.");
     } finally {
       setLoading(false);
     }
-  }, [apiUrl]);
+  }, [apiUrl, onReportsLoaded]);
 
   useEffect(() => {
     fetchReports();
@@ -98,7 +102,9 @@ export default function ReportsMap({ apiUrl }: ReportsMapProps) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {!loading && !error && reports.map((report) => (
+        {!loading && !error && reports
+          .filter((r) => !categoryFilter || categoryFilter === "all" || r.category === categoryFilter)
+          .map((report) => (
           <CircleMarker
             key={report.id}
             center={[report.latitude, report.longitude]}
