@@ -555,15 +555,8 @@ export default function ReportPage() {
           </p>
         )}
 
-        {/* ABUSE-02 honeypot always present in the DOM */}
-        <input
-          type="text"
-          data-hp="1"
-          tabIndex={-1}
-          autoComplete="off"
-          aria-hidden="true"
-          style={{ position: "absolute", left: "-9999px", width: 1, height: 1 }}
-        />
+        {/* ABUSE-02 honeypot — type="hidden" so browser autofill never fills it */}
+        <input type="hidden" data-hp="1" />
       </main>
     );
   }
@@ -758,15 +751,8 @@ export default function ReportPage() {
           </Btn>
         </div>
 
-        {/* ABUSE-02 honeypot */}
-        <input
-          type="text"
-          data-hp="1"
-          tabIndex={-1}
-          autoComplete="off"
-          aria-hidden="true"
-          style={{ position: "absolute", left: "-9999px", width: 1, height: 1 }}
-        />
+        {/* ABUSE-02 honeypot — type="hidden" so browser autofill never fills it */}
+        <input type="hidden" data-hp="1" />
       </main>
     );
   }
@@ -1238,15 +1224,8 @@ export default function ReportPage() {
         </Btn>
       </div>
 
-      {/* ABUSE-02 honeypot — MUST remain for backend bot detection */}
-      <input
-        type="text"
-        data-hp="1"
-        tabIndex={-1}
-        autoComplete="off"
-        aria-hidden="true"
-        style={{ position: "absolute", left: "-9999px", width: 1, height: 1 }}
-      />
+      {/* ABUSE-02 honeypot — type="hidden" so browser autofill never fills it */}
+      <input type="hidden" data-hp="1" />
     </main>
   );
 }

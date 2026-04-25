@@ -165,6 +165,7 @@ pub async fn create_report(
                 // Return a fake success response silently; bots get no error signal.
                 let text = field.text().await.unwrap_or_default();
                 if is_honeypot_triggered(&text) {
+                    tracing::warn!(honeypot_value_len = text.len(), "ABUSE-02: honeypot triggered, returning fake success");
                     return Ok(Json(fake_success_response()));
                 }
             }
@@ -198,6 +199,7 @@ pub async fn create_report(
 
         // Check for exact duplicate photo — return fake success without writing anything
         if queries::check_photo_hash_exists(&state.pool, &photo_hash).await? {
+            tracing::warn!(photo_hash = %photo_hash, "ABUSE-03: duplicate photo hash, returning fake success");
             return Ok(Json(fake_success_response()));
         }
 
