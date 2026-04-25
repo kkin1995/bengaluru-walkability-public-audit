@@ -108,6 +108,7 @@ export default function ReportsMap({ apiUrl }: ReportsMapProps) {
       zoom={12}
       style={{ width: "100%", height: "100%" }}
       scrollWheelZoom
+      zoomControl={false}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
