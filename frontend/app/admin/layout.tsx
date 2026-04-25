@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { INTERNAL_API_URL } from '@/app/lib/config';
+import AdminSidebar from './components/AdminSidebar';
 
 export default async function AdminLayout({
   children,
@@ -45,62 +46,10 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex">
-        {/* Sidebar */}
-        <nav
-          className="w-64 min-h-screen bg-white border-r border-gray-200 p-4"
-          aria-label="Admin navigation"
-        >
-          <div className="mb-6">
-            <h1 className="text-lg font-bold text-green-700">Walkability Admin</h1>
-            <span className="text-xs text-gray-500 capitalize">{role}</span>
-          </div>
-          <ul className="space-y-2" role="list">
-            <li>
-              <a
-                href="/admin"
-                className="block px-3 py-2 rounded-lg hover:bg-gray-100 text-sm font-medium"
-              >
-                Dashboard
-              </a>
-            </li>
-            <li>
-              <a
-                href="/admin/reports"
-                className="block px-3 py-2 rounded-lg hover:bg-gray-100 text-sm font-medium"
-              >
-                Reports
-              </a>
-            </li>
-            <li>
-              <a
-                href="/admin/reports/map"
-                className="block px-3 py-2 rounded-lg hover:bg-gray-100 text-sm font-medium"
-              >
-                Reports Map
-              </a>
-            </li>
-            <li>
-              <a
-                href="/admin/profile"
-                className="block px-3 py-2 rounded-lg hover:bg-gray-100 text-sm font-medium"
-              >
-                Profile
-              </a>
-            </li>
-            {role === 'admin' && (
-              <li>
-                <a
-                  href="/admin/users"
-                  className="block px-3 py-2 rounded-lg hover:bg-gray-100 text-sm font-medium"
-                >
-                  Users
-                </a>
-              </li>
-            )}
-          </ul>
-        </nav>
+        {/* Sidebar — client component handles responsive drawer */}
+        <AdminSidebar role={role} />
 
-        {/* Main content */}
+        {/* Main content — add left padding on mobile for hamburger clearance */}
         <main className="flex-1 p-8">
           {children}
         </main>

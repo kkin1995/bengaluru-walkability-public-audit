@@ -56,6 +56,36 @@ Plans:
 - [ ] 02-02-PLAN.md — Photo hash dedup (SHA256 before EXIF strip), async proximity dedup job (ST_DWithin 50m, 5-min poll), admin queue duplicate signals
 - [ ] 02-03-PLAN.md — Gap closure: fix duplicate sub-table rendering (ward_name, dates, StatusBadge, clickable rows) and create /admin/reports/[id] detail page
 
+### Phase 02.3: UAT Bug Fixes — admin category label, iOS camera UX, admin mobile layout, map legend consistency (INSERTED)
+
+**Goal:** Fix all 5 issues found in the 2026-04-15 field UAT so admin table shows human-readable labels, iOS camera UX differentiates camera vs. gallery, admin sidebar is reachable on mobile, and category labels are consistent across all surfaces
+**Depends on:** Phase 2
+**Requirements**: BUG-01, BUG-02, UX-01, UX-02, UX-03
+**Success Criteria** (what must be TRUE):
+  1. Admin reports table Category column shows "Damaged Footpath" (not "broken_footpath") using getCategoryLabel() from translations.ts
+  2. On iOS Safari, "Take Photo" opens the camera directly and "Upload from Gallery" opens the photo library — no shared action sheet
+  3. Admin reports table has a right-edge fade gradient on mobile indicating horizontal scroll
+  4. A hamburger button is visible on mobile admin pages, opening a slide-in sidebar drawer with all nav links
+  5. Map legend, map popup, and admin table all show identical category labels sourced from translations.ts
+**Plans**: 3 plans
+
+Plans:
+- [x] 02.3-01-PLAN.md — Admin category labels (BUG-01), table scroll gradient (UX-01), map label consolidation (UX-03)
+- [x] 02.3-02-PLAN.md — iOS camera UX label-wrapping fix (BUG-02)
+- [x] 02.3-03-PLAN.md — Admin sidebar extraction with mobile hamburger drawer (UX-02)
+
+### Phase 02.3.1: Implement Walkable BLR UI redesign from design file on separate branch (INSERTED)
+
+**Goal:** On a dedicated `ui-redesign` branch, implement a pixel-faithful Next.js redesign of the 5 citizen-facing screens (Home, Category step, Confirm step, Success, Public Map) per the Walkable BLR design file — introducing a CSS-variable design system, Google Fonts via next/font, and 5 TSX primitives (Bi, Icon, Btn, Pill, SectionLabel) — without merging to main.
+**Requirements**: UI-FOUNDATION, UI-HOME, UI-MAP, UI-REPORT-FLOW (phase-local; no global REQUIREMENTS.md IDs)
+**Depends on:** Phase 02.3
+**Plans:** 3 plans
+
+Plans:
+- [x] 02.3.1-01-PLAN.md — Branch setup + design-ref preservation + CSS variables + next/font + 5 UI primitives (Bi, Icon, Btn, Pill, SectionLabel) with tests
+- [x] 02.3.1-02-PLAN.md — Home page (`/`) redesign + Map page (`/map`) overlay redesign + updated home-page tests
+- [x] 02.3.1-03-PLAN.md — Report flow 2-step rewrite (Category → Confirm → Success) + CategoryGrid / SeverityGrid / SuccessCard components + updated report-page tests
+
 ### Phase 02.2: Vercel Staging Deployment and Pre-UAT Hardening (INSERTED)
 
 **Goal:** Get the full stack onto a publicly accessible staging URL (staging-walkability.kinariwala.com) with cross-domain auth working so GBA/Walkaluru stakeholders can do UAT before Phase 3 ships
@@ -133,13 +163,14 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Ward Foundation | 6/6 | Complete   | 2026-03-12 |
 | 2. Anti-Abuse and Data Quality | 3/3 | Complete   | 2026-03-13 |
 | 2.1 OWASP Hardening | 0/2 | Not started | - |
-| 2.2 Staging Deployment | 0/3 | Not started | - |
+| 2.2 Staging Deployment | 3/3 | Complete | - |
+| 2.3 UAT Bug Fixes | 0/3 | Not started | - |
 | 3. Government Triage Workflow | 0/4 | Not started | - |
 | 4. Export and Public Analytics | 0/4 | Not started | - |

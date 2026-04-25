@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Wave 1 complete — all 3 plans done
-last_updated: "2026-04-14T09:52:13.787Z"
-last_activity: 2026-04-14
+status: shipped
+stopped_at: Phase 02.3.1 shipped — PR #1 open, CI green, awaiting merge to main
+last_updated: "2026-04-25T06:00:00.000Z"
+last_activity: 2026-04-25 — Phase 02.3.1 shipped to GitHub, PR #1 created
 progress:
-  total_phases: 6
-  completed_phases: 4
-  total_plans: 16
-  completed_plans: 14
-  percent: 20
+  total_phases: 8
+  completed_phases: 6
+  total_plans: 23
+  completed_plans: 21
+  percent: 91
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase 02.2 — vercel-staging-deployment-and-pre-uat-hardening
+**Current focus:** Phase --phase — 02.3.1
 
 ## Current Position
 
-Phase: 03
-Plan: Not started
-Status: All plans done — running verification
-Last activity: 2026-04-14
+Phase: --phase (02.3.1) — EXECUTING
+Plan: 1 of --name
+Status: Executing Phase --phase
+Last activity: 2026-04-25 -- Phase --phase execution started
 
-Progress: [██░░░░░░░░] 20%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -64,6 +64,13 @@ Progress: [██░░░░░░░░] 20%
 | Phase 02.2 P01 | 2 | 1 tasks | 5 files |
 | Phase 02.2 P02 | 12 | 2 tasks | 2 files |
 | Phase 02.2 P03 | 5 | 1 tasks | 1 files |
+| Phase 02.3 P03 | 1 | 2 tasks | 2 files |
+| Phase 02.3 P02 | 15 | 2 tasks | 2 files |
+| Phase 02.3 P01 | 2min | 2 tasks | 4 files |
+| Phase 02.3.1 P01 | 35min | 3 tasks | 18 files |
+| Phase 02.3.1 P02 | 25min | 2 tasks | 3 files |
+| Phase 02.3.1 P03 | 40min | 2 tasks | 8 files |
+| Phase 02.3.1 P04 | 4min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -105,11 +112,23 @@ Progress: [██░░░░░░░░] 20%
 - [Phase 02.2]: smoke-test job skips gracefully via if: secrets.RAILWAY_BACKEND_URL != '' — prevents CI failure before Railway is provisioned
 - [Phase 02.2]: dockerfilePath = 'Dockerfile' (relative to Root Directory = backend/) in railway.toml — not backend/Dockerfile
 - [Phase 02.2]: healthcheckTimeout = 300 in railway.toml to accommodate Rust Docker build cold-start on first deploy
+- [Phase 02.3]: Extract admin sidebar to AdminSidebar.tsx client component so useState manages mobile drawer while layout.tsx remains a server component handling auth
+- [Phase 02.3]: Label-wrapping pattern: iOS Safari respects capture='environment' only on native label-triggered inputs, not programmatic .click() — use label-wrapped sr-only inputs for all iOS file inputs going forward
+- [Phase 02.3]: getCategoryLabel from translations.ts is the single source of truth for all category labels across admin table, map legend, and map popup
+- [Phase 02.3]: Scroll gradient for admin table uses md:hidden so only mobile/tablet users see the right-edge fade
+- Branch ui-redesign created from phase-02.3-uat-fixes — all citizen-facing redesign work isolated here; do not merge to main until explicitly requested
+- data-* attributes (data-tone, data-variant, data-size, data-component) added to primitives — jsdom strips CSS var() from inline styles; data attributes are the testable substitute for CSS-variable-driven variants
+- next/font/google Jest mock added at __mocks__/next/font/google.js — build-time font loading cannot execute in Jest environment
+- photo-store module singleton: storePendingPhoto/consumePendingPhoto for home CTA → /report photo handoff without localStorage or URL params
+- ReportCTA label-wrapped hidden file input: label+input with inset-0/opacity-0 positioning for iOS camera capture from home page
+- Contact accordion UAT deferral overridden: GAP 4 major severity — implemented expand/collapse per UAT evidence, superseding CONTEXT.md display-only deferral
 
 ### Roadmap Evolution
 
 - Phase 02.1 inserted after Phase 02: OWASP Secure Coding Practices Audit and Hardening (URGENT)
 - Phase 02.2 inserted after Phase 02: Vercel Staging Deployment and Pre-UAT Hardening (URGENT) — traffic police contact may get app adopted by GBA; staging needed for partner UAT before Phase 3
+- Phase 02.3 inserted after Phase 02: UAT Bug Fixes — admin category label, iOS camera UX, admin mobile layout, map legend consistency (URGENT) — 5 issues found in 02.2-HUMAN-UAT.md field test; fix before Phase 3 executes
+- Phase 02.3.1 inserted after Phase 02.3: Implement Walkable BLR UI redesign from design file on separate branch (URGENT)
 
 ### Pending Todos
 
@@ -122,6 +141,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T09:46:28.197Z
-Stopped at: Wave 1 complete — all 3 plans done
+Last session: 2026-04-25T04:31:28.119Z
+Stopped at: Completed 02.3.1-04-PLAN.md — 5 UAT gaps closed; all 736 tests pass
 Resume file: None
+
+**Planned Phase:** 02.3.1 (implement-walkable-blr-ui-redesign-from-design-file-on-separate-branch) — 4 plans — 2026-04-24T20:47:49.668Z

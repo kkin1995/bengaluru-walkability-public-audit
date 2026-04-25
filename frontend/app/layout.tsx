@@ -1,5 +1,29 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, JetBrains_Mono, Noto_Sans_Kannada } from "next/font/google";
 import "./globals.css";
+
+// Self-hosted Google Fonts via next/font — exposed as CSS variables
+// for the design system to reference in globals.css (--font-sans etc.).
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+});
+
+const notoSansKannada = Noto_Sans_Kannada({
+  subsets: ["kannada"],
+  weight: ["400", "500", "600"],
+  variable: "--font-noto-sans-kannada",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Bengaluru Walkability Audit",
@@ -12,7 +36,7 @@ export const viewport: Viewport = {
   themeColor: "#2563eb",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // maximumScale removed — allows browser zoom per WCAG 1.4.4
 };
 
 export default function RootLayout({
@@ -20,8 +44,9 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const fontVars = `${inter.variable} ${jetbrainsMono.variable} ${notoSansKannada.variable}`;
   return (
-    <html lang="en">
+    <html lang="en" className={fontVars}>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -35,9 +60,7 @@ export default function RootLayout({
           crossOrigin=""
         />
       </head>
-      <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
-        {children}
-      </body>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }

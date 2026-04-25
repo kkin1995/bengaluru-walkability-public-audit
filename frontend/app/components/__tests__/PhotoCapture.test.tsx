@@ -64,39 +64,37 @@ async function uploadViaGallery(file: File) {
 // R1 / AC1.1 — "Take Photo" button triggers camera input
 // ─────────────────────────────────────────────────────────────────────────────
 describe("R1 / AC1.1 — Take Photo button triggers camera input", () => {
-  it("renders a 'Take Photo' button", () => {
+  it("renders a 'Take Photo' label", () => {
     render(<PhotoCapture onPhoto={jest.fn()} />);
-    expect(screen.getByRole("button", { name: /take photo/i })).toBeInTheDocument();
+    expect(screen.getByText(/take photo/i)).toBeInTheDocument();
   });
 
-  it("clicking 'Take Photo' calls click() on the camera input (capture=environment)", async () => {
+  it("camera label wraps an input with capture='environment'", () => {
     render(<PhotoCapture onPhoto={jest.fn()} />);
-    const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-    // The camera input is the FIRST hidden input (has capture="environment")
-    const cameraInput = inputs[0];
-    const clickSpy = jest.spyOn(cameraInput, "click");
-
-    await userEvent.click(screen.getByRole("button", { name: /take photo/i }));
-
-    expect(clickSpy).toHaveBeenCalledTimes(1);
+    const cameraInput = document.querySelector('input[capture="environment"]') as HTMLInputElement;
+    expect(cameraInput).not.toBeNull();
+    expect(cameraInput.getAttribute("accept")).toBe("image/*");
+    // Input should be inside a <label> element
+    expect(cameraInput.closest("label")).not.toBeNull();
   });
 
-  it("renders an 'Upload from Gallery' button", () => {
+  it("renders an 'Upload from Gallery' label", () => {
     render(<PhotoCapture onPhoto={jest.fn()} />);
     expect(
-      screen.getByRole("button", { name: /upload from gallery/i })
+      screen.getByText(/upload from gallery/i)
     ).toBeInTheDocument();
   });
 
-  it("clicking 'Upload from Gallery' calls click() on the gallery input", async () => {
+  it("gallery label wraps an input without capture attribute", () => {
     render(<PhotoCapture onPhoto={jest.fn()} />);
     const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-    const galleryInput = inputs[1];
-    const clickSpy = jest.spyOn(galleryInput, "click");
-
-    await userEvent.click(screen.getByRole("button", { name: /upload from gallery/i }));
-
-    expect(clickSpy).toHaveBeenCalledTimes(1);
+    // Gallery input is the one WITHOUT capture attribute
+    const galleryInput = Array.from(inputs).find(
+      (input) => !input.hasAttribute("capture")
+    );
+    expect(galleryInput).not.toBeUndefined();
+    expect(galleryInput!.getAttribute("accept")).toBe("image/*");
+    expect(galleryInput!.closest("label")).not.toBeNull();
   });
 });
 
@@ -336,7 +334,7 @@ describe("R1 / AC1.6 — Clear (X) button resets preview and returns to capture 
       await userEvent.click(screen.getByRole("button", { name: /remove photo/i }));
     });
 
-    expect(screen.getByRole("button", { name: /take photo/i })).toBeInTheDocument();
+    expect(screen.getByText(/take photo/i)).toBeInTheDocument();
   });
 
   it("clicking X clears any compression error — AC1.6", async () => {
@@ -367,7 +365,7 @@ describe("R1 / AC1.6 — Clear (X) button resets preview and returns to capture 
     // clears the preview, so the capture UI (with Take Photo button) should be shown.
     // Verify the error is visible AND the capture UI is shown (no preview).
     expect(screen.queryByAltText("Captured photo")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /take photo/i })).toBeInTheDocument();
+    expect(screen.getByText(/take photo/i)).toBeInTheDocument();
 
     // Restore toBlob
     HTMLCanvasElement.prototype.toBlob = jest.fn(

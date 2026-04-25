@@ -1,49 +1,12 @@
 /**
- * Tests for frontend/app/report/page.tsx — 4-step wizard
- *
- * Requirements covered:
- *   R1 / AC1.2 — Photo chosen → auto-advance to step 1 (Location)
- *   R1 / AC1.3 — Photo with EXIF GPS → step 1 shows green badge
- *   R1 / AC1.4 — Photo without EXIF GPS → step 1 shows amber "drop the pin" badge
- *   R2 / AC2.2 — Pin outside Bengaluru bbox → Next disabled + inline error
- *   R2 / AC2.3 — EXIF GPS detected then user drags pin → locationSource = manual_pin, badge cleared
- *   R2 / AC2.4 — EXIF GPS detected, user doesn't adjust → locationSource = exif in submitted form
- *   R3 / AC3.1 — No category → Next disabled; category selected → Next enabled
- *   R3 / AC3.2 — (Styling tested in CategoryPicker.test; here we test wizard step advance)
- *   R4 / AC4.1 — Description counter shows n/500; input blocked at 500
- *   R4 / AC4.2 — Severity defaults to "medium"; hint text shown per selection
- *   R4 / AC4.3 — Submit button disabled while submitting (spinner shown)
- *   R4 / AC4.4 — On success → SubmitSuccess replaces wizard
- *   R4 / AC4.5 — On server error → red error message; button re-enables
- *
- * Mocking strategy:
- *   - PhotoCapture is mocked so we can call onPhoto programmatically.
- *   - CategoryPicker is mocked so we can call onChange programmatically.
- *   - LocationMap (loaded via next/dynamic) is mocked via __mocks__/nextDynamic.js,
- *     which renders the loading fallback ("Loading map…").
- *     The LocationMap onChange is also exposed via a test helper data attribute.
- *   - next/link renders an <a> tag.
- *   - fetch is mocked via jest.spyOn(global, "fetch").
- *   - exifr is not imported directly by page.tsx — it is used inside PhotoCapture,
- *     which is fully mocked here.
+ * Tests for frontend/app/report/page.tsx — 2-step Walkable BLR report flow (Phase 02.3.1)
  */
 
 import React from "react";
-import {
-  render,
-  screen,
-  waitFor,
-  within,
-  act,
-} from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ReportPage from "../report/page";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mocks
-// ─────────────────────────────────────────────────────────────────────────────
-
-// next/link
+// Mock next/link
 jest.mock("next/link", () => {
   const MockLink = ({
     href,
@@ -62,857 +25,413 @@ jest.mock("next/link", () => {
   return MockLink;
 });
 
-// PhotoCapture — expose onPhoto via a test button so tests can trigger it
-jest.mock("../components/PhotoCapture", () => {
-  const MockPhotoCapture = ({
-    onPhoto,
-  }: {
-    onPhoto: (file: File, gps: { latitude: number; longitude: number } | null) => void;
-  }) => (
-    <div data-testid="photo-capture">
-      <button
-        data-testid="mock-photo-with-gps"
-        onClick={() =>
-          onPhoto(
-            new File(["img"], "photo.jpg", { type: "image/jpeg" }),
-            { latitude: 12.9716, longitude: 77.5946 }
-          )
-        }
-      >
-        Simulate Photo With GPS
-      </button>
-      <button
-        data-testid="mock-photo-no-gps"
-        onClick={() =>
-          onPhoto(new File(["img"], "photo.jpg", { type: "image/jpeg" }), null)
-        }
-      >
-        Simulate Photo No GPS
-      </button>
-    </div>
-  );
-  MockPhotoCapture.displayName = "MockPhotoCapture";
-  return MockPhotoCapture;
+// Mock next/dynamic — LocationMap renders a placeholder
+jest.mock("next/dynamic", () => () => {
+  const Mock = () => <div data-testid="location-map" />;
+  Mock.displayName = "DynamicMock";
+  return Mock;
 });
 
-// CategoryPicker — expose onChange via a test button
-jest.mock("../components/CategoryPicker", () => {
-  const MockCategoryPicker = ({
-    value,
-    onChange,
-  }: {
-    value: string;
-    onChange: (v: string) => void;
-  }) => (
-    <div data-testid="category-picker" data-value={value}>
-      <button
-        data-testid="mock-select-no-footpath"
-        onClick={() => onChange("no_footpath")}
-      >
-        Select no_footpath
-      </button>
-    </div>
-  );
-  MockCategoryPicker.displayName = "MockCategoryPicker";
-  return MockCategoryPicker;
-});
+// Mock photo-store — default: no pending photo (existing tests unaffected)
+jest.mock("@/app/lib/photo-store", () => ({
+  consumePendingPhoto: jest.fn().mockReturnValue(null),
+  storePendingPhoto: jest.fn(),
+}));
 
-// SubmitSuccess — minimal mock so we can detect when it renders
-jest.mock("../components/SubmitSuccess", () => {
-  const MockSubmitSuccess = ({ onReset }: { onReset: () => void }) => (
-    <div data-testid="submit-success">
-      <p>Report received</p>
-      <button data-testid="mock-reset" onClick={onReset}>
-        Submit another report
-      </button>
-    </div>
-  );
-  MockSubmitSuccess.displayName = "MockSubmitSuccess";
-  return MockSubmitSuccess;
-});
+// Mock exifr — default to GPS inside Bengaluru
+jest.mock("exifr", () => ({
+  __esModule: true,
+  default: {
+    gps: jest.fn().mockResolvedValue({ latitude: 12.9716, longitude: 77.5946 }),
+  },
+  gps: jest.fn().mockResolvedValue({ latitude: 12.9716, longitude: 77.5946 }),
+}));
 
-// LocationMap — next/dynamic renders loading fallback in tests (see __mocks__/nextDynamic.js).
-// To test the onChange callback we need to expose it. We intercept the dynamic import
-// by mocking the module path directly.
-jest.mock("../components/LocationMap", () => {
-  const MockLocationMap = ({
-    onChange,
-  }: {
-    lat: number;
-    lng: number;
-    onChange: (lat: number, lng: number) => void;
-  }) => (
-    <div data-testid="location-map">
-      {/* Simulate pin drop inside Bengaluru */}
-      <button
-        data-testid="mock-pin-inside"
-        onClick={() => onChange(12.9716, 77.5946)}
-      >
-        Pin Inside Bengaluru
-      </button>
-      {/* Simulate pin drop outside Bengaluru */}
-      <button
-        data-testid="mock-pin-outside"
-        onClick={() => onChange(0, 0)}
-      >
-        Pin Outside Bengaluru
-      </button>
-    </div>
-  );
-  MockLocationMap.displayName = "MockLocationMap";
-  return MockLocationMap;
-});
+function makeFile(name = "photo.jpg", size = 1000): File {
+  const blob = new Blob([new Uint8Array(size)], { type: "image/jpeg" });
+  return new File([blob], name, { type: "image/jpeg" });
+}
 
-// ReviewStrip — shown on steps > 0; exposes received props via data attributes
-jest.mock("../components/ReviewStrip", () => {
-  const MockReviewStrip = ({
-    photo,
-    lat,
-    lng,
-    category,
-  }: {
-    photo: File | null;
-    lat: number;
-    lng: number;
-    category: string;
-  }) => (
-    <div
-      data-testid="mock-review-strip"
-      data-has-photo={String(!!photo)}
-      data-lat={lat}
-      data-lng={lng}
-      data-category={category}
-    />
-  );
-  MockReviewStrip.displayName = "MockReviewStrip";
-  return MockReviewStrip;
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Advance through step 0 (Photo) by simulating a photo with GPS. */
-async function completeStep0WithGps() {
+async function uploadPhoto(file: File = makeFile()) {
+  const cameraInput = document.querySelector(
+    'input[capture="environment"]'
+  ) as HTMLInputElement;
   await act(async () => {
-    await userEvent.click(screen.getByTestId("mock-photo-with-gps"));
+    fireEvent.change(cameraInput, { target: { files: [file] } });
   });
 }
 
-/** Advance through step 0 (Photo) by simulating a photo without GPS. */
-async function completeStep0NoGps() {
-  await act(async () => {
-    await userEvent.click(screen.getByTestId("mock-photo-no-gps"));
-  });
+async function goToConfirm() {
+  await uploadPhoto();
+  await waitFor(() => expect(screen.getByText("Damaged")).toBeInTheDocument());
+  fireEvent.click(screen.getByText("Damaged"));
+  const continueBtn = screen
+    .getAllByRole("button")
+    .find((b) => b.textContent?.includes("Continue"));
+  fireEvent.click(continueBtn!);
+  await waitFor(() => expect(screen.getByText(/Step 2 of 2/i)).toBeInTheDocument());
 }
 
-/** Advance from step 1 (Location) to step 2 (Category). */
-async function advanceFromStep1() {
-  await act(async () => {
-    await userEvent.click(screen.getByRole("button", { name: /next/i }));
-  });
-}
+beforeEach(() => {
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ id: "test-report-123" }),
+  }) as jest.Mock;
 
-/** Select a category in step 2 and advance to step 3. */
-async function completeStep2() {
-  await act(async () => {
-    await userEvent.click(screen.getByTestId("mock-select-no-footpath"));
-  });
-  await act(async () => {
-    await userEvent.click(screen.getByRole("button", { name: /next/i }));
-  });
-}
+  if (!URL.createObjectURL) {
+    (URL as unknown as Record<string, unknown>).createObjectURL = jest.fn(
+      () => "blob:mock"
+    );
+    (URL as unknown as Record<string, unknown>).revokeObjectURL = jest.fn();
+  } else {
+    (URL.createObjectURL as jest.Mock).mockReturnValue("blob:mock");
+  }
+});
 
-/** Navigate the wizard to step 3 (Details). */
-async function navigateToStep3() {
-  await completeStep0WithGps();     // step 0 → 1 (auto-advance)
-  await advanceFromStep1();         // step 1 → 2
-  await completeStep2();            // step 2 → 3
-}
+afterEach(() => {
+  jest.clearAllMocks();
+});
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Step indicators
-// ─────────────────────────────────────────────────────────────────────────────
-describe("Wizard structure", () => {
-  it("starts at step 1 of 4 (Photo)", () => {
+// ─── Photo step ───────────────────────────────────────────────────────────────
+
+describe("Report page — photo step", () => {
+  it("initial render shows Take Photo label", () => {
     render(<ReportPage />);
-    expect(screen.getByText(/step 1 of 4: photo/i)).toBeInTheDocument();
+    expect(screen.getByText(/Take Photo/i)).toBeInTheDocument();
   });
 
-  it("shows a Back button from step 2 onward", async () => {
+  it("initial render shows Upload from Gallery", () => {
     render(<ReportPage />);
-    await completeStep0WithGps();
-    expect(screen.getByRole("button", { name: /back/i })).toBeInTheDocument();
+    expect(screen.getByText(/Upload from Gallery/i)).toBeInTheDocument();
   });
 
-  it("pressing Back from step 2 returns to step 1", async () => {
+  it("camera input has capture=environment for iOS", () => {
     render(<ReportPage />);
-    await completeStep0WithGps();
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /back/i }));
-    });
-    expect(screen.getByText(/step 1 of 4: photo/i)).toBeInTheDocument();
+    const cameraInput = document.querySelector('input[capture="environment"]');
+    expect(cameraInput).not.toBeNull();
+  });
+
+  it("gallery input has no capture attribute", () => {
+    render(<ReportPage />);
+    const inputs = document.querySelectorAll('input[type="file"]');
+    const gallery = Array.from(inputs).find((i) => !i.hasAttribute("capture"));
+    expect(gallery).toBeDefined();
+  });
+
+  it("honeypot input is present in DOM on photo step", () => {
+    render(<ReportPage />);
+    const honeypot = document.querySelector('input[name="website"]');
+    expect(honeypot).not.toBeNull();
+  });
+
+  it("honeypot has tabIndex -1 and aria-hidden", () => {
+    render(<ReportPage />);
+    const honeypot = document.querySelector(
+      'input[name="website"]'
+    ) as HTMLInputElement;
+    expect(honeypot.tabIndex).toBe(-1);
+    expect(honeypot.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("shows 'Step 1 · Photo' section label", () => {
+    render(<ReportPage />);
+    expect(screen.getByText(/Step 1 · Photo/i)).toBeInTheDocument();
+  });
+
+  it("does not show 'Step 1 of 4' (old 4-step wizard removed)", () => {
+    render(<ReportPage />);
+    expect(screen.queryByText(/Step 1 of 4/i)).toBeNull();
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// R1 / AC1.2 — Photo chosen → auto-advances to step 2 (Location)
-// ─────────────────────────────────────────────────────────────────────────────
-describe("R1 / AC1.2 — Photo selection auto-advances to Location step", () => {
-  it("advances to Step 2 (Location) immediately after a photo with GPS is chosen", async () => {
+// ─── Category step ────────────────────────────────────────────────────────────
+
+describe("Report page — category step", () => {
+  it("after photo upload, advances to category step", async () => {
     render(<ReportPage />);
-    await completeStep0WithGps();
-    expect(screen.getByText(/step 2 of 4: location/i)).toBeInTheDocument();
+    await uploadPhoto();
+    await waitFor(() =>
+      expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument()
+    );
   });
 
-  it("advances to Step 2 (Location) immediately after a photo without GPS is chosen", async () => {
+  it("shows 6 category chips after photo upload", async () => {
     render(<ReportPage />);
-    await completeStep0NoGps();
-    expect(screen.getByText(/step 2 of 4: location/i)).toBeInTheDocument();
+    await uploadPhoto();
+    await waitFor(() =>
+      expect(screen.getAllByRole("radio")).toHaveLength(6)
+    );
+  });
+
+  it("Continue button is disabled until category selected", async () => {
+    render(<ReportPage />);
+    await uploadPhoto();
+    await waitFor(() => expect(screen.getByText(/Continue/i)).toBeInTheDocument());
+    const continueBtn = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.includes("Continue"));
+    expect(continueBtn).toBeDisabled();
+  });
+
+  it("selecting a category enables Continue", async () => {
+    render(<ReportPage />);
+    await uploadPhoto();
+    await waitFor(() => expect(screen.getByText("Damaged")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Damaged"));
+    const continueBtn = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.includes("Continue"));
+    expect(continueBtn).not.toBeDisabled();
+  });
+
+  it("honeypot is present on category step", async () => {
+    render(<ReportPage />);
+    await uploadPhoto();
+    await waitFor(() => expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument());
+    const honeypot = document.querySelector('input[name="website"]');
+    expect(honeypot).not.toBeNull();
+  });
+
+  it("back button on category step resets to photo step", async () => {
+    render(<ReportPage />);
+    await uploadPhoto();
+    await waitFor(() => expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument());
+    const backBtn = screen.getByRole("button", { name: /Back/i });
+    fireEvent.click(backBtn);
+    await waitFor(() =>
+      expect(screen.getByText(/Take Photo/i)).toBeInTheDocument()
+    );
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// R1 / AC1.3 — Photo with GPS EXIF → green badge in step 1
-// ─────────────────────────────────────────────────────────────────────────────
-describe("R1 / AC1.3 — GPS from EXIF shows green 'Location found' badge", () => {
-  it("shows the green 'Location found from photo' badge when GPS is present — AC1.3", async () => {
-    render(<ReportPage />);
-    await completeStep0WithGps();
-    expect(screen.getByText(/location found from photo/i)).toBeInTheDocument();
-  });
-});
+// ─── Confirm step ─────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
-// R1 / AC1.4 — Photo without GPS EXIF → amber badge in step 1
-// ─────────────────────────────────────────────────────────────────────────────
-describe("R1 / AC1.4 — No GPS EXIF shows amber 'drop the pin' badge", () => {
-  it("shows amber badge when photo has no GPS — AC1.4", async () => {
+describe("Report page — confirm step", () => {
+  it("clicking Continue advances to Step 2 of 2", async () => {
     render(<ReportPage />);
-    await completeStep0NoGps();
+    await goToConfirm();
+    expect(screen.getByText(/Step 2 of 2/i)).toBeInTheDocument();
+  });
+
+  it("confirm step header shows 'Confirm & submit'", async () => {
+    render(<ReportPage />);
+    await goToConfirm();
+    expect(screen.getAllByText(/Confirm/i).length).toBeGreaterThan(0);
+  });
+
+  it("severity grid shows low/medium/high options", async () => {
+    render(<ReportPage />);
+    await goToConfirm();
+    expect(screen.getByText("Minor")).toBeInTheDocument();
+    expect(screen.getByText("Moderate")).toBeInTheDocument();
+    expect(screen.getByText("Urgent")).toBeInTheDocument();
+  });
+
+  it("note textarea is present", async () => {
+    render(<ReportPage />);
+    await goToConfirm();
     expect(
-      screen.getByText(/couldn't read location from photo/i)
-    ).toBeInTheDocument();
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// R2 / AC2.2 — Pin outside Bengaluru bbox → Next disabled + inline error
-// ─────────────────────────────────────────────────────────────────────────────
-describe("R2 / AC2.2 — Out-of-bounds pin disables Next and shows error", () => {
-  it("Next button is enabled when location is inside Bengaluru — AC2.2 (baseline)", async () => {
-    render(<ReportPage />);
-    await completeStep0WithGps();
-    // The GPS coordinates from the mock (12.9716, 77.5946) are inside Bengaluru
-    const nextButton = screen.getByRole("button", { name: /next/i });
-    expect(nextButton).not.toBeDisabled();
-  });
-
-  it("Next button is disabled after pin is moved outside Bengaluru — AC2.2", async () => {
-    render(<ReportPage />);
-    await completeStep0WithGps();
-
-    // Drag pin outside Bengaluru
-    await act(async () => {
-      await userEvent.click(screen.getByTestId("mock-pin-outside"));
-    });
-
-    const nextButton = screen.getByRole("button", { name: /next/i });
-    expect(nextButton).toBeDisabled();
-  });
-
-  it("inline error 'Please drop the pin within Bengaluru' appears when pin is outside — AC2.2", async () => {
-    render(<ReportPage />);
-    await completeStep0WithGps();
-
-    await act(async () => {
-      await userEvent.click(screen.getByTestId("mock-pin-outside"));
-    });
-
-    expect(
-      screen.getByText(/please drop the pin within bengaluru/i)
+      screen.getByPlaceholderText(/Add context for the reviewer/i)
     ).toBeInTheDocument();
   });
 
-  it("error clears and Next re-enables when pin is moved back inside — AC2.2", async () => {
+  it("honeypot is present on confirm step", async () => {
     render(<ReportPage />);
-    await completeStep0WithGps();
+    await goToConfirm();
+    const honeypot = document.querySelector('input[name="website"]');
+    expect(honeypot).not.toBeNull();
+  });
 
-    // Move outside
-    await act(async () => {
-      await userEvent.click(screen.getByTestId("mock-pin-outside"));
-    });
-    expect(screen.getByText(/please drop the pin within bengaluru/i)).toBeInTheDocument();
-
-    // Move back inside
-    await act(async () => {
-      await userEvent.click(screen.getByTestId("mock-pin-inside"));
-    });
-
-    expect(
-      screen.queryByText(/please drop the pin within bengaluru/i)
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
+  it("back button on confirm step returns to category step", async () => {
+    render(<ReportPage />);
+    await goToConfirm();
+    const backBtn = screen.getByRole("button", { name: /Back/i });
+    fireEvent.click(backBtn);
+    await waitFor(() =>
+      expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument()
+    );
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// R2 / AC2.3 — EXIF GPS detected; user drags pin → green badge clears
-// ─────────────────────────────────────────────────────────────────────────────
-describe("R2 / AC2.3 — Dragging pin after GPS auto-detect clears the green badge", () => {
-  it("green badge disappears after user adjusts the pin — AC2.3", async () => {
+// ─── Submit ───────────────────────────────────────────────────────────────────
+
+describe("Report page — submit", () => {
+  it("submit button sends FormData to /api/reports", async () => {
     render(<ReportPage />);
-    await completeStep0WithGps();
-
-    // Confirm the green badge is present
-    expect(screen.getByText(/location found from photo/i)).toBeInTheDocument();
-
-    // User drags the pin (inside Bengaluru)
-    await act(async () => {
-      await userEvent.click(screen.getByTestId("mock-pin-inside"));
-    });
-
-    // Green badge should be replaced by the amber "drop the pin" badge
-    expect(
-      screen.queryByText(/location found from photo/i)
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/couldn't read location from photo/i)
-    ).toBeInTheDocument();
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// R2 / AC2.4 — EXIF GPS detected, user does NOT adjust → locationSource = "exif"
-// The submit payload is tested by verifying FormData contains location_source=exif
-// ─────────────────────────────────────────────────────────────────────────────
-describe("R2 / AC2.4 — locationSource = exif when GPS auto-detected and pin not moved", () => {
-  it("submits location_source=exif when user did not drag the pin — AC2.4", async () => {
-    const fetchMock = jest.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: "new-report-id" }),
-    } as Response);
-
-    render(<ReportPage />);
-    await navigateToStep3();
-
-    // Submit without moving the pin (GPS came from EXIF)
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /submit report/i }));
-    });
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-
-    const [, options] = fetchMock.mock.calls[0];
-    const body = (options as RequestInit).body as FormData;
-    expect(body.get("location_source")).toBe("exif");
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// R3 / AC3.1 — No category → Next disabled; category selected → Next enabled
-// ─────────────────────────────────────────────────────────────────────────────
-describe("R3 / AC3.1 — Category step gate", () => {
-  it("Next button is disabled before a category is selected — AC3.1", async () => {
-    render(<ReportPage />);
-    await completeStep0WithGps();
-    await advanceFromStep1();
-
-    // Step 2 — no category selected yet
-    expect(screen.getByText(/step 3 of 4: category/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /next/i })).toBeDisabled();
+    await goToConfirm();
+    const submitBtn = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.includes("Submit report"));
+    fireEvent.click(submitBtn!);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    const [url] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toContain("/api/reports");
   });
 
-  it("Next button enables once a category is selected — AC3.1", async () => {
+  it("submit sends FormData with required fields including honeypot", async () => {
     render(<ReportPage />);
-    await completeStep0WithGps();
-    await advanceFromStep1();
-
-    await act(async () => {
-      await userEvent.click(screen.getByTestId("mock-select-no-footpath"));
-    });
-
-    expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// R4 / AC4.1 — Description counter shows n/500; blocked at 500
-// ─────────────────────────────────────────────────────────────────────────────
-describe("R4 / AC4.1 — Description character counter", () => {
-  it("shows '0/500' counter before any input is typed — AC4.1", async () => {
-    render(<ReportPage />);
-    await navigateToStep3();
-    expect(screen.getByText("0/500")).toBeInTheDocument();
+    await goToConfirm();
+    const submitBtn = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.includes("Submit report"));
+    fireEvent.click(submitBtn!);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    const body = (global.fetch as jest.Mock).mock.calls[0][1].body as FormData;
+    expect(body.has("website")).toBe(true);
+    expect(body.has("photo")).toBe(true);
+    expect(body.has("category")).toBe(true);
+    expect(body.has("severity")).toBe(true);
+    expect(body.has("location_source")).toBe(true);
+    expect(body.has("lat")).toBe(true);
+    expect(body.has("lng")).toBe(true);
   });
 
-  it("counter updates as the user types — AC4.1", async () => {
+  it("successful submit shows SuccessCard with report ID", async () => {
     render(<ReportPage />);
-    await navigateToStep3();
-
-    const textarea = screen.getByPlaceholderText(/describe the issue/i);
-    await act(async () => {
-      await userEvent.type(textarea, "Hello");
-    });
-
-    expect(screen.getByText("5/500")).toBeInTheDocument();
+    await goToConfirm();
+    const submitBtn = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.includes("Submit report"));
+    fireEvent.click(submitBtn!);
+    await waitFor(() =>
+      expect(screen.getByText(/Thank you/i)).toBeInTheDocument()
+    );
+    expect(screen.getByText("test-report-123")).toBeInTheDocument();
   });
 
-  it("textarea has maxLength=500 — AC4.1 (browser enforcement)", async () => {
+  it("clicking Report another on SuccessCard resets to photo step", async () => {
     render(<ReportPage />);
-    await navigateToStep3();
-
-    const textarea = screen.getByPlaceholderText(/describe the issue/i);
-    expect(textarea).toHaveAttribute("maxLength", "500");
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// R4 / AC4.2 — Severity defaults to "medium"; hint text shown per selection
-// ─────────────────────────────────────────────────────────────────────────────
-describe("R4 / AC4.2 — Severity selection and hint text", () => {
-  it("severity defaults to 'medium' — AC4.2", async () => {
-    render(<ReportPage />);
-    await navigateToStep3();
-
-    // The hint for "medium" must be visible by default
-    expect(
-      screen.getByText("Difficult or risky for some pedestrians")
-    ).toBeInTheDocument();
+    await goToConfirm();
+    const submitBtn = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.includes("Submit report"));
+    fireEvent.click(submitBtn!);
+    await waitFor(() =>
+      expect(screen.getByText(/Thank you/i)).toBeInTheDocument()
+    );
+    const reportAnotherBtn = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.includes("Report another"));
+    fireEvent.click(reportAnotherBtn!);
+    await waitFor(() =>
+      expect(screen.getByText(/Take Photo/i)).toBeInTheDocument()
+    );
   });
 
-  it("shows correct hint text for each severity level — AC4.2", async () => {
-    render(<ReportPage />);
-    await navigateToStep3();
-
-    const hintMap: Record<string, string> = {
-      low: "Inconvenient but passable",
-      medium: "Difficult or risky for some pedestrians",
-      high: "Immediate danger — open pit, no path, safety risk",
-    };
-
-    for (const [severity, hint] of Object.entries(hintMap)) {
-      await act(async () => {
-        await userEvent.click(screen.getByRole("button", { name: new RegExp(`^${severity}$`, "i") }));
-      });
-      expect(screen.getByText(hint)).toBeInTheDocument();
-    }
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// R4 / AC4.3 — Submit button disabled while submitting; spinner shown
-// ─────────────────────────────────────────────────────────────────────────────
-describe("R4 / AC4.3 — Submit button disabled while submitting", () => {
-  it("submit button shows 'Submitting…' and is disabled during in-flight fetch — AC4.3", async () => {
-    // fetch never resolves — simulates slow network
-    jest.spyOn(global, "fetch").mockReturnValueOnce(new Promise(() => {}));
-
-    render(<ReportPage />);
-    await navigateToStep3();
-
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /submit report/i }));
-    });
-
-    expect(screen.getByText(/submitting/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /submitting/i })).toBeDisabled();
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// R4 / AC4.4 — On success → SubmitSuccess replaces wizard
-// ─────────────────────────────────────────────────────────────────────────────
-describe("R4 / AC4.4 — Successful submit shows SubmitSuccess component", () => {
-  it("replaces the wizard with SubmitSuccess after a successful submit — AC4.4", async () => {
-    jest.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: "report-uuid-002" }),
-    } as Response);
-
-    render(<ReportPage />);
-    await navigateToStep3();
-
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /submit report/i }));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("submit-success")).toBeInTheDocument();
-    });
-  });
-
-  it("the wizard header is no longer shown after success — AC4.4", async () => {
-    jest.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: "report-uuid-003" }),
-    } as Response);
-
-    render(<ReportPage />);
-    await navigateToStep3();
-
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /submit report/i }));
-    });
-
-    await waitFor(() => {
-      expect(screen.queryByText(/report an issue/i)).not.toBeInTheDocument();
-    });
-  });
-
-  it("clicking 'Submit another report' in SubmitSuccess resets to step 1 — AC4.4", async () => {
-    jest.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: "report-uuid-004" }),
-    } as Response);
-
-    render(<ReportPage />);
-    await navigateToStep3();
-
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /submit report/i }));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("submit-success")).toBeInTheDocument();
-    });
-
-    await act(async () => {
-      await userEvent.click(screen.getByTestId("mock-reset"));
-    });
-
-    // Back at step 1
-    expect(screen.getByText(/step 1 of 4: photo/i)).toBeInTheDocument();
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// R4 / AC4.5 — On error → red message; button re-enables
-// ─────────────────────────────────────────────────────────────────────────────
-describe("R4 / AC4.5 — Submit error shows message and re-enables button", () => {
-  it("shows a red error message when the server returns an error — AC4.5", async () => {
-    jest.spyOn(global, "fetch").mockResolvedValueOnce({
+  it("server error shows error message", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
-      status: 400,
-      json: async () => ({ error: "Please drop the pin within Bengaluru" }),
-    } as Response);
-
+      json: async () => ({ error: "Upload failed" }),
+    });
     render(<ReportPage />);
-    await navigateToStep3();
-
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /submit report/i }));
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByText("Please drop the pin within Bengaluru")
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("shows generic error message when fetch throws (network failure) — AC4.5", async () => {
-    jest.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network error"));
-
-    render(<ReportPage />);
-    await navigateToStep3();
-
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /submit report/i }));
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByText("Couldn't submit — check your connection and try again.")
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("submit button is re-enabled after a submit error — AC4.5", async () => {
-    jest.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network error"));
-
-    render(<ReportPage />);
-    await navigateToStep3();
-
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /submit report/i }));
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByText("Couldn't submit — check your connection and try again.")
-      ).toBeInTheDocument();
-    });
-
-    // The submit button should be re-enabled so the user can retry
-    expect(
-      screen.getByRole("button", { name: /submit report/i })
-    ).not.toBeDisabled();
-  });
-
-  it("SubmitSuccess is NOT shown after a submit error — AC4.5", async () => {
-    jest.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network error"));
-
-    render(<ReportPage />);
-    await navigateToStep3();
-
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /submit report/i }));
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByText("Couldn't submit — check your connection and try again.")
-      ).toBeInTheDocument();
-    });
-
-    expect(screen.queryByTestId("submit-success")).not.toBeInTheDocument();
+    await goToConfirm();
+    const submitBtn = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.includes("Submit report"));
+    fireEvent.click(submitBtn!);
+    await waitFor(() =>
+      expect(screen.getByText(/Upload failed/i)).toBeInTheDocument()
+    );
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Track E — Step 1 back-to-home link
-//
-// On step 0 (wizard "Step 1 of 4: Photo") the intra-wizard Back button does not
-// exist because there is no previous step.  Instead, the empty placeholder
-// `<div className="w-9" />` must be replaced with a <Link href="/"> so the user
-// can navigate back to the home page.  Steps 2–4 (step > 0) keep their existing
-// intra-wizard Back button; the home link must NOT appear there.
-// ─────────────────────────────────────────────────────────────────────────────
-describe("Step 1 back to home link", () => {
-  it("back-to-home link is present on wizard step 1 (Photo) — Track E", () => {
+// ─── Regression guards — 4-step wizard removed ────────────────────────────────
+
+describe("Regression guards — 4-step wizard removed", () => {
+  it("no longer shows 'Step 1 of 4'", () => {
     render(<ReportPage />);
-
-    // The wizard opens at step 0 ("Step 1 of 4: Photo").
-    // A <Link href="/"> with aria-label="Back to home" must be rendered in the
-    // header slot that currently holds an empty <div className="w-9" />.
-    const link = screen.getByRole("link", { name: /back to home/i });
-
-    expect(link).toBeInTheDocument();
-    // The link must navigate to the home page, not a relative sub-path.
-    expect(link).toHaveAttribute("href", "/");
+    expect(screen.queryByText(/Step 1 of 4/i)).toBeNull();
   });
 
-  it("back-to-home link is NOT present on wizard step 2 (Location) — Track E", async () => {
+  it("no longer shows 'Step 3 of 4'", () => {
     render(<ReportPage />);
-
-    // Advancing past step 0 (Photo) must replace the home link with the
-    // intra-wizard Back button; the home link must disappear.
-    await completeStep0WithGps(); // step 0 → step 1 (Location), auto-advance
-
-    expect(screen.getByText(/step 2 of 4: location/i)).toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: /back to home/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Step 3 of 4/i)).toBeNull();
   });
 
-  it("back-to-home link is NOT present on wizard step 3 (Category) — Track E", async () => {
+  it("no longer imports old PhotoCapture (Step component not visible)", () => {
     render(<ReportPage />);
-
-    // Advance to step 2 (Category) — three moves from the start.
-    await completeStep0WithGps();  // step 0 → step 1 (Location)
-    await advanceFromStep1();      // step 1 → step 2 (Category)
-
-    expect(screen.getByText(/step 3 of 4: category/i)).toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: /back to home/i })
-    ).not.toBeInTheDocument();
+    // PhotoCapture rendered a camera icon button directly; new flow uses label-wrapped input
+    // If PhotoCapture were imported, its 'Take Photo' button would be a <button>, not a <label>
+    const cameraInput = document.querySelector('input[capture="environment"]');
+    expect(cameraInput?.parentElement?.tagName).toBe("LABEL");
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FormData payload verification
-// ─────────────────────────────────────────────────────────────────────────────
-describe("Submit FormData payload", () => {
-  it("sends photo, lat, lng, category, severity, and location_source in the POST body", async () => {
-    const fetchMock = jest.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: "payload-test-id" }),
-    } as Response);
+// ─── Contact accordion ─────────────────────────────────────────────────────────
 
+describe("Report page — contact accordion", () => {
+  it("contact row is collapsed by default (no name input visible)", async () => {
     render(<ReportPage />);
-    await navigateToStep3();
-
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /submit report/i }));
-    });
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-
-    const [url, options] = fetchMock.mock.calls[0];
-    expect(url).toMatch(/\/api\/reports$/);
-
-    const body = (options as RequestInit).body as FormData;
-    expect(body.get("photo")).toBeInstanceOf(File);
-    expect(body.get("lat")).not.toBeNull();
-    expect(body.get("lng")).not.toBeNull();
-    expect(body.get("category")).toBe("no_footpath");
-    expect(body.get("severity")).toBe("medium"); // default
-    expect(body.get("location_source")).toBe("exif"); // came from GPS mock
+    await goToConfirm();
+    expect(screen.queryByLabelText(/Name \(optional\)/i)).toBeNull();
   });
 
-  it("severity reflects the selected value in the submitted payload — AC4.2", async () => {
-    const fetchMock = jest.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: "severity-test-id" }),
-    } as Response);
-
+  it("clicking contact row expands it and shows Name input", async () => {
     render(<ReportPage />);
-    await navigateToStep3();
-
-    // Change severity to "high"
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /^high$/i }));
+    await goToConfirm();
+    const contactRow = screen.getByRole("button", {
+      name: /Add contact for follow-up/i,
     });
-
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /submit report/i }));
-    });
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-
-    const [, options] = fetchMock.mock.calls[0];
-    const body = (options as RequestInit).body as FormData;
-    expect(body.get("severity")).toBe("high");
+    fireEvent.click(contactRow);
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Name \(optional\)/i)).toBeInTheDocument()
+    );
   });
 
-  it("description is included in the payload when the user enters text — AC4.1", async () => {
-    const fetchMock = jest.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: "desc-test-id" }),
-    } as Response);
-
+  it("clicking contact row again collapses it", async () => {
     render(<ReportPage />);
-    await navigateToStep3();
-
-    const textarea = screen.getByPlaceholderText(/describe the issue/i);
-    await act(async () => {
-      await userEvent.type(textarea, "Big pothole on main road");
+    await goToConfirm();
+    const contactRow = screen.getByRole("button", {
+      name: /Add contact for follow-up/i,
     });
-
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: /submit report/i }));
-    });
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-
-    const [, options] = fetchMock.mock.calls[0];
-    const body = (options as RequestInit).body as FormData;
-    expect(body.get("description")).toBe("Big pothole on main road");
+    fireEvent.click(contactRow);
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Name \(optional\)/i)).toBeInTheDocument()
+    );
+    fireEvent.click(contactRow);
+    await waitFor(() =>
+      expect(screen.queryByLabelText(/Name \(optional\)/i)).toBeNull()
+    );
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// P1-B — Sticky CTA disabled reasons
-//
-// When canAdvance() is false, the Next button must display a context-sensitive
-// disabled-reason suffix so the user understands why they cannot proceed.
-// ─────────────────────────────────────────────────────────────────────────────
-describe("P1-B: Sticky CTA disabled reasons", () => {
-  it("shows 'Next (add a photo)' on step 0 when no photo has been chosen — P1-B", () => {
+// ─── Category label in review card ────────────────────────────────────────────
+
+describe("Report page — category label in confirm review card", () => {
+  it("confirm review card shows human-readable label not raw enum", async () => {
     render(<ReportPage />);
-
-    // Step 0 is the initial state — no photo has been taken yet, so canAdvance()
-    // is false. The button text must encode the blocking reason.
-    expect(
-      screen.getByRole("button", { name: /next \(add a photo\)/i })
-    ).toBeInTheDocument();
-  });
-
-  it("shows 'Next (pin your location)' on step 1 when pin is outside Bengaluru — P1-B", async () => {
-    render(<ReportPage />);
-
-    // Advance to step 1 (Location) with a GPS photo so we start with a valid pin.
-    await completeStep0WithGps();
-
-    // Move the pin outside Bengaluru to invalidate the location — canAdvance() → false.
-    await act(async () => {
-      await userEvent.click(screen.getByTestId("mock-pin-outside"));
-    });
-
-    // The Next button must now show the location-specific disabled reason.
-    expect(
-      screen.getByRole("button", { name: /next \(pin your location\)/i })
-    ).toBeInTheDocument();
-  });
-
-  it("shows 'Next (pick a category)' on step 2 before any category is selected — P1-B", async () => {
-    render(<ReportPage />);
-
-    // Advance to step 2 (Category) — no category selected yet.
-    await completeStep0WithGps();
-    await advanceFromStep1();
-
-    // canAdvance() is false because category is empty. The button must encode
-    // the category-specific disabled reason.
-    expect(
-      screen.getByRole("button", { name: /next \(pick a category\)/i })
-    ).toBeInTheDocument();
-  });
-
-  it("Next button does NOT show a disabled-reason suffix when inside Bengaluru on step 1 — P1-B", async () => {
-    render(<ReportPage />);
-
-    // GPS photo gives valid coordinates inside Bengaluru — canAdvance() is true.
-    await completeStep0WithGps();
-
-    // The button should show the enabled label (containing "Next") but must NOT
-    // include any parenthetical disabled-reason suffix.
-    const nextButton = screen.getByRole("button", { name: /next/i });
-    expect(nextButton).not.toBeDisabled();
-    expect(nextButton).not.toHaveAccessibleName(/next \(/i);
+    await goToConfirm();
+    // goToConfirm selects "Damaged" which maps to broken_footpath enum
+    // The review card should show "Damaged Footpath" (getCategoryLabel result), not "broken_footpath"
+    expect(screen.queryByText("broken_footpath")).toBeNull();
+    // The human label from getCategoryLabel("broken_footpath").en is "Damaged Footpath"
+    expect(screen.getByText("Damaged Footpath")).toBeInTheDocument();
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// P2-B — ReviewStrip visibility
-//
-// ReviewStrip must appear on every step > 0 (i.e., steps 1, 2, and 3) and must
-// be completely absent on step 0 (the initial Photo step).
-// ─────────────────────────────────────────────────────────────────────────────
-describe("P2-B: ReviewStrip shown on steps > 0", () => {
-  it("ReviewStrip is NOT rendered on step 0 (initial Photo step) — P2-B", () => {
-    render(<ReportPage />);
+// ─── Photo-store mount effect ──────────────────────────────────────────────────
 
-    // The wizard opens at step 0. ReviewStrip must not be in the DOM yet.
-    expect(screen.queryByTestId("mock-review-strip")).not.toBeInTheDocument();
+describe("Report page — photo-store mount effect", () => {
+  it("with no pending photo, starts at photo step", () => {
+    // consumePendingPhoto mock returns null by default
+    render(<ReportPage />);
+    expect(screen.getByText(/Take Photo/i)).toBeInTheDocument();
   });
 
-  it("ReviewStrip IS rendered on step 1 (Location) immediately after a photo is taken — P2-B", async () => {
+  it("with pending photo in store, mounts directly at category step", async () => {
+    const { consumePendingPhoto } = require("@/app/lib/photo-store");
+    const mockFile = new File([new Uint8Array(100)], "photo.jpg", { type: "image/jpeg" });
+    (consumePendingPhoto as jest.Mock).mockReturnValueOnce({
+      file: mockFile,
+      previewUrl: "blob:mock-pending",
+      lat: 12.9716,
+      lng: 77.5946,
+      locationSource: "exif",
+      gpsConfirmed: true,
+    });
     render(<ReportPage />);
-
-    // Taking a photo auto-advances to step 1 — ReviewStrip must now be present.
-    await completeStep0WithGps();
-
-    expect(screen.getByTestId("mock-review-strip")).toBeInTheDocument();
-  });
-
-  it("ReviewStrip IS rendered on step 2 (Category) after advancing from Location — P2-B", async () => {
-    render(<ReportPage />);
-
-    await completeStep0WithGps();
-    await advanceFromStep1();
-
-    // Step 2 (Category) — ReviewStrip must still be visible.
-    expect(screen.getByText(/step 3 of 4: category/i)).toBeInTheDocument();
-    expect(screen.getByTestId("mock-review-strip")).toBeInTheDocument();
-  });
-
-  it("ReviewStrip IS rendered on step 3 (Details) after completing all prior steps — P2-B", async () => {
-    render(<ReportPage />);
-
-    await navigateToStep3();
-
-    // Step 3 (Details) — ReviewStrip must still be visible.
-    expect(screen.getByText(/step 4 of 4: details/i)).toBeInTheDocument();
-    expect(screen.getByTestId("mock-review-strip")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument()
+    );
   });
 });

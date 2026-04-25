@@ -82,9 +82,9 @@ describe("ReportsTable: row rendering", () => {
     );
     // Each report should produce a row. We look for category text as a proxy
     // since each report has a distinct category.
-    expect(screen.getByText("broken_footpath")).toBeInTheDocument();
-    expect(screen.getByText("poor_lighting")).toBeInTheDocument();
-    expect(screen.getByText("unsafe_crossing")).toBeInTheDocument();
+    expect(screen.getByText("Damaged Footpath")).toBeInTheDocument();
+    expect(screen.getByText("Poor Lighting")).toBeInTheDocument();
+    expect(screen.getByText("Unsafe Crossing")).toBeInTheDocument();
   });
 
   it("renders category text in each row", () => {
@@ -96,7 +96,7 @@ describe("ReportsTable: row rendering", () => {
         onDelete={jest.fn()}
       />
     );
-    expect(screen.getByText("broken_footpath")).toBeInTheDocument();
+    expect(screen.getByText("Damaged Footpath")).toBeInTheDocument();
   });
 
   it("renders severity text in each row", () => {
@@ -134,13 +134,13 @@ describe("ReportsTable: row rendering", () => {
       />
     );
     // REPORT_A
-    expect(screen.getByText("broken_footpath")).toBeInTheDocument();
+    expect(screen.getByText("Damaged Footpath")).toBeInTheDocument();
     expect(screen.getByText("high")).toBeInTheDocument();
     // REPORT_B
-    expect(screen.getByText("poor_lighting")).toBeInTheDocument();
+    expect(screen.getByText("Poor Lighting")).toBeInTheDocument();
     expect(screen.getByText("low")).toBeInTheDocument();
     // REPORT_C
-    expect(screen.getByText("unsafe_crossing")).toBeInTheDocument();
+    expect(screen.getByText("Unsafe Crossing")).toBeInTheDocument();
     expect(screen.getByText("medium")).toBeInTheDocument();
   });
 });

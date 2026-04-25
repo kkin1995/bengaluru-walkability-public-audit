@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import { BENGALURU_CENTER } from "../lib/constants";
+import { getCategoryLabel } from "../lib/translations";
 
 const BENGALURU_MAP_CENTER: [number, number] = [BENGALURU_CENTER.lat, BENGALURU_CENTER.lng];
 
@@ -15,14 +16,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: "#3b82f6",
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  no_footpath: "No Footpath",
-  broken_footpath: "Damaged Footpath",
-  blocked_footpath: "Blocked Footpath",
-  unsafe_crossing: "Unsafe Crossing",
-  poor_lighting: "Poor Lighting",
-  other: "Other Issue",
-};
 
 interface Report {
   id: string;
@@ -115,6 +108,7 @@ export default function ReportsMap({ apiUrl }: ReportsMapProps) {
       zoom={12}
       style={{ width: "100%", height: "100%" }}
       scrollWheelZoom
+      zoomControl={false}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -142,7 +136,7 @@ export default function ReportsMap({ apiUrl }: ReportsMapProps) {
                 }}
               />
               <p className="font-semibold text-sm">
-                {CATEGORY_LABELS[report.category] ?? report.category}
+                {getCategoryLabel(report.category).en}
               </p>
               <p className="text-xs text-gray-500 capitalize">
                 Severity: {report.severity}
