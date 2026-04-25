@@ -74,6 +74,18 @@ Plans:
 - [x] 02.3-02-PLAN.md — iOS camera UX label-wrapping fix (BUG-02)
 - [x] 02.3-03-PLAN.md — Admin sidebar extraction with mobile hamburger drawer (UX-02)
 
+### Phase 02.3.2: Walkable BLR — Frontend gap-fill (3 missing design pieces) (INSERTED)
+
+**Goal:** Close the five design pieces deferred from Phase 02.3.1: gallery escape hatch on home page, CategoryGrid 2-col × 3-row revert with privacy notice, live count verification, map filter chip strip with 7 chips, and per-category counts derived from the fetched reports array — all on a dedicated branch from main.
+**Requirements**: UI-GALLERY-ESCAPE-HATCH, UI-CATEGORY-GRID, UI-LIVE-COUNT-VERIFY, UI-MAP-FILTER-CHIPS, UI-PER-CATEGORY-COUNTS (phase-local)
+**Depends on:** Phase 02.3.1
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02.3.2-01-PLAN.md — Branch setup + gallery escape hatch (ReportCTA.tsx) + CategoryGrid 2-col revert + privacy row + live count verification (page.tsx)
+- [ ] 02.3.2-02-PLAN.md — ReportsMap.tsx prop extensions (categoryFilter, onReportsLoaded) + map/page.tsx chip strip + filter wiring + per-category counts
+- [ ] 02.3.2-03-PLAN.md — Build/lint verification + visual checkpoint + PR readiness confirmation
+
 ### Phase 02.3.1: Implement Walkable BLR UI redesign from design file on separate branch (INSERTED)
 
 **Goal:** On a dedicated `ui-redesign` branch, implement a pixel-faithful Next.js redesign of the 5 citizen-facing screens (Home, Category step, Confirm step, Success, Public Map) per the Walkable BLR design file — introducing a CSS-variable design system, Google Fonts via next/font, and 5 TSX primitives (Bi, Icon, Btn, Pill, SectionLabel) — without merging to main.
@@ -164,7 +176,7 @@ Plans: *(not yet created — Phase 4 has no plan files on disk; planning begins 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -174,5 +186,6 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 3
 | 2.2 Staging Deployment | 3/3 | Complete | 2026-04-22 |
 | 2.3 UAT Bug Fixes | 3/3 | Complete | 2026-04-24 |
 | 2.3.1 UI Redesign | 4/4 | Complete | 2026-04-25 |
+| 2.3.2 Frontend Gap-fill | 0/3 | Planning complete — ready to execute | - |
 | 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
