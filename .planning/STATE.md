@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: shipped
-stopped_at: Phase 02.3.1 shipped — PR #1 open, CI green, awaiting merge to main
-last_updated: "2026-04-25T06:00:00.000Z"
-last_activity: 2026-04-25 — Phase 02.3.1 shipped to GitHub, PR #1 created
+status: executing
+stopped_at: Completed 02.3.2-01-PLAN.md — gallery escape hatch, CategoryGrid 2-col, privacy row
+last_updated: "2026-04-25T13:15:54.232Z"
+last_activity: 2026-04-25 -- Phase --phase execution started
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 6
-  total_plans: 23
-  completed_plans: 21
-  percent: 91
+  total_plans: 26
+  completed_plans: 22
+  percent: 85
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 1 of --name
 Status: Executing Phase --phase
 Last activity: 2026-04-25 -- Phase --phase execution started
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 85%
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [█████████░] 91%
 | Phase 02.3.1 P02 | 25min | 2 tasks | 3 files |
 | Phase 02.3.1 P03 | 40min | 2 tasks | 8 files |
 | Phase 02.3.1 P04 | 4min | 2 tasks | 7 files |
+| Phase 02.3.2 P01 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -122,6 +123,10 @@ Progress: [█████████░] 91%
 - photo-store module singleton: storePendingPhoto/consumePendingPhoto for home CTA → /report photo handoff without localStorage or URL params
 - ReportCTA label-wrapped hidden file input: label+input with inset-0/opacity-0 positioning for iOS camera capture from home page
 - Contact accordion UAT deferral overridden: GAP 4 major severity — implemented expand/collapse per UAT evidence, superseding CONTEXT.md display-only deferral
+- Gallery input has no capture attribute — this forces the OS full photo picker instead of camera-only on iOS and Android
+- handleGalleryChange is an exact copy of handleChange — identical EXIF/compress/storePendingPhoto pipeline; behavioral difference is exclusively in the input element (no capture attribute)
+- CategoryGrid gridTemplateColumns reverted from 1fr 1fr 1fr to 1fr 1fr — UI-SPEC (approved 2026-04-25) is authoritative, overriding prior CONTEXT.md D-08 value
+- Privacy notice fontSize set to 13 (Caption scale) per UI-SPEC typography section, not 12 as originally in CONTEXT.md D-10
 
 ### Roadmap Evolution
 
@@ -141,8 +146,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-25T04:31:28.119Z
-Stopped at: Completed 02.3.1-04-PLAN.md — 5 UAT gaps closed; all 736 tests pass
+Last session: 2026-04-25T13:15:54.229Z
+Stopped at: Completed 02.3.2-01-PLAN.md — gallery escape hatch, CategoryGrid 2-col, privacy row
 Resume file: None
 
 **Planned Phase:** 02.3.1 (implement-walkable-blr-ui-redesign-from-design-file-on-separate-branch) — 4 plans — 2026-04-24T20:47:49.668Z
