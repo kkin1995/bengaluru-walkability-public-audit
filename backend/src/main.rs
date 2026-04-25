@@ -203,6 +203,8 @@ async fn main() {
         .route("/api/reports", post(handlers::reports::create_report))
         .route("/api/reports", get(handlers::reports::list_reports))
         .route("/api/reports/:id", get(handlers::reports::get_report))
+        // Public ward lookup — no auth required
+        .route("/api/wards/lookup", get(handlers::wards::ward_lookup))
         // Admin routes (auth + protected)
         .merge(admin_auth_router)
         .merge(admin_protected_router)

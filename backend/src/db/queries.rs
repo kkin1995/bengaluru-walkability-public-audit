@@ -35,6 +35,38 @@ pub async fn get_ward_for_point(
     Ok(row.map(|(id,)| id))
 }
 
+/// Public ward lookup: returns (ward_number, ward_name) for the ward polygon
+/// that contains the given coordinate, or None if no ward matches.
+///
+/// Used by the public GET /api/wards/lookup endpoint. Does NOT expose the
+/// ward UUID or corporation — only the fields needed for the citizen UI.
+///
+/// # PostGIS coordinate order
+/// ST_MakePoint takes (longitude, latitude) — X,Y order.
+/// - $1 = latitude (Y)
+/// - $2 = longitude (X)
+pub async fn get_ward_label_for_point(
+    pool: &PgPool,
+    lat: f64,
+    lng: f64,
+) -> Result<Option<(i32, String)>, AppError> {
+    let row = sqlx::query_as::<_, (i32, String)>(
+        r#"
+        SELECT ward_number, ward_name FROM wards
+        WHERE ST_Within(
+            ST_SetSRID(ST_MakePoint($2, $1), 4326),
+            boundary
+        )
+        LIMIT 1
+        "#,
+    )
+    .bind(lat) // $1 = latitude
+    .bind(lng) // $2 = longitude (MakePoint takes lng,lat → X,Y)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row)
+}
+
 /// Check whether a photo with the given SHA256 hash already exists in the DB.
 /// Used by create_report to silently reject exact duplicate photo uploads.
 pub async fn check_photo_hash_exists(pool: &PgPool, hash: &str) -> Result<bool, AppError> {
@@ -230,5 +262,22 @@ mod tests {
         let hash_b = format!("{:x}", Sha256::digest(bytes_b));
         assert_ne!(hash_a, hash_b, "SHA256 of different bytes must differ");
         assert_eq!(hash_a.len(), 64, "SHA256 hex string must be 64 chars");
+    }
+
+    /// WARD-03 — get_ward_label_for_point SQL uses correct PostGIS coordinate order.
+    /// ST_MakePoint($2, $1) means longitude=$2 (X) and latitude=$1 (Y).
+    #[test]
+    fn get_ward_label_for_point_uses_correct_coordinate_order() {
+        let sql = r#"SELECT ward_number, ward_name FROM wards WHERE ST_Within(ST_SetSRID(ST_MakePoint($2, $1), 4326), boundary) LIMIT 1"#;
+        assert!(
+            sql.contains("ST_MakePoint($2, $1)"),
+            "longitude must be $2 (X), latitude must be $1 (Y) in ST_MakePoint — got: {}",
+            sql
+        );
+        assert!(
+            sql.contains("ward_number") && sql.contains("ward_name"),
+            "public ward lookup must select ward_number and ward_name; got: {}",
+            sql
+        );
     }
 }
