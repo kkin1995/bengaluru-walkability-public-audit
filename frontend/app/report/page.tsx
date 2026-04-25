@@ -477,6 +477,7 @@ export default function ReportPage() {
             cursor: "pointer",
             minHeight: 128,
             fontWeight: 600,
+            position: "relative",
           }}
         >
           <Icon name="camera" size={40} />
@@ -490,17 +491,13 @@ export default function ReportPage() {
             type="file"
             accept="image/*"
             capture="environment"
-            className="sr-only"
             style={{
               position: "absolute",
-              width: 1,
-              height: 1,
-              padding: 0,
-              margin: -1,
-              overflow: "hidden",
-              clip: "rect(0,0,0,0)",
-              whiteSpace: "nowrap",
-              border: 0,
+              inset: 0,
+              opacity: 0,
+              cursor: "pointer",
+              width: "100%",
+              height: "100%",
             }}
             onChange={handleInputChange}
           />
@@ -521,6 +518,7 @@ export default function ReportPage() {
             border: "1px solid var(--border-strong)",
             marginTop: 12,
             cursor: "pointer",
+            position: "relative",
           }}
         >
           <Icon name="image" size={20} />
@@ -533,17 +531,13 @@ export default function ReportPage() {
             ref={galleryRef}
             type="file"
             accept="image/*"
-            className="sr-only"
             style={{
               position: "absolute",
-              width: 1,
-              height: 1,
-              padding: 0,
-              margin: -1,
-              overflow: "hidden",
-              clip: "rect(0,0,0,0)",
-              whiteSpace: "nowrap",
-              border: 0,
+              inset: 0,
+              opacity: 0,
+              cursor: "pointer",
+              width: "100%",
+              height: "100%",
             }}
             onChange={handleInputChange}
           />

@@ -1,6 +1,7 @@
 // photo-store.ts
-// Browser-only module singleton — NOT SSR-safe (never imported on server).
-// Used to pass a processed photo from home page CTA → /report page on mount.
+// Browser-only — NOT SSR-safe (never imported on server).
+// Uses window-level storage so the reference survives Next.js App Router
+// code-split chunk boundaries (module-level vars are not shared across chunks).
 
 export interface PendingPhoto {
   file: File;
@@ -12,14 +13,16 @@ export interface PendingPhoto {
   photoTime: Date | null;
 }
 
-let _pending: PendingPhoto | null = null;
+declare global {
+  interface Window { __pendingPhoto?: PendingPhoto | null }
+}
 
 export function storePendingPhoto(p: PendingPhoto): void {
-  _pending = p;
+  window.__pendingPhoto = p;
 }
 
 export function consumePendingPhoto(): PendingPhoto | null {
-  const p = _pending;
-  _pending = null;
+  const p = window.__pendingPhoto ?? null;
+  window.__pendingPhoto = null;
   return p;
 }
