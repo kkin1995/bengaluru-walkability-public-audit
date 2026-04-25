@@ -49,6 +49,7 @@ interface FormState {
   description: string;
   name: string;
   contact: string;
+  photoTime: Date | null;
 }
 
 const INITIAL_FORM: FormState = {
@@ -62,6 +63,7 @@ const INITIAL_FORM: FormState = {
   description: "",
   name: "",
   contact: "",
+  photoTime: null,
 };
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -118,6 +120,8 @@ export default function ReportPage() {
   // BUG-3: ward label fetched from the public /api/wards/lookup endpoint
   const [wardLabel, setWardLabel] = useState<string | null>(null);
   const [wardLoading, setWardLoading] = useState(false);
+  // BUG-4: nearby road name from Nominatim reverse geocoding
+  const [nearRoad, setNearRoad] = useState<string | null>(null);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -160,13 +164,18 @@ export default function ReportPage() {
     );
   }
 
-  // BUG-3: Fetch ward for current coordinates. Re-runs whenever lat/lng changes
-  // (e.g. after pin adjustment). Gracefully degrades on 404 or network error.
+  // BUG-3 / BUG-4: Fetch ward and nearby road for current coordinates.
+  // Re-runs whenever lat/lng changes (e.g. after pin adjustment).
+  // Gracefully degrades on 404 or network error.
   useEffect(() => {
     if (step !== "confirm") return;
     setWardLabel(null);
     setWardLoading(true);
+    setNearRoad(null);
+
     const controller = new AbortController();
+
+    // Ward lookup
     fetch(
       `${API_BASE_URL}/api/wards/lookup?lat=${form.lat}&lng=${form.lng}`,
       { signal: controller.signal }
@@ -185,6 +194,31 @@ export default function ReportPage() {
         // Network error or aborted — degrade silently
         setWardLoading(false);
       });
+
+    // BUG-4: Nominatim reverse geocoding for nearby road name.
+    // Nominatim ToS requires a descriptive User-Agent header.
+    fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${form.lat}&lon=${form.lng}&format=json`,
+      {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "Walkable BLR (staging-walkability.kinariwala.com)",
+        },
+      }
+    )
+      .then((r) => r.json())
+      .then((data: { address?: { road?: string; suburb?: string; neighbourhood?: string } }) => {
+        const road =
+          data.address?.road ??
+          data.address?.suburb ??
+          data.address?.neighbourhood ??
+          null;
+        setNearRoad(road);
+      })
+      .catch(() => {
+        // Silent fail — near road is optional context, not critical
+      });
+
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, form.lat, form.lng]);
@@ -225,17 +259,32 @@ export default function ReportPage() {
     // EXIF extraction on ORIGINAL file (Phase 02.2 decision — canvas re-encoding strips EXIF).
     // Compat pattern for exifr@7 UMD + Jest mock (copied verbatim from PhotoCapture.tsx).
     let gps: { latitude: number; longitude: number } | null = null;
+    let photoTime: Date | null = null;
     try {
       const exifrModule = require("exifr");
       const exifr = (exifrModule.default ?? exifrModule) as {
         gps: (f: File) => Promise<{ latitude: number; longitude: number } | null>;
+        parse: (f: File, opts: Record<string, boolean>) => Promise<Record<string, unknown> | null>;
       };
-      const result = await exifr.gps(file);
-      if (result?.latitude && result?.longitude) {
-        gps = { latitude: result.latitude, longitude: result.longitude };
+      // Run GPS and DateTimeOriginal extraction concurrently
+      const [gpsResult, exifData] = await Promise.all([
+        exifr.gps(file).catch(() => null),
+        exifr.parse(file, { DateTimeOriginal: true }).catch(() => null),
+      ]);
+      if (gpsResult?.latitude && gpsResult?.longitude) {
+        gps = { latitude: gpsResult.latitude, longitude: gpsResult.longitude };
+      }
+      // DateTimeOriginal is a JS Date when exifr parses it
+      if (exifData?.DateTimeOriginal instanceof Date) {
+        photoTime = exifData.DateTimeOriginal as Date;
       }
     } catch {
-      // EXIF failed — GPS stays null
+      // EXIF failed — GPS and time stay null
+    }
+
+    // Fall back to current time if EXIF had no timestamp
+    if (!photoTime) {
+      photoTime = new Date();
     }
 
     // Compress if oversized
@@ -264,6 +313,7 @@ export default function ReportPage() {
       lng: gps?.longitude ?? f.lng,
       locationSource: gps ? "exif" : "manual_pin",
       gpsConfirmed: !!gps,
+      photoTime,
     }));
     setStep("category");
 
@@ -294,6 +344,7 @@ export default function ReportPage() {
     setGpsLocating(false);
     setGpsFailed(false);
     setWardLabel(null);
+    setNearRoad(null);
     if (cameraRef.current) cameraRef.current.value = "";
     if (galleryRef.current) galleryRef.current.value = "";
   }
@@ -358,6 +409,8 @@ export default function ReportPage() {
       >
         <SuccessCard
           reportId={submittedReportId ?? undefined}
+          locationLabel={nearRoad ?? undefined}
+          wardLabel={wardLabel ?? undefined}
           onReportAnother={resetAll}
           onClose={() => {
             window.location.href = "/";
@@ -581,7 +634,7 @@ export default function ReportPage() {
           className="no-scrollbar"
           style={{ flex: 1, overflowY: "auto", padding: "16px 16px 140px" }}
         >
-          {/* Photo review strip */}
+          {/* Photo review strip — BUG-2: Retake button added as sibling to content div */}
           <div
             style={{
               display: "flex",
@@ -647,6 +700,24 @@ export default function ReportPage() {
                 </Pill>
               )}
             </div>
+            {/* BUG-2: Retake button — returns user to photo step */}
+            <button
+              type="button"
+              onClick={resetAll}
+              style={{
+                color: "var(--muted)",
+                fontSize: 11,
+                padding: "6px 8px",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--r-sm)",
+                whiteSpace: "nowrap",
+                background: "transparent",
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              Retake
+            </button>
           </div>
 
           <div style={{ marginTop: 24 }}>
@@ -765,7 +836,7 @@ export default function ReportPage() {
         className="no-scrollbar"
         style={{ flex: 1, overflowY: "auto", padding: "16px 16px 140px" }}
       >
-        {/* Review card */}
+        {/* Review card — BUG-3: Kannada category name + photo timestamp */}
         <div
           style={{
             display: "flex",
@@ -792,9 +863,43 @@ export default function ReportPage() {
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <SectionLabel>Reporting</SectionLabel>
-            <div style={{ fontSize: 16, fontWeight: 600, marginTop: 4, color: "var(--ink)" }}>
-              {form.category ? getCategoryLabel(form.category).en : "—"}
+            {/* BUG-3 Part A: Show both English and Kannada category name */}
+            <div
+              style={{
+                fontSize: 15,
+                fontWeight: 600,
+                marginTop: 2,
+                color: "var(--ink)",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              {form.category ? (
+                <Bi
+                  en={getCategoryLabel(form.category).en}
+                  kn={getCategoryLabel(form.category).kn}
+                  style={{ flexDirection: "row", gap: 6, alignItems: "baseline" }}
+                />
+              ) : "—"}
             </div>
+            {/* BUG-3 Part B: Photo timestamp */}
+            {form.photoTime && (
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--muted)",
+                  marginTop: 4,
+                  fontFamily: "var(--font-mono)",
+                }}
+              >
+                {form.photoTime.toLocaleTimeString("en-GB", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}{" "}
+                · Just now
+              </div>
+            )}
           </div>
         </div>
 
@@ -883,18 +988,75 @@ export default function ReportPage() {
               {form.lat.toFixed(4)}° N, {form.lng.toFixed(4)}° E
             </span>
           </div>
-          {/* BUG-3: Ward label — shown beneath coordinates once resolved */}
+
+          {/* BUG-4: Styled GBA ward card replacing plain text */}
           {!wardLoading && wardLabel && (
             <div
               style={{
-                marginTop: 4,
-                fontSize: 12,
-                color: "var(--muted)",
+                marginTop: 8,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 12px",
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--r-md)",
               }}
             >
-              {wardLabel}
+              <span
+                style={{
+                  fontSize: 10,
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  color: "var(--muted)",
+                  background: "var(--surface-2)",
+                  padding: "3px 6px",
+                  borderRadius: 4,
+                  flexShrink: 0,
+                }}
+              >
+                GBA
+              </span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "var(--ink)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {wardLabel}
+                </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "var(--muted)",
+                    marginTop: 1,
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  Auto-detected
+                </div>
+              </div>
+              <Icon
+                name="check_circle"
+                size={16}
+                style={{ color: "var(--accent-ink)", flexShrink: 0 }}
+              />
             </div>
           )}
+
+          {/* BUG-4: Nearby road from Nominatim */}
+          {nearRoad && (
+            <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 8 }}>
+              Near {nearRoad}
+            </div>
+          )}
+
           {outOfBounds && (
             <p style={{ color: "var(--danger)", fontSize: 14, marginTop: 8 }}>
               Please drop the pin within Bengaluru.
