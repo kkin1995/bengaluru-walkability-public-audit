@@ -39,6 +39,22 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 - ✓ CI-gated staging smoke tests (deploy.yml: /health retry loop, /api/reports check, Vercel HTTP 200) — Phase 02.2
 - ✓ Railway config-as-code (railway.toml: DOCKERFILE builder, /health healthcheck, ON_FAILURE restart) — Phase 02.2
 - ✓ STAGING-SETUP.md operational runbook (Railway + Vercel + DNS + pre-UAT checklist) — Phase 02.2
+- ✓ Admin category labels show human-readable text (getCategoryLabel from translations.ts) — Phase 02.3
+- ✓ iOS camera UX: separate "Take Photo" (camera) and "Upload from Gallery" (library) buttons — Phase 02.3
+- ✓ Admin reports table mobile scroll gradient (right-edge fade on md:hidden breakpoint) — Phase 02.3
+- ✓ Admin sidebar extracted to AdminSidebar.tsx with mobile hamburger drawer — Phase 02.3
+- ✓ Consistent category labels across admin table, map legend, and map popup — Phase 02.3
+- ✓ CSS variable design system (--color-*, --font-*, --radius-* tokens) — Phase 02.3.1
+- ✓ UI primitives: Bi, Icon, Btn, Pill, SectionLabel components in frontend/app/components/ui/ — Phase 02.3.1
+- ✓ Redesigned Home page (/) and Map page (/map) overlay — Phase 02.3.1
+- ✓ Redesigned 2-step report flow (Category → Confirm → Success) with CategoryGrid, SeverityGrid, SuccessCard — Phase 02.3.1
+- ✓ Contact accordion expand/collapse on report submission form — Phase 02.3.1
+- ✓ Photo-store singleton (storePendingPhoto/consumePendingPhoto) for home CTA → /report handoff — Phase 02.3.1
+- ✓ MapContainer renders unconditionally (eliminates 60s blank map on first load) — PR #2
+- ✓ Browser geolocation fallback when EXIF GPS is unavailable — PR #2
+- ✓ Ward lookup display in report flow (GET /api/wards/lookup shows ward name after pin placement) — PR #2
+- ✓ Total count (total) field added to public GET /api/reports response — PR #3
+- ✓ Honeypot inputs use type=hidden to prevent browser autofill false positives — PR #3
 
 ### Active
 
@@ -48,17 +64,10 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 - [ ] Report status visible on public map (open / in progress / resolved)
 - [ ] Media-ready shareable map views and summary statistics
 
-#### Anti-Abuse & Data Quality
-- [ ] Rate limiting on report submission (per IP, per time window)
-- [ ] Duplicate detection — flag/merge reports for the same location and issue type
-- [ ] Basic spam/bot prevention (e.g., submission throttling, honeypot field)
-- [ ] Image content validation (file type, size, basic sanity checks)
-
 #### Government Triage Workflow
-- [ ] Ward-based report routing — reports auto-tagged to ward from coordinates
 - [ ] Admin can assign reports to corporation / department
 - [ ] Field team view — assigned reports with location, photo, category
-- [ ] Status lifecycle: Open → Assigned → In Progress → Resolved → Closed
+- [ ] Status lifecycle: Open → Acknowledged → Assigned → In Progress → Resolved → Closed
 - [ ] Resolution notes and before/after photo on closing a report
 
 #### Data Export & Analytics
@@ -108,4 +117,4 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 | PWN algorithm deferred | Need minimum 6–12 months of real report data to make algorithm meaningful | — Pending |
 
 ---
-*Last updated: 2026-04-24 — Phase 02.3 complete (5 UAT bug fixes: admin category labels, iOS camera UX, mobile scroll affordance, admin mobile sidebar, map legend consistency)*
+*Last updated: 2026-04-25 — Phase 02.3.1 merged to main (UI redesign: CSS variables, UI primitives, redesigned home/map/report flow); PR #2 added browser geolocation fallback + ward lookup display + unconditional MapContainer; PR #3 added total count to public reports API, fixed honeypot type=hidden*

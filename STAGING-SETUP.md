@@ -1,3 +1,4 @@
+<!-- generated-by: gsd-doc-writer -->
 # Staging Setup Guide
 
 **Staging URL:** `https://staging-walkability.kinariwala.com`
@@ -102,11 +103,11 @@ Reason: `NEXT_PUBLIC_API_URL` is baked into the JavaScript bundle at Vercel buil
 8. Monitor the deploy logs. A successful first deployment shows:
    ```
    Listening on 0.0.0.0:<PORT>
-   Admin seed: seeded admin user admin@your-staging-email.com
+   Seeded super-admin user: <your-staging-admin-email>
    ```
    On subsequent boots:
    ```
-   Admin seed: admin already exists, skipping
+   Admin seeding skipped: admin_users table already has <N> row(s)
    ```
 
 9. **Note the public Railway URL** (e.g., `https://walkability-api.up.railway.app`).

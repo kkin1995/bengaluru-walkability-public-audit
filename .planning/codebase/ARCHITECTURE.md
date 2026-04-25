@@ -1,6 +1,7 @@
 # Architecture
 
 **Analysis Date:** 2026-03-11
+**Last updated:** 2026-04-25 — added cross-domain auth (Vercel/Railway), anti-abuse middleware, ward routing, geolocation fallback, new endpoints from PRs #2/#3
 
 ## Pattern Overview
 
@@ -36,10 +37,24 @@
 - Depends on: backend via nginx proxy (client-side) or INTERNAL_API_URL (server-side SSR)
 - Used by: nginx
 
+**Anti-Abuse Middleware (Backend):**
+- Purpose: Rate limiting and bot detection on the public submission path
+- Location: `backend/src/handlers/reports.rs`, `backend/src/main.rs`
+- Contains: `governor` crate per-IP per-geohash-6 rate limiter (2 reports/IP/geohash-6/hour); honeypot hidden field check (type=hidden); SHA256 photo hash dedup; proximity dedup async job (ST_DWithin 50m, 5-min poll)
+- Depends on: AppState (rate limiter state stored in-process), PostgreSQL (dedup queries)
+- Used by: `POST /api/reports` handler
+
+**Ward & Organization Layer (Backend):**
+- Purpose: Geospatial routing of reports to Bengaluru wards and organization hierarchy
+- Location: `backend/src/handlers/wards.rs`, `backend/src/db/ward_queries.rs`
+- Contains: `wards` table (PostGIS MULTIPOLYGON boundaries), `organizations` table (self-referential hierarchy), `ST_Within` lookup at submission time, `GET /api/wards/lookup` public endpoint
+- Depends on: PostgreSQL/PostGIS
+- Used by: `POST /api/reports` (auto-tag), `GET /api/wards/lookup` (frontend ward display)
+
 **PostgreSQL/PostGIS:**
-- Purpose: Persistent storage for reports, admin users, status history, and geospatial scaffolding
+- Purpose: Persistent storage for reports, admin users, status history, ward boundaries, and geospatial scaffolding
 - Location: managed by Docker volume `postgres_data`
-- Contains: `reports`, `status_history`, `admin_users`, `bus_stops`, `metro_stations` tables; PostGIS GEOGRAPHY columns; triggers for location population and `updated_at`
+- Contains: `reports`, `status_history`, `admin_users`, `wards`, `organizations`, `bus_stops`, `metro_stations` tables; PostGIS GEOGRAPHY/GEOMETRY columns; triggers for location population and `updated_at`
 - Depends on: nothing
 - Used by: Rust backend only
 
@@ -47,14 +62,16 @@
 
 **Public Report Submission:**
 
-1. Citizen opens `/report` in browser; Next.js renders the 4-step wizard
-2. `PhotoCapture.tsx` extracts GPS from EXIF client-side using `exifr` (privacy: raw GPS bytes never sent to server)
-3. On submit, browser sends multipart `POST /api/reports` to nginx
-4. Nginx applies `upload` rate limit zone (5r/m POST-only) and proxies to `backend:3001`
-5. `handlers/reports.rs::create_report` parses multipart, validates Bengaluru bbox, strips EXIF via `img-parts`, writes JPEG to `backend/uploads/<uuid>.jpg`
-6. `db/queries.rs::insert_report` inserts row; PostGIS trigger `trg_set_report_location` populates `GEOGRAPHY` column from lat/lng
-7. Handler calls `Report::into_response()` which rounds lat/lng to 3dp and excludes `submitter_contact`
-8. JSON response returned; `SubmitSuccess.tsx` renders confirmation
+1. Citizen opens `/report` in browser; Next.js renders the redesigned 2-step report flow (Category → Confirm → Success)
+2. `PhotoCapture.tsx` extracts GPS from EXIF client-side using `exifr` (privacy: raw GPS bytes never sent to server); if EXIF GPS unavailable, browser geolocation API is tried as a fallback; if that also fails, user places a manual Leaflet pin
+3. After location is confirmed, `GET /api/wards/lookup?lat=&lng=` fetches and displays the ward name in the UI (informational)
+4. On submit, browser sends multipart `POST /api/reports` to nginx; honeypot field must be empty
+5. Nginx applies `upload` rate limit zone (5r/m POST-only) and proxies to `backend:3001`
+6. `handlers/reports.rs::create_report` checks `governor` per-IP per-geohash-6 rate limit; checks honeypot field; checks SHA256 photo hash for exact duplicate
+7. Handler validates Bengaluru bbox, strips EXIF via `img-parts`, writes JPEG to `backend/uploads/<uuid>.jpg`
+8. `db/queries.rs::insert_report` inserts row; PostGIS trigger `trg_set_report_location` populates `GEOGRAPHY` column from lat/lng; async dedup job later runs `ST_DWithin 50m` proximity check
+9. Handler calls `Report::into_response()` which rounds lat/lng to 3dp and excludes `submitter_contact` and `submitter_name`
+10. JSON response returned; `SuccessCard` component renders confirmation
 
 **Public Map View:**
 
@@ -67,9 +84,10 @@
 
 1. Admin POSTs credentials to `/api/admin/auth/login` via `/admin/login` page
 2. Nginx routes through `admin_login` zone (5r/m, burst=3); request reaches backend
-3. Handler validates credentials with Argon2id, issues JWT as `HttpOnly; SameSite=Strict` cookie named `admin_token`
+3. Handler validates credentials with Argon2id, issues JWT as `HttpOnly; SameSite=None; Secure` cookie named `admin_token` (SameSite=None enables cross-domain use in Vercel+Railway staging)
 4. Subsequent protected requests pass through `middleware::auth::require_auth` which calls `extract_claims()` to decode cookie
 5. Next.js `admin/layout.tsx` (Server Component) also validates the cookie via server-to-server fetch to `INTERNAL_API_URL/api/admin/auth/me`
+6. In cross-domain deployments (Vercel frontend + Railway backend), Next.js `rewrites()` in `next.config.mjs` proxy `/api/admin/*` to `INTERNAL_API_URL` so the admin cookie is set on the Vercel domain and included in all subsequent admin requests
 
 **Admin Report Management:**
 
@@ -119,7 +137,13 @@
 **adminApi.ts:**
 - Purpose: Typed HTTP client for the admin dashboard; all functions include `credentials: 'include'`
 - Examples: `frontend/app/admin/lib/adminApi.ts`
-- Pattern: Named exports per endpoint; non-2xx responses reject with status code; imports `API_BASE_URL` from config
+- Pattern: Named exports per endpoint; non-2xx responses reject with status code; imports `API_BASE_URL` from config; `ADMIN_API_BASE_URL` is hardcoded to `""` (always relative) so admin cookies stay on Vercel domain in cross-domain deployments
+
+**UI Design System (Frontend):**
+- Purpose: CSS variable tokens + reusable UI primitives for the citizen-facing redesign
+- Location: `frontend/app/globals.css` (CSS variables), `frontend/app/components/ui/` (primitives)
+- Contains: `--color-*`, `--font-*`, `--radius-*` tokens; `Bi` (bilingual text), `Icon` (Bootstrap Icons), `Btn` (button), `Pill` (status/category badge), `SectionLabel` (section heading) components; Google Fonts via `next/font`
+- Pattern: `data-*` attributes (`data-tone`, `data-variant`, `data-size`, `data-component`) on primitive elements — CSS variables drive visual variants; data attributes are the testable substitutes in jsdom tests
 
 ## Entry Points
 
@@ -167,4 +191,4 @@
 
 ---
 
-*Architecture analysis: 2026-03-11*
+*Architecture analysis: 2026-03-11 | Last updated: 2026-04-25*

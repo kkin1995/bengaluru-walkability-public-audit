@@ -31,12 +31,12 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 6 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — GBA ward KML download, GeoJSON conversion, wards + organizations migration SQL
-- [ ] 01-02-PLAN.md — Ward and Organization Rust models, get_ward_for_point query, org CRUD API endpoints
-- [ ] 01-03-PLAN.md — Admin dashboard ward column (reports queue) and org assignment UI (users page)
-- [ ] 01-04-PLAN.md — Gap closure: fix admin reports JSON shape contract and add ward_name JOIN
-- [ ] 01-05-PLAN.md — Gap closure: fix wards.ward_name column reference (was wards.name) in list_admin_reports SQL
-- [ ] 01-06-PLAN.md — Gap closure: implement org-scoped report visibility (WARD-03 / ROADMAP SC#3)
+- [x] 01-01-PLAN.md — GBA ward KML download, GeoJSON conversion, wards + organizations migration SQL
+- [x] 01-02-PLAN.md — Ward and Organization Rust models, get_ward_for_point query, org CRUD API endpoints
+- [x] 01-03-PLAN.md — Admin dashboard ward column (reports queue) and org assignment UI (users page)
+- [x] 01-04-PLAN.md — Gap closure: fix admin reports JSON shape contract and add ward_name JOIN
+- [x] 01-05-PLAN.md — Gap closure: fix wards.ward_name column reference (was wards.name) in list_admin_reports SQL
+- [x] 01-06-PLAN.md — Gap closure: implement org-scoped report visibility (WARD-03 / ROADMAP SC#3)
 
 ### Phase 2: Anti-Abuse and Data Quality
 **Goal**: The platform can withstand anonymous public submissions without spam, bots, or duplicate flooding corrupting the dataset before GBA launch
@@ -52,9 +52,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Rate limiting (governor, IP+geohash-6 key) and honeypot (website field, CSS off-screen, fake 200) with migration 007 schema additions
-- [ ] 02-02-PLAN.md — Photo hash dedup (SHA256 before EXIF strip), async proximity dedup job (ST_DWithin 50m, 5-min poll), admin queue duplicate signals
-- [ ] 02-03-PLAN.md — Gap closure: fix duplicate sub-table rendering (ward_name, dates, StatusBadge, clickable rows) and create /admin/reports/[id] detail page
+- [x] 02-01-PLAN.md — Rate limiting (governor, IP+geohash-6 key) and honeypot (website field, CSS off-screen, fake 200) with migration 007 schema additions
+- [x] 02-02-PLAN.md — Photo hash dedup (SHA256 before EXIF strip), async proximity dedup job (ST_DWithin 50m, 5-min poll), admin queue duplicate signals
+- [x] 02-03-PLAN.md — Gap closure: fix duplicate sub-table rendering (ward_name, dates, StatusBadge, clickable rows) and create /admin/reports/[id] detail page
 
 ### Phase 02.3: UAT Bug Fixes — admin category label, iOS camera UX, admin mobile layout, map legend consistency (INSERTED)
 
@@ -85,6 +85,7 @@ Plans:
 - [x] 02.3.1-01-PLAN.md — Branch setup + design-ref preservation + CSS variables + next/font + 5 UI primitives (Bi, Icon, Btn, Pill, SectionLabel) with tests
 - [x] 02.3.1-02-PLAN.md — Home page (`/`) redesign + Map page (`/map`) overlay redesign + updated home-page tests
 - [x] 02.3.1-03-PLAN.md — Report flow 2-step rewrite (Category → Confirm → Success) + CategoryGrid / SeverityGrid / SuccessCard components + updated report-page tests
+- [x] 02.3.1-04-PLAN.md — UAT gap closure: contact accordion, photo-store singleton, ReportCTA label-wrap, browser geolocation fallback, ward lookup display
 
 ### Phase 02.2: Vercel Staging Deployment and Pre-UAT Hardening (INSERTED)
 
@@ -120,8 +121,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02.1-01-PLAN.md — Backend hardening: strip submitter_name from public API, remove duplicate require_role, fix serde_json unwraps
-- [ ] 02.1-02-PLAN.md — Config/frontend/CI hardening: COOKIE_SECURE default, TLS docs, CSP, login error, password threshold, dependency audits
+- [x] 02.1-01-PLAN.md — Backend hardening: strip submitter_name from public API, remove duplicate require_role, fix serde_json unwraps
+- [x] 02.1-02-PLAN.md — Config/frontend/CI hardening: COOKIE_SECURE default, TLS docs, CSP, login error, password threshold, dependency audits
 
 ### Phase 3: Government Triage Workflow
 **Goal**: GBA admins can move reports through a full status lifecycle, assign reports to the correct corporation or ward office, attach resolution evidence, and the public map reflects every status change in real time
@@ -154,23 +155,24 @@ Plans:
   6. A heatmap layer on the public map shows issue density by geographic area and can be toggled on or off by the user
 **Plans**: TBD
 
-Plans:
-- [ ] 04-01: Streaming CSV and GeoJSON export endpoints (backend streaming handlers, admin export UI)
-- [ ] 04-02: Public GeoJSON endpoint and public stats page (unauthenticated endpoint, materialized view, stats page)
-- [ ] 04-03: Admin analytics dashboard (top wards, resolution rate, trend chart, recharts integration)
-- [ ] 04-04: Public map heatmap layer (leaflet.heat integration, toggle control)
+Plans: *(not yet created — Phase 4 has no plan files on disk; planning begins after Phase 3 ships)*
+- [ ] 04-01-PLAN.md — Streaming CSV and GeoJSON export endpoints (backend streaming handlers, admin export UI)
+- [ ] 04-02-PLAN.md — Public GeoJSON endpoint and public stats page (unauthenticated endpoint, materialized view, stats page)
+- [ ] 04-03-PLAN.md — Admin analytics dashboard (top wards, resolution rate, trend chart, recharts integration)
+- [ ] 04-04-PLAN.md — Public map heatmap layer (leaflet.heat integration, toggle control)
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Ward Foundation | 6/6 | Complete   | 2026-03-12 |
-| 2. Anti-Abuse and Data Quality | 3/3 | Complete   | 2026-03-13 |
-| 2.1 OWASP Hardening | 0/2 | Not started | - |
-| 2.2 Staging Deployment | 3/3 | Complete | - |
-| 2.3 UAT Bug Fixes | 0/3 | Not started | - |
-| 3. Government Triage Workflow | 0/4 | Not started | - |
-| 4. Export and Public Analytics | 0/4 | Not started | - |
+| 1. Ward Foundation | 6/6 | Complete | 2026-03-12 |
+| 2. Anti-Abuse and Data Quality | 3/3 | Complete | 2026-03-13 |
+| 2.1 OWASP Hardening | 2/2 | Complete | 2026-04-20 |
+| 2.2 Staging Deployment | 3/3 | Complete | 2026-04-22 |
+| 2.3 UAT Bug Fixes | 3/3 | Complete | 2026-04-24 |
+| 2.3.1 UI Redesign | 4/4 | Complete | 2026-04-25 |
+| 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
+| 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |

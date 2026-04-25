@@ -1,6 +1,7 @@
 # Technology Stack
 
 **Analysis Date:** 2026-03-11
+**Last updated:** 2026-04-25 — added governor/sha2 crates, next/font, UI primitives, updated test counts
 
 ## Languages
 
@@ -40,8 +41,19 @@
 - Tailwind CSS 3.4.4 — `frontend/tailwind.config.ts`
 - PostCSS + Autoprefixer — `frontend/postcss.config.js`
 
+**Fonts:**
+- next/font/google — Google Fonts loaded via Next.js font optimization (zero layout shift, no external CDN at runtime) — `frontend/app/layout.tsx`
+
 **UI Utilities:**
 - lucide-react 0.400.0 (icon library) — `frontend/package.json`
+- Bootstrap Icons (via CSS class + `<i>` tags in `Icon` primitive) — `frontend/app/components/ui/Icon.tsx`
+
+**UI Primitives (Phase 02.3.1):**
+- `Bi` — bilingual text block (English + Kannada) — `frontend/app/components/ui/Bi.tsx`
+- `Icon` — Bootstrap Icons wrapper with size/tone data attributes — `frontend/app/components/ui/Icon.tsx`
+- `Btn` — button with variant/size/tone — `frontend/app/components/ui/Btn.tsx`
+- `Pill` — status/category badge — `frontend/app/components/ui/Pill.tsx`
+- `SectionLabel` — section heading with optional Kannada subtitle — `frontend/app/components/ui/SectionLabel.tsx`
 
 **Testing — Frontend:**
 - Jest 29.7.0 with two isolated projects (node + jsdom) — `frontend/jest.config.js`
@@ -54,6 +66,7 @@
 **Testing — Backend:**
 - Rust built-in `#[test]` / `#[cfg(test)]` — no external test runner
 - Runtime sqlx queries (no compile-time macros) so tests run without a live database
+- 221+ tests as of Phase 02.3 (covers models, handlers, middleware, config, DB seed)
 
 **Build/Dev:**
 - Docker multi-stage builds: `backend/Dockerfile` (Rust 1.88 slim → debian bookworm-slim), `frontend/Dockerfile` (node:20-alpine → node:20-alpine standalone)
@@ -68,6 +81,10 @@
 - `jsonwebtoken 9` — HS256 JWT signing and validation for admin auth — `backend/src/middleware/auth.rs`
 - `argon2 0.5` — Argon2id password hashing for admin credentials — `backend/Cargo.toml`
 - `img-parts 0.3` — EXIF stripping before writing uploaded images to disk — `backend/Cargo.toml`
+
+**Backend — Anti-Abuse:**
+- `governor 0.10` — token-bucket rate limiter; per-IP per-geohash-6 rate limiting on `POST /api/reports` — `backend/Cargo.toml`
+- `sha2 0.10` — SHA256 photo hash computation before EXIF strip for exact-duplicate detection — `backend/Cargo.toml`
 
 **Backend — Infrastructure:**
 - `serde 1` + `serde_json 1` — serialization — `backend/Cargo.toml`
@@ -117,12 +134,12 @@
 - Or: PostgreSQL with PostGIS extensions (`postgis`, `pgcrypto`) + Rust toolchain + Node 20 (Option B)
 - After SQL schema changes: `cargo sqlx prepare --database-url "postgres://..."` to regenerate offline metadata
 
-**Production:**
-- Docker Compose with env vars: `POSTGRES_PASSWORD`, `JWT_SECRET`, `CORS_ORIGIN`, `COOKIE_SECURE=true`, `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD`
-- Single server deployment behind nginx on port 80
+**Production / Staging:**
+- Docker Compose (self-hosted): env vars `POSTGRES_PASSWORD`, `JWT_SECRET`, `CORS_ORIGIN`, `COOKIE_SECURE=true`, `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD`; single server behind nginx on port 80
+- Vercel+Railway (staging): frontend on Vercel (Next.js standalone), backend on Railway (Rust Docker), PostgreSQL on Railway; cross-domain auth via `SameSite=None` cookie + Next.js rewrites proxy
 - Named Docker volumes: `postgres_data` (database), `uploads` (photos)
-- Resource limits: db 512 MB, backend 256 MB, frontend 256 MB, nginx 64 MB
+- Resource limits (docker-compose): db 512 MB, backend 256 MB, frontend 256 MB, nginx 64 MB
 
 ---
 
-*Stack analysis: 2026-03-11*
+*Stack analysis: 2026-03-11 | Last updated: 2026-04-25*
