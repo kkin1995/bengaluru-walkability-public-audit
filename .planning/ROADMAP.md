@@ -82,9 +82,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 02.3.2-01-PLAN.md — Branch setup + gallery escape hatch (ReportCTA.tsx) + CategoryGrid 2-col revert + privacy row + live count verification (page.tsx)
-- [ ] 02.3.2-02-PLAN.md — ReportsMap.tsx prop extensions (categoryFilter, onReportsLoaded) + map/page.tsx chip strip + filter wiring + per-category counts
-- [ ] 02.3.2-03-PLAN.md — Build/lint verification + visual checkpoint + PR readiness confirmation
+- [x] 02.3.2-01-PLAN.md — Branch setup + gallery escape hatch (ReportCTA.tsx) + CategoryGrid 2-col revert + privacy row + live count verification (page.tsx)
+- [x] 02.3.2-02-PLAN.md — ReportsMap.tsx prop extensions (categoryFilter, onReportsLoaded) + map/page.tsx chip strip + filter wiring + per-category counts
+- [x] 02.3.2-03-PLAN.md — Build/lint verification + visual checkpoint + PR readiness confirmation
 
 ### Phase 02.3.1: Implement Walkable BLR UI redesign from design file on separate branch (INSERTED)
 
@@ -186,6 +186,6 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.2 Staging Deployment | 3/3 | Complete | 2026-04-22 |
 | 2.3 UAT Bug Fixes | 3/3 | Complete | 2026-04-24 |
 | 2.3.1 UI Redesign | 4/4 | Complete | 2026-04-25 |
-| 2.3.2 Frontend Gap-fill | 0/3 | Planning complete — ready to execute | - |
+| 2.3.2 Frontend Gap-fill | 3/3 | Complete | 2026-04-25 |
 | 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
