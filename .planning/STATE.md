@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 02.3.1-04-PLAN.md — 5 UAT gaps closed; all 736 tests pass
-last_updated: "2026-04-25T04:31:28.123Z"
-last_activity: 2026-04-25 -- Phase --phase execution started
+status: shipped
+stopped_at: Phase 02.3.1 shipped — PR #1 open, CI green, awaiting merge to main
+last_updated: "2026-04-25T06:00:00.000Z"
+last_activity: 2026-04-25 — Phase 02.3.1 shipped to GitHub, PR #1 created
 progress:
   total_phases: 8
   completed_phases: 6
