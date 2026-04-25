@@ -63,6 +63,20 @@ Key design decisions visible in the backend tests:
 - **Red-phase stubs.** Some files (e.g., `handlers/admin.rs`) contain `todo!()` bodies that make tests fail by design until the implementation is filled in. The comment in each file states the contract — do not edit test assertions independently.
 - **Migration SQL tests.** `migrations_tests/` reads migration SQL files with `include_str!()` and asserts on their content (table names, constraint names, insert counts). This catches SQL typos without a live PostGIS instance.
 
+### Additional Backend Test Modules
+
+The following source files also contain `#[cfg(test)]` blocks that are not listed in the table above:
+
+| File | Focus | Approx. tests |
+|---|---|---|
+| `src/handlers/admin.rs` | Status validation, user-creation request validation, RBAC role checks, profile display-name and change-password validation, JWT-missing error path, org-assignment deserialization | 35 |
+| `src/db/admin_seed.rs` | `should_seed` guard logic (empty/whitespace/valid credentials), Argon2id hash production and verification, seed SQL content (column presence, insert target, super-admin flag) | 13 |
+| `src/db/dedup_job.rs` | Deduplication proximity query (50 m radius, self-exclusion, existing-duplicate exclusion, longitude-first coordinate order), atomic update and per-IP confidence increment | 6 |
+| `src/handlers/wards.rs` | Ward-lookup response serialization, query field coverage | 2 |
+| `src/models/organization.rs` | `Organization` struct and `OrganizationResponse` conversion, optional `parent_id` | 4 |
+| `src/models/report.rs` | `IntoResponse` image URL construction, lat/lng rounding to 3 decimal places (round-half-up, Bengaluru bbox corners), response field omission (submitter contact/name), custom domain URL, 0.0.0.0 exclusion | 15 |
+| `src/models/ward.rs` | `Ward` struct fields, `WardResponse` conversion and serialization | 3 |
+
 ### Coverage
 
 No automated coverage threshold is configured for the backend. Coverage is enforced through code review: every pure helper function added to a handler or model must have a corresponding `#[test]` in the same file.
@@ -240,16 +254,36 @@ The project follows a red-green pattern: test files are authored before the impl
 
 ## CI Integration
 
-<!-- VERIFY: CI workflow file name and exact test commands used in the pipeline -->
+All checks run automatically on every push and pull request to any branch via `.github/workflows/ci.yml`. The workflow also fires as a reusable called workflow from the deploy pipeline.
 
-No automated CI pipeline configuration was detected in the repository at the time this document was generated. Run the test suites locally before opening a pull request:
+### Jobs
 
-```bash
-# Backend
-cd backend && cargo test
+**`frontend-checks` — Frontend: lint + test**
 
-# Frontend
-cd frontend && npm test
-```
+Runs on `ubuntu-latest` with Node 20 (cached via `frontend/package-lock.json`).
+
+| Step | Command |
+|---|---|
+| Install dependencies | `npm ci` |
+| Lint | `npm run lint` |
+| Test | `npm test -- --passWithNoTests --watchAll=false` |
+| Dependency audit | `npm audit --audit-level=critical` |
+
+The audit level is set to `critical` rather than `high` because remaining high-severity advisories in the Next.js 14 release line have no available fix within the 14.x pinned version.
+
+**`backend-checks` — Backend: clippy + test**
+
+Runs on `ubuntu-latest` with the stable Rust toolchain (Clippy component included, build artefacts cached via `Swatinem/rust-cache`).
+
+| Step | Command |
+|---|---|
+| Clippy (deny warnings) | `cargo clippy -- -D warnings` |
+| Unit tests | `cargo test` |
+| Install audit tool | `cargo install cargo-audit --locked` |
+| Dependency audit | `cargo audit` |
+
+**`docker-build` — Docker: compose build**
+
+Runs on `ubuntu-latest`. Passes dummy values for `POSTGRES_PASSWORD` and `JWT_SECRET` so `docker compose build` can complete without real secrets. This job verifies that all Docker images build successfully; it does not start containers.
 
 See [DEVELOPMENT.md](DEVELOPMENT.md) for branch and PR conventions.

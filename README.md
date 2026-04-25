@@ -316,6 +316,8 @@ All `/api/admin/*` endpoints require a valid `admin_token` HttpOnly cookie (set 
 | `GET` | `/api/admin/users` | List admin users |
 | `POST` | `/api/admin/users` | Create admin user |
 | `DELETE` | `/api/admin/users/:id` | Deactivate admin user (blocked for super-admins) |
+| `PATCH` | `/api/admin/users/:id/org` | Assign or clear an organization for a user |
+| `GET` | `/api/admin/organizations` | List all organizations |
 
 ---
 
@@ -358,8 +360,13 @@ location_source :: exif | manual_pin
 | `submitter_contact` | `TEXT` | Optional; **never** returned in responses |
 | `status` | `report_status` | DEFAULT `submitted` |
 | `location_source` | `location_source` | NOT NULL |
+| `photo_hash` | `TEXT` | SHA-256 of the uploaded image; unique (nullable); used for duplicate detection |
+| `duplicate_of_id` | `UUID` FK | Points to the original report when this is a duplicate; nullable |
+| `duplicate_count` | `INT` | Count of duplicates linked to this report; DEFAULT 0 |
+| `duplicate_confidence` | `TEXT` | `low` or `high`; DEFAULT `low` |
+| `submitter_ip` | `TEXT` | Client IP at submission time; **never** returned in public responses |
 
-**Indexes:** GIST on `location`, B-tree on `category`, `status`, `created_at DESC`, compound `(status, category, created_at DESC)`, partial on `submitted` reports.
+**Indexes:** GIST on `location`, B-tree on `category`, `status`, `created_at DESC`, compound `(status, category, created_at DESC)`, partial on `submitted` reports, unique partial on `photo_hash` (where not null).
 
 ### `status_history`
 
@@ -386,6 +393,20 @@ Audit trail for every status transition.
 | `is_active` | `BOOL` | DEFAULT `true`; set `false` to deactivate without deleting |
 | `is_super_admin` | `BOOL` | DEFAULT `false`; super-admins cannot be deactivated |
 | `last_login_at` | `TIMESTAMPTZ` | Updated on successful login |
+| `created_at` | `TIMESTAMPTZ` | Immutable |
+| `updated_at` | `TIMESTAMPTZ` | Auto-touched by trigger |
+| `org_id` | `UUID` FK | References `organizations(id)`; nullable — unscoped when NULL |
+
+### `organizations`
+
+GBA organization hierarchy used for scoping admin report visibility.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | `UUID` PK | `gen_random_uuid()` |
+| `name` | `TEXT` | NOT NULL |
+| `org_type` | `TEXT` | `gba` · `corporation` · `ward_office` |
+| `parent_id` | `UUID` FK | Self-referential; NULL for root nodes; ON DELETE RESTRICT |
 | `created_at` | `TIMESTAMPTZ` | Immutable |
 | `updated_at` | `TIMESTAMPTZ` | Auto-touched by trigger |
 

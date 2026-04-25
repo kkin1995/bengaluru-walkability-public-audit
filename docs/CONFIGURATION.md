@@ -195,3 +195,77 @@ In production:
 - `NEXT_PUBLIC_API_URL` is set to `""` so the browser uses relative URLs — nginx proxies `/api/*` and `/uploads/*` to the backend internally.
 - `INTERNAL_API_URL` is set to `http://backend:3001` (Docker internal network hostname).
 - TLS must be terminated upstream (cloud load balancer or a TLS listener added to nginx). <!-- VERIFY: production TLS termination method -->
+
+---
+
+## Frontend Dockerfile Build-Time Variables
+
+The `frontend/Dockerfile` declares two additional variables at the builder stage that are not set via `.env.local` but are fixed at image build time.
+
+| Variable | Stage | Default | Description |
+|---|---|---|---|
+| `NEXT_OUTPUT` | Build arg (`ARG`) | `standalone` | Controls the Next.js output mode. Defaults to `"standalone"` in the Dockerfile — required for Docker/self-hosted deploys. Override to `""` only when building for Vercel (which manages its own output format). |
+| `NEXT_TELEMETRY_DISABLED` | Build + runtime (`ENV`) | `1` | Disables Next.js anonymous telemetry. Hardcoded to `1` in the Dockerfile and is not configurable via `.env.local`. |
+
+`NEXT_OUTPUT` can be overridden at `docker compose build` time by passing a build arg:
+
+```bash
+docker compose build --build-arg NEXT_OUTPUT=standalone frontend
+```
+
+---
+
+## Additional nginx Settings
+
+The following `nginx/nginx.conf` settings are relevant to operations but not covered in the main table above.
+
+### Proxy timeouts
+
+| Directive | Value | Scope |
+|---|---|---|
+| `proxy_connect_timeout` | `5s` | All proxied locations |
+| `proxy_send_timeout` | `30s` | All proxied locations |
+| `proxy_read_timeout` | `30s` | All proxied locations |
+
+These are set globally on the `server` block and repeated explicitly on the admin login location. Increase `proxy_read_timeout` if long-running admin queries (e.g. large report exports) begin timing out.
+
+### Upload body temp path
+
+`client_body_temp_path /tmp/nginx_upload_temp` — nginx spools request bodies larger than `client_body_buffer_size` to this directory. The directory must be writable by the nginx worker process. The `nginx:alpine` container image writes to `/tmp` by default; no volume mount is required unless you want to place it on a dedicated fast volume.
+
+### Static image caching (`/uploads/`)
+
+Responses served from `/uploads/` carry `Cache-Control: public, no-transform` with an `Expires` header set 30 days in the future. This is appropriate for immutable uploaded files. If an uploaded image is replaced (same filename), downstream caches will serve the stale version for up to 30 days.
+
+### Security headers on `/admin` routes
+
+nginx adds the following response headers to all requests matching the `/admin` location prefix. These headers are **not** applied to public routes (`/`, `/api/*`) to avoid restricting the public map (which uses `blob:` and `data:` URIs for Leaflet tiles and marker icons).
+
+| Header | Value | Purpose |
+|---|---|---|
+| `X-Frame-Options` | `DENY` | Prevents clickjacking of the admin dashboard. |
+| `X-Content-Type-Options` | `nosniff` | Prevents MIME-type sniffing on admin page responses. |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Limits referer leakage when navigating away from admin pages. |
+| `Content-Security-Policy` | See `nginx/nginx.conf` | Restricts script/style/image sources. `script-src 'unsafe-inline'` is an accepted risk — Next.js injects inline script chunks at build time. Full nonce-based remediation is tracked for post-launch. |
+
+### Structured JSON access logging
+
+All requests are logged in JSON format to `/var/log/nginx/access.log` using the `json_combined` log format. Each log line includes: `time`, `request_id`, `method`, `uri`, `status`, `bytes_sent`, `request_time`, `remote_addr`, and `http_user_agent`. The `request_id` field is sourced from the `$request_id` nginx variable and is also forwarded to the backend via the `X-Request-ID` request header, enabling correlation of nginx access logs with backend trace logs.
+
+---
+
+## Backend In-Process Rate Limiter
+
+In addition to the nginx-layer rate limits, the backend applies its own per-submission rate limit using the `governor` crate. This limit is **hardcoded** and is not configurable via environment variables.
+
+| Limit | Key | Value |
+|---|---|---|
+| Report submission | Per submitter IP + geohash-6 cell | 2 submissions per hour |
+
+The key format is `"{ip}:{geohash6}"`. A submitter who changes location by more than approximately 1.2 km (one geohash-6 cell width) starts a fresh quota bucket. This limit is enforced inside the `POST /api/reports` handler independently of the nginx upload rate limit (5 req/min, burst 2) — both limits must pass for a submission to be accepted.
+
+To change this limit, edit `main.rs`:
+
+```rust
+let quota = governor::Quota::per_hour(std::num::NonZeroU32::new(2).unwrap());
+```
