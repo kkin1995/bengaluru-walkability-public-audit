@@ -263,9 +263,15 @@ describe("Report page — submit", () => {
       .getAllByRole("button")
       .find((b) => b.textContent?.includes("Submit report"));
     fireEvent.click(submitBtn!);
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-    const [url] = (global.fetch as jest.Mock).mock.calls[0];
-    expect(url).toContain("/api/reports");
+    // Ward lookup fires on confirm mount; wait for the submit call specifically.
+    await waitFor(() => {
+      const calls = (global.fetch as jest.Mock).mock.calls;
+      expect(calls.some(([url]: [string]) => url.includes("/api/reports"))).toBe(true);
+    });
+    const submitCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url]: [string]) => url.includes("/api/reports")
+    )!;
+    expect(submitCall[0]).toContain("/api/reports");
   });
 
   it("submit sends FormData with required fields including honeypot", async () => {
@@ -275,8 +281,15 @@ describe("Report page — submit", () => {
       .getAllByRole("button")
       .find((b) => b.textContent?.includes("Submit report"));
     fireEvent.click(submitBtn!);
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-    const body = (global.fetch as jest.Mock).mock.calls[0][1].body as FormData;
+    // Ward lookup fires on confirm mount; find the submit call by URL.
+    await waitFor(() => {
+      const calls = (global.fetch as jest.Mock).mock.calls;
+      expect(calls.some(([url]: [string]) => url.includes("/api/reports"))).toBe(true);
+    });
+    const submitCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url]: [string]) => url.includes("/api/reports")
+    )!;
+    const body = submitCall[1].body as FormData;
     expect(body.has("website")).toBe(true);
     expect(body.has("photo")).toBe(true);
     expect(body.has("category")).toBe(true);
@@ -319,10 +332,13 @@ describe("Report page — submit", () => {
   });
 
   it("server error shows error message", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({ error: "Upload failed" }),
-    });
+    // Ward lookup fires first on confirm mount (succeeds); submit call fails.
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: "Upload failed" }),
+      });
     render(<ReportPage />);
     await goToConfirm();
     const submitBtn = screen
