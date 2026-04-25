@@ -120,17 +120,16 @@ describe("Report page — photo step", () => {
 
   it("honeypot input is present in DOM on photo step", () => {
     render(<ReportPage />);
-    const honeypot = document.querySelector('input[name="website"]');
+    const honeypot = document.querySelector('input[data-hp="1"]');
     expect(honeypot).not.toBeNull();
   });
 
-  it("honeypot has tabIndex -1 and aria-hidden", () => {
+  it("honeypot is type=hidden so browser autofill never fills it", () => {
     render(<ReportPage />);
     const honeypot = document.querySelector(
-      'input[name="website"]'
+      'input[data-hp="1"]'
     ) as HTMLInputElement;
-    expect(honeypot.tabIndex).toBe(-1);
-    expect(honeypot.getAttribute("aria-hidden")).toBe("true");
+    expect(honeypot.type).toBe("hidden");
   });
 
   it("shows 'Step 1 · Photo' section label", () => {
@@ -188,7 +187,7 @@ describe("Report page — category step", () => {
     render(<ReportPage />);
     await uploadPhoto();
     await waitFor(() => expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument());
-    const honeypot = document.querySelector('input[name="website"]');
+    const honeypot = document.querySelector('input[data-hp="1"]');
     expect(honeypot).not.toBeNull();
   });
 
@@ -238,7 +237,7 @@ describe("Report page — confirm step", () => {
   it("honeypot is present on confirm step", async () => {
     render(<ReportPage />);
     await goToConfirm();
-    const honeypot = document.querySelector('input[name="website"]');
+    const honeypot = document.querySelector('input[data-hp="1"]');
     expect(honeypot).not.toBeNull();
   });
 
@@ -332,13 +331,14 @@ describe("Report page — submit", () => {
   });
 
   it("server error shows error message", async () => {
-    // Ward lookup fires first on confirm mount (succeeds); submit call fails.
+    // Confirm mount fires ward lookup + Nominatim concurrently, then submit.
     (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) }) // ward lookup
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) }) // nominatim
       .mockResolvedValueOnce({
         ok: false,
         json: async () => ({ error: "Upload failed" }),
-      });
+      }); // submit
     render(<ReportPage />);
     await goToConfirm();
     const submitBtn = screen
