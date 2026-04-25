@@ -24,6 +24,8 @@ const sharedModuleNameMapper = {
   "^react-leaflet$": "<rootDir>/__mocks__/reactLeaflet.js",
   // Mock leaflet (required in ReportsMap via require())
   "^leaflet$": "<rootDir>/__mocks__/leaflet.js",
+  // Mock next/navigation — App Router hooks require a mounted router context
+  "^next/navigation$": "<rootDir>/__mocks__/next/navigation.js",
 };
 
 const config = {
