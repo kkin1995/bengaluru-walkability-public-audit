@@ -16,6 +16,32 @@ Requirements for MVP — scoped for soft launch with Walkaluru / GBA.
 - [x] **WARD-03**: Each admin user is assigned to an organization, controlling which reports they see and can act on
 - [x] **WARD-04**: Ward boundary data for Bengaluru is imported into PostGIS and kept as the spatial source of truth for routing
 
+### Security Hardening (Phase 02.1)
+
+- [x] **SEC-01**: `submitter_name` is absent from public API responses at the struct level (compile-time guarantee via `ReportResponse`)
+- [x] **SEC-02**: Single canonical `require_role` from `middleware::auth` with admin-is-superset semantics — no local duplicates in handlers
+- [x] **SEC-03**: No `.unwrap()` on `serde_json::to_value` in production handler paths — all serialization errors produce `AppError::Internal`
+- [x] **SEC-04**: `COOKIE_SECURE` defaults to `true` in production `docker-compose.yml`; explicit `false` override required for local dev
+- [x] **SEC-05**: nginx CSP `style-src` has no `unsafe-inline`; TLS termination expectations documented in nginx config comments
+- [x] **SEC-06**: Admin login page never surfaces raw server error messages (A07 hardening); generic messages for 401/429/5xx
+- [x] **SEC-07**: Password validation threshold aligned frontend/backend at 12 characters; CI runs `cargo audit` and `npm audit --audit-level=high` on every PR
+
+### Staging Deployment (Phase 02.2)
+
+- [x] **STAGING-01**: Admin login works on staging (staging-walkability.kinariwala.com) with cross-domain SameSite=None cookie on Vercel domain
+- [x] **STAGING-02**: Public report submission works on staging via Vercel frontend → Railway backend
+- [x] **STAGING-03**: `deploy.yml` CI workflow triggers smoke tests after push-to-main verifying Railway backend health and Vercel frontend reachability
+- [x] **STAGING-04**: Complete `STAGING-SETUP.md` with step-by-step provisioning for Railway, Vercel, DNS, and GitHub Actions secrets
+- [x] **STAGING-05**: All `cargo test` and `npm run build` pass with cross-domain auth changes in place
+
+### UAT Bug Fixes (Phase 02.3)
+
+- [x] **BUG-01**: Admin reports table Category column shows human-readable labels (e.g. "Damaged Footpath") via `getCategoryLabel()` from `translations.ts`
+- [x] **BUG-02**: On iOS Safari, "Take Photo" opens camera directly and "Upload from Gallery" opens photo library — no shared action sheet
+- [x] **UX-01**: Admin reports table has a right-edge fade gradient on mobile (md:hidden) indicating horizontal scroll
+- [x] **UX-02**: Hamburger button visible on mobile admin pages opens a slide-in sidebar drawer with all nav links
+- [x] **UX-03**: Map legend, map popup, and admin table show identical category labels sourced from `translations.ts`
+
 ### Anti-Abuse & Data Quality
 
 - [x] **ABUSE-01**: Report submission is rate-limited at the application layer (max 2 reports per IP per geohash-6 cell per hour) using `governor` crate, supplementing existing Nginx rate limiting — allows a citizen to report multiple issues while walking around, but throttles repeated submissions at the same ~100m location
@@ -108,6 +134,23 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| SEC-01 | Phase 02.1 | Complete |
+| SEC-02 | Phase 02.1 | Complete |
+| SEC-03 | Phase 02.1 | Complete |
+| SEC-04 | Phase 02.1 | Complete |
+| SEC-05 | Phase 02.1 | Complete |
+| SEC-06 | Phase 02.1 | Complete |
+| SEC-07 | Phase 02.1 | Complete |
+| STAGING-01 | Phase 02.2 | Complete |
+| STAGING-02 | Phase 02.2 | Complete |
+| STAGING-03 | Phase 02.2 | Complete |
+| STAGING-04 | Phase 02.2 | Complete |
+| STAGING-05 | Phase 02.2 | Complete |
+| BUG-01 | Phase 02.3 | Complete |
+| BUG-02 | Phase 02.3 | Complete |
+| UX-01 | Phase 02.3 | Complete |
+| UX-02 | Phase 02.3 | Complete |
+| UX-03 | Phase 02.3 | Complete |
 | WARD-01 | Phase 1 | Complete |
 | WARD-02 | Phase 1 | Complete |
 | WARD-03 | Phase 1 | Complete |
@@ -136,11 +179,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ANALYTICS-05 | Phase 4 | Pending |
 
 **Coverage:**
-- v1 requirements: 26 total
-- Mapped to phases: 26
+- Total requirements: 43 (26 v1 feature + 17 hardening/staging/UAT from inserted phases)
+- Mapped to phases: 43
 - Unmapped: 0
+- Complete: 27 | Pending: 16
 
 ---
 
 *Requirements defined: 2026-03-11*
-*Last updated: 2026-03-13 — ABUSE-01 threshold updated to match locked implementation decision (2 reports/IP/geohash-6 cell/hour, not 5/IP)*
+*Last updated: 2026-04-25 — Added SEC-01..07 (Phase 02.1), STAGING-01..05 (Phase 02.2), BUG-01..02 / UX-01..03 (Phase 02.3); updated traceability and coverage counts*

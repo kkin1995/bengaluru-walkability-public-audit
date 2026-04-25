@@ -30,8 +30,10 @@ A citizen-driven PWA for reporting and mapping pedestrian infrastructure issues 
 - **EXIF GPS extraction** — `exifr` reads GPS coordinates from photo metadata client-side; raw location data never sent separately to the server
 - **Interactive map pin** — when EXIF is missing the user drops a pin on a Leaflet map; constrained to the Bengaluru bounding box
 - **EXIF vs pin conflict warning** — amber banner when pin is >500 m from EXIF location
-- **8 issue categories** — No Footpath, Damaged Footpath, Blocked Footpath, No Curb Ramp, Unsafe Crossing, Poor Lighting, Encroachment, Other
+- **6 issue categories** — No Footpath, Broken Footpath, Blocked Footpath, Unsafe Crossing, Poor Lighting, Other
 - **Bilingual copy** — English + Kannada throughout
+- **Browser geolocation fallback** — if EXIF GPS is unavailable, the browser's geolocation API is tried before asking for a manual pin
+- **Ward display** — after pin placement the report flow shows the Bengaluru ward name for the selected location
 - **Public map** — all reports visualised as colour-coded circle markers; click for photo popup
 
 ### Admin dashboard (`/admin`)
@@ -46,7 +48,7 @@ A citizen-driven PWA for reporting and mapping pedestrian infrastructure issues 
 - EXIF stripped server-side via `img-parts` before writing to disk
 - Public API rounds coordinates to ±111 m; exact coordinates only visible to authenticated admins
 - `submitter_contact` never returned in public responses
-- nginx rate-limits `POST /api/admin/login` to prevent brute-force attacks
+- nginx rate-limits `POST /api/admin/auth/login` to prevent brute-force attacks
 
 ---
 
@@ -212,11 +214,12 @@ Submit a new infrastructure report.
   "category": "broken_footpath",
   "severity": "medium",
   "description": "Large open pit near the bus stop",
-  "submitter_name": "Anon Citizen",
   "status": "submitted",
   "location_source": "exif"
 }
 ```
+
+> **Note:** `submitter_name` and `submitter_contact` are excluded from all public responses (PII protection — see Privacy & Security Decisions).
 
 **Error responses:**
 | Status | Condition |
@@ -245,9 +248,12 @@ List reports with optional filtering and pagination.
   "page": 1,
   "limit": 20,
   "count": 3,
+  "total": 147,
   "items": [ /* array of ReportResponse */ ]
 }
 ```
+
+`total` is the count across all pages (non-fatal: omitted if the count query fails).
 
 ---
 
@@ -276,6 +282,21 @@ Serve uploaded images. Nginx caches these with a 30-day `expires` header in prod
 
 ---
 
+### `GET /api/wards/lookup`
+
+Returns the Bengaluru ward name for a given GPS coordinate.
+
+**Query parameters:** `lat` (float), `lng` (float)
+
+**Response `200 OK`:**
+```json
+{ "ward_name": "Shivajinagar" }
+```
+
+**Response `404 Not Found`:** Coordinates outside any ward boundary (or outside Bengaluru bounding box).
+
+---
+
 ### Admin API (JWT required)
 
 All `/api/admin/*` endpoints require a valid `admin_token` HttpOnly cookie (set by `/api/admin/auth/login`).
@@ -301,9 +322,13 @@ All `/api/admin/*` endpoints require a valid `admin_token` HttpOnly cookie (set 
 ## Database Schema
 
 Schema is defined in `backend/migrations/` and applied automatically on startup.
-- `001_init.sql` — public reports, enums, indexes, triggers
+- `001_init.sql` — `reports` table, enums (`issue_category`, `severity_level`, `report_status`, `location_source`), PostGIS triggers
 - `002_admin.sql` — `admin_users`, `status_history`, `user_role` enum
 - `003_super_admin.sql` — `is_super_admin BOOLEAN` column on `admin_users`
+- `004_ward_boundaries.sql` — `wards` table with PostGIS MULTIPOLYGON boundaries (SRID 4326)
+- `005_organizations.sql` — `organizations` table with self-referential `parent_id` (GBA → corporation → ward office hierarchy)
+- `006_ward_org_scoping.sql` — `wards.org_id` FK + org-scoped admin report visibility
+- `007_anti_abuse.sql` — `photo_hash`, `duplicate_of_id`, `duplicate_count`, `duplicate_confidence` columns on `reports`
 
 ### Enums
 
@@ -329,7 +354,7 @@ location_source :: exif | manual_pin
 | `category` | `issue_category` | NOT NULL |
 | `severity` | `severity_level` | DEFAULT `medium` |
 | `description` | `TEXT` | Optional, ≤ 500 chars enforced client-side |
-| `submitter_name` | `TEXT` | Optional; returned in responses |
+| `submitter_name` | `TEXT` | Optional; **never** returned in responses |
 | `submitter_contact` | `TEXT` | Optional; **never** returned in responses |
 | `status` | `report_status` | DEFAULT `submitted` |
 | `location_source` | `location_source` | NOT NULL |
@@ -379,7 +404,7 @@ Scaffolded for future Priority Walking Network (PWN) analysis. Each has `locatio
 | `/` | `app/page.tsx` | Landing page — hero, CTAs, how-it-works |
 | `/report` | `app/report/page.tsx` | 4-step report wizard |
 | `/map` | `app/map/page.tsx` | Full-screen public map with legend |
-| `/admin` | `app/admin/dashboard/page.tsx` | Stats overview (JWT-protected) |
+| `/admin` | `app/admin/page.tsx` | Stats overview (JWT-protected) |
 | `/admin/reports` | `app/admin/reports/page.tsx` | Report list with filters + status updates |
 | `/admin/reports/map` | `app/admin/reports/map/page.tsx` | Admin map view with status-coloured pins |
 | `/admin/users` | `app/admin/users/page.tsx` | Admin user management |
@@ -434,7 +459,7 @@ npm run test:coverage
 
 ### Test inventory
 
-**Backend — 177 tests** (`cargo test`, no live DB required)
+**Backend — 221+ tests** (`cargo test`, no live DB required)
 
 | Module | Tests |
 |--------|-------|
@@ -446,13 +471,13 @@ npm run test:coverage
 | `config.rs` | `PUBLIC_URL` resolution |
 | `db/admin_seed.rs` | `should_seed` guards, Argon2id hash format + verifiability + unique salt |
 
-**Frontend — 535+ tests across 15+ suites** (`npm test`)
+**Frontend — 736+ tests across 20+ suites** (`npm test`)
 
 | Suite | Tests |
 |-------|-------|
 | `lib/__tests__/constants.test.ts` | Boundary values for `BENGALURU_BOUNDS` |
 | `app/__tests__/utils.test.ts` | `haversineDistance` utility |
-| `components/__tests__/CategoryPicker.test.tsx` | All 8 categories, selection styling, `onChange` |
+| `components/__tests__/CategoryPicker.test.tsx` | All 6 categories, selection styling, `onChange` |
 | `components/__tests__/SubmitSuccess.test.tsx` | Share API / clipboard fallback, reset callback |
 | `components/__tests__/PhotoCapture.test.tsx` | Camera trigger, EXIF extraction order, compression |
 | `components/__tests__/ReportsMap.test.tsx` | Fetch lifecycle, markers, popups, error + retry |
@@ -464,8 +489,8 @@ npm run test:coverage
 | `admin/__tests__/dashboard.test.tsx` | Stats cards, recent reports |
 | `admin/__tests__/reports-page.test.tsx` | Report list, filters, status update |
 | `admin/__tests__/users-page.test.tsx` | User list, create, deactivate (super-admin badge) |
-| `admin/__tests__/profile-page.test.tsx` | Display name edit, password change, validation |
-| `admin/__tests__/reports-map-page.test.tsx` | Admin map with status-coloured pins, filters |
+| `admin/profile/__tests__/page.test.tsx` | Display name edit, password change, validation |
+| `admin/reports/map/__tests__/page.test.tsx` | Admin map with status-coloured pins, filters |
 | `admin/login/__tests__/login-page.test.tsx` | Auth flow, 401/429/5xx/network error states |
 
 ### Test infrastructure
@@ -536,4 +561,4 @@ GROUP BY cell;
 
 ## License
 
-MIT
+GNU Affero General Public License v3.0 (AGPL-3.0) — see `LICENSE.md`.
