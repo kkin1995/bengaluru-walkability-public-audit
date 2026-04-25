@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 02.3.1 executed — 8/8 automated checks pass; human UAT pending (visual, iOS camera, E2E)
-last_updated: "2026-04-25T00:00:00.000Z"
-last_activity: 2026-04-25 -- Phase 02.3.1 code review + verification complete; 4 warnings in REVIEW.md
+stopped_at: Completed 02.3.1-04-PLAN.md — 5 UAT gaps closed; all 736 tests pass
+last_updated: "2026-04-25T04:31:28.123Z"
+last_activity: 2026-04-25 -- Phase --phase execution started
 progress:
   total_phases: 8
-  completed_phases: 5
-  total_plans: 22
-  completed_plans: 20
+  completed_phases: 6
+  total_plans: 23
+  completed_plans: 21
   percent: 91
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase 02.3.1 — COMPLETE
+**Current focus:** Phase --phase — 02.3.1
 
 ## Current Position
 
-Phase: 02.3.1 — COMPLETE (pending verification)
-Plan: 3 of 3
-Status: All plans executed; post-merge test gate passed (730/730)
-Last activity: 2026-04-25 -- Phase 02.3.1 execution complete (Wave 1 + Wave 2)
+Phase: --phase (02.3.1) — EXECUTING
+Plan: 1 of --name
+Status: Executing Phase --phase
+Last activity: 2026-04-25 -- Phase --phase execution started
 
 Progress: [█████████░] 91%
 
@@ -70,6 +70,7 @@ Progress: [█████████░] 91%
 | Phase 02.3.1 P01 | 35min | 3 tasks | 18 files |
 | Phase 02.3.1 P02 | 25min | 2 tasks | 3 files |
 | Phase 02.3.1 P03 | 40min | 2 tasks | 8 files |
+| Phase 02.3.1 P04 | 4min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,9 @@ Progress: [█████████░] 91%
 - Branch ui-redesign created from phase-02.3-uat-fixes — all citizen-facing redesign work isolated here; do not merge to main until explicitly requested
 - data-* attributes (data-tone, data-variant, data-size, data-component) added to primitives — jsdom strips CSS var() from inline styles; data attributes are the testable substitute for CSS-variable-driven variants
 - next/font/google Jest mock added at __mocks__/next/font/google.js — build-time font loading cannot execute in Jest environment
+- photo-store module singleton: storePendingPhoto/consumePendingPhoto for home CTA → /report photo handoff without localStorage or URL params
+- ReportCTA label-wrapped hidden file input: label+input with inset-0/opacity-0 positioning for iOS camera capture from home page
+- Contact accordion UAT deferral overridden: GAP 4 major severity — implemented expand/collapse per UAT evidence, superseding CONTEXT.md display-only deferral
 
 ### Roadmap Evolution
 
@@ -137,6 +141,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T19:11:09.830Z
-Stopped at: Completed 02.3.1-01-PLAN.md — design system foundation, fonts, 5 primitives
+Last session: 2026-04-25T04:31:28.119Z
+Stopped at: Completed 02.3.1-04-PLAN.md — 5 UAT gaps closed; all 736 tests pass
 Resume file: None
+
+**Planned Phase:** 02.3.1 (implement-walkable-blr-ui-redesign-from-design-file-on-separate-branch) — 4 plans — 2026-04-24T20:47:49.668Z
