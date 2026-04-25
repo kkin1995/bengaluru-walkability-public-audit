@@ -5,6 +5,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { API_BASE_URL } from "@/app/lib/config";
 import { BENGALURU_BOUNDS, BENGALURU_CENTER } from "@/app/lib/constants";
+import { getCategoryLabel } from "@/app/lib/translations";
+import { consumePendingPhoto } from "@/app/lib/photo-store";
 import { Bi } from "@/app/components/ui/Bi";
 import { Btn } from "@/app/components/ui/Btn";
 import { Icon } from "@/app/components/ui/Icon";
@@ -108,6 +110,7 @@ export default function ReportPage() {
   const [photoProcessing, setPhotoProcessing] = useState(false);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [showAdjustMap, setShowAdjustMap] = useState(false);
+  const [showContact, setShowContact] = useState(false);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -118,6 +121,24 @@ export default function ReportPage() {
       if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
     };
   }, [photoPreviewUrl]);
+
+  // On mount: check if home page ReportCTA stored a pending photo
+  // If found, skip the photo step and go directly to category
+  useEffect(() => {
+    const pending = consumePendingPhoto();
+    if (!pending) return;
+    setPhotoPreviewUrl(pending.previewUrl);
+    setForm((f) => ({
+      ...f,
+      file: pending.file,
+      lat: pending.lat ?? f.lat,
+      lng: pending.lng ?? f.lng,
+      locationSource: pending.locationSource,
+      gpsConfirmed: pending.gpsConfirmed,
+    }));
+    setStep("category");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount only
 
   async function handleFile(file: File) {
     setError(null);
@@ -242,13 +263,24 @@ export default function ReportPage() {
   // Success
   if (submittedReportId !== null) {
     return (
-      <SuccessCard
-        reportId={submittedReportId ?? undefined}
-        onReportAnother={resetAll}
-        onClose={() => {
-          window.location.href = "/";
+      <main
+        style={{
+          minHeight: "100dvh",
+          maxWidth: 428,
+          margin: "0 auto",
+          display: "flex",
+          flexDirection: "column",
+          background: "var(--bg)",
         }}
-      />
+      >
+        <SuccessCard
+          reportId={submittedReportId ?? undefined}
+          onReportAnother={resetAll}
+          onClose={() => {
+            window.location.href = "/";
+          }}
+        />
+      </main>
     );
   }
 
@@ -660,7 +692,7 @@ export default function ReportPage() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <SectionLabel>Reporting</SectionLabel>
             <div style={{ fontSize: 16, fontWeight: 600, marginTop: 4, color: "var(--ink)" }}>
-              {form.category || "—"}
+              {form.category ? getCategoryLabel(form.category).en : "—"}
             </div>
           </div>
         </div>
@@ -800,8 +832,13 @@ export default function ReportPage() {
           />
         </div>
 
-        {/* Contact collapse row (display only) */}
+        {/* Contact accordion — collapsed by default, expands on click */}
         <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setShowContact((v) => !v)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setShowContact((v) => !v); }}
+          aria-expanded={showContact}
           style={{
             marginTop: 16,
             display: "flex",
@@ -811,14 +848,87 @@ export default function ReportPage() {
             padding: "14px 4px",
             fontSize: 14,
             color: "var(--muted)",
+            cursor: "pointer",
           }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Icon name="shield" size={16} />
             Add contact for follow-up (private)
           </span>
-          <Icon name="chevron_down" size={16} />
+          <Icon
+            name="chevron_down"
+            size={16}
+            style={{
+              transform: showContact ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s ease",
+            }}
+          />
         </div>
+        {showContact && (
+          <div
+            style={{
+              padding: "12px 0 4px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            <div>
+              <label
+                htmlFor="contact-name"
+                style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 4 }}
+              >
+                Name (optional)
+              </label>
+              <input
+                id="contact-name"
+                type="text"
+                maxLength={100}
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Your name"
+                style={{
+                  width: "100%",
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--r-md)",
+                  padding: "10px 12px",
+                  fontSize: 14,
+                  color: "var(--ink)",
+                  fontFamily: "var(--font-sans)",
+                  outline: "none",
+                }}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="contact-email"
+                style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 4 }}
+              >
+                Contact email or phone (private)
+              </label>
+              <input
+                id="contact-email"
+                type="text"
+                maxLength={200}
+                value={form.contact}
+                onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))}
+                placeholder="email@example.com or +91 9876543210"
+                style={{
+                  width: "100%",
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--r-md)",
+                  padding: "10px 12px",
+                  fontSize: 14,
+                  color: "var(--ink)",
+                  fontFamily: "var(--font-sans)",
+                  outline: "none",
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {error && (
           <p style={{ color: "var(--danger)", fontSize: 14, marginTop: 12 }}>{error}</p>

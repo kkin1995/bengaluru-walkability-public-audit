@@ -24,6 +24,16 @@ jest.mock("next/link", () => {
   return MockLink;
 });
 
+// Mock next/navigation — ReportCTA uses useRouter for programmatic navigation
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn(),
+    back: jest.fn(),
+  }),
+}));
+
 describe("Home page — Walkable BLR redesign (Phase 02.3.1)", () => {
   describe("Brand header", () => {
     it("renders Namma brand text", () => {
@@ -83,11 +93,11 @@ describe("Home page — Walkable BLR redesign (Phase 02.3.1)", () => {
   });
 
   describe("Primary CTA", () => {
-    it("points to /report", () => {
+    it("renders a file input for camera capture (ReportCTA — not a link to /report)", () => {
       render(<HomePage />);
-      const links = screen.getAllByRole("link");
-      const reportLink = links.find((l) => l.getAttribute("href") === "/report");
-      expect(reportLink).toBeDefined();
+      // CTA is now a label wrapping a hidden file input with capture="environment"
+      const cameraInput = document.querySelector('input[type="file"][capture="environment"]');
+      expect(cameraInput).not.toBeNull();
     });
 
     it("has English copy 'Report an issue' (lowercase i)", () => {

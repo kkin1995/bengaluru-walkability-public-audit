@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { Bi } from "@/app/components/ui/Bi";
-import { Btn } from "@/app/components/ui/Btn";
 import { Icon } from "@/app/components/ui/Icon";
 import { Pill } from "@/app/components/ui/Pill";
 import { SectionLabel } from "@/app/components/ui/SectionLabel";
+import { ReportCTA } from "@/app/components/ReportCTA";
 
 // Static scatter positions for map preview (10 dots; deterministic to avoid hydration mismatch)
 const MAP_DOTS: Array<[number, number, "accent" | "warn" | "danger"]> = [
@@ -210,16 +209,7 @@ export default function HomePage() {
           paddingBottom: "max(20px, env(safe-area-inset-bottom))",
         }}
       >
-        <Link href="/report" style={{ textDecoration: "none" }}>
-          <Btn variant="accent" size="xl" style={{ width: "100%" }}>
-            <Icon name="camera" size={22} />
-            <Bi
-              en="Report an issue"
-              kn="ಸಮಸ್ಯೆ ವರದಿ ಮಾಡಿ"
-              style={{ alignItems: "center" }}
-            />
-          </Btn>
-        </Link>
+        <ReportCTA />
         <p
           style={{
             display: "flex",
