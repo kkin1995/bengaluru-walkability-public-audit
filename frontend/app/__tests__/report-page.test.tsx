@@ -32,6 +32,12 @@ jest.mock("next/dynamic", () => () => {
   return Mock;
 });
 
+// Mock photo-store — default: no pending photo (existing tests unaffected)
+jest.mock("@/app/lib/photo-store", () => ({
+  consumePendingPhoto: jest.fn().mockReturnValue(null),
+  storePendingPhoto: jest.fn(),
+}));
+
 // Mock exifr — default to GPS inside Bengaluru
 jest.mock("exifr", () => ({
   __esModule: true,
@@ -348,5 +354,84 @@ describe("Regression guards — 4-step wizard removed", () => {
     // If PhotoCapture were imported, its 'Take Photo' button would be a <button>, not a <label>
     const cameraInput = document.querySelector('input[capture="environment"]');
     expect(cameraInput?.parentElement?.tagName).toBe("LABEL");
+  });
+});
+
+// ─── Contact accordion ─────────────────────────────────────────────────────────
+
+describe("Report page — contact accordion", () => {
+  it("contact row is collapsed by default (no name input visible)", async () => {
+    render(<ReportPage />);
+    await goToConfirm();
+    expect(screen.queryByLabelText(/Name \(optional\)/i)).toBeNull();
+  });
+
+  it("clicking contact row expands it and shows Name input", async () => {
+    render(<ReportPage />);
+    await goToConfirm();
+    const contactRow = screen.getByRole("button", {
+      name: /Add contact for follow-up/i,
+    });
+    fireEvent.click(contactRow);
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Name \(optional\)/i)).toBeInTheDocument()
+    );
+  });
+
+  it("clicking contact row again collapses it", async () => {
+    render(<ReportPage />);
+    await goToConfirm();
+    const contactRow = screen.getByRole("button", {
+      name: /Add contact for follow-up/i,
+    });
+    fireEvent.click(contactRow);
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Name \(optional\)/i)).toBeInTheDocument()
+    );
+    fireEvent.click(contactRow);
+    await waitFor(() =>
+      expect(screen.queryByLabelText(/Name \(optional\)/i)).toBeNull()
+    );
+  });
+});
+
+// ─── Category label in review card ────────────────────────────────────────────
+
+describe("Report page — category label in confirm review card", () => {
+  it("confirm review card shows human-readable label not raw enum", async () => {
+    render(<ReportPage />);
+    await goToConfirm();
+    // goToConfirm selects "Damaged" which maps to broken_footpath enum
+    // The review card should show "Damaged Footpath" (getCategoryLabel result), not "broken_footpath"
+    expect(screen.queryByText("broken_footpath")).toBeNull();
+    // The human label from getCategoryLabel("broken_footpath").en is "Damaged Footpath"
+    expect(screen.getByText("Damaged Footpath")).toBeInTheDocument();
+  });
+});
+
+// ─── Photo-store mount effect ──────────────────────────────────────────────────
+
+describe("Report page — photo-store mount effect", () => {
+  it("with no pending photo, starts at photo step", () => {
+    // consumePendingPhoto mock returns null by default
+    render(<ReportPage />);
+    expect(screen.getByText(/Take Photo/i)).toBeInTheDocument();
+  });
+
+  it("with pending photo in store, mounts directly at category step", async () => {
+    const { consumePendingPhoto } = require("@/app/lib/photo-store");
+    const mockFile = new File([new Uint8Array(100)], "photo.jpg", { type: "image/jpeg" });
+    (consumePendingPhoto as jest.Mock).mockReturnValueOnce({
+      file: mockFile,
+      previewUrl: "blob:mock-pending",
+      lat: 12.9716,
+      lng: 77.5946,
+      locationSource: "exif",
+      gpsConfirmed: true,
+    });
+    render(<ReportPage />);
+    await waitFor(() =>
+      expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument()
+    );
   });
 });
