@@ -29,4 +29,16 @@ ignore = [
   # only. No fix available in the governor 0.10 release line (2026-04-25).
   # Track: reassess when governor releases a version pinned to rand >= 0.9.3 (if fixed).
   "RUSTSEC-2026-0097",
+
+  # RUSTSEC-2026-0098: rustls-webpki 0.101.7 — URI name constraints incorrectly accepted.
+  # RUSTSEC-2026-0099: rustls-webpki 0.101.7 — wildcard name constraints incorrectly accepted.
+  # RUSTSEC-2026-0104: rustls-webpki 0.101.7 — reachable panic in CRL parsing.
+  # All three are transitive via sqlx 0.7.4 → sqlx-core 0.7.4 → rustls 0.21.12 → rustls-webpki 0.101.7.
+  # Fix requires upgrading sqlx to 0.8+ (breaking API change, same blocker as RUSTSEC-2024-0363).
+  # The vulnerable code path (TLS certificate validation) is not exercised: our PostgreSQL
+  # connection uses plain TCP (no sslmode=require), so rustls-webpki is never invoked.
+  # Assessed 2026-04-25.
+  "RUSTSEC-2026-0098",
+  "RUSTSEC-2026-0099",
+  "RUSTSEC-2026-0104",
 ]
