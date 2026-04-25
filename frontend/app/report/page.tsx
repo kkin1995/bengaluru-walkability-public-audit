@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { API_BASE_URL } from "@/app/lib/config";
 import { BENGALURU_BOUNDS, BENGALURU_CENTER } from "@/app/lib/constants";
@@ -104,8 +105,10 @@ async function compressImage(file: File): Promise<Blob | null> {
 }
 
 export default function ReportPage() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>("photo");
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [cameFromCTA, setCameFromCTA] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submittedReportId, setSubmittedReportId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -238,6 +241,7 @@ export default function ReportPage() {
       gpsConfirmed: pending.gpsConfirmed,
       photoTime: pending.photoTime ?? new Date(),
     }));
+    setCameFromCTA(true);
     setStep("category");
     // BUG-2: If the pending photo had no GPS, start browser geo concurrently
     if (!pending.gpsConfirmed) {
@@ -339,6 +343,7 @@ export default function ReportPage() {
     setPhotoPreviewUrl(null);
     setForm(INITIAL_FORM);
     setStep("photo");
+    setCameFromCTA(false);
     setSubmittedReportId(null);
     setError(null);
     setShowAdjustMap(false);
@@ -582,7 +587,7 @@ export default function ReportPage() {
         >
           <button
             type="button"
-            onClick={resetAll}
+            onClick={() => { if (cameFromCTA) router.push("/"); else resetAll(); }}
             className="press"
             aria-label="Back"
             style={{
