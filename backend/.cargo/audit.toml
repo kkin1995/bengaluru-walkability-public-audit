@@ -22,4 +22,11 @@ ignore = [
   # Tracked as tech debt: sqlx upgrade scoped for a dedicated dependency-update phase.
   # Assessed 2026-04-14: no user-facing query uses the affected code path.
   "RUSTSEC-2024-0363",
+
+  # RUSTSEC-2026-0097: rand 0.9.2 — unsound when using a custom logger with rand::rng().
+  # Transitive via governor 0.10 (rate-limiter middleware). We do not use a custom global
+  # logger that would trigger the unsound path; governor uses rand internally for jitter
+  # only. No fix available in the governor 0.10 release line (2026-04-25).
+  # Track: reassess when governor releases a version pinned to rand >= 0.9.3 (if fixed).
+  "RUSTSEC-2026-0097",
 ]
