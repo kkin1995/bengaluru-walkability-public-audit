@@ -27,8 +27,9 @@ function chipLabel(
   if (chip.value === "all") {
     return total > 0 ? `All · ${total}` : "All";
   }
-  const n = counts[chip.value];
-  return n != null ? `${chip.label} · ${n}` : chip.label;
+  // WR-04: use ?? 0 so zero-count categories still show "Label · 0" per spec
+  const n = counts[chip.value] ?? 0;
+  return `${chip.label} · ${n}`;
 }
 
 // Leaflet requires `window` — ssr: false is mandatory (do not remove even in client component).
@@ -141,10 +142,9 @@ export default function MapPage() {
             Bengaluru
           </div>
         </div>
-        <button
-          type="button"
-          className="press"
-          aria-label="Filter reports"
+        {/* WR-03: filter icon is deferred — rendered as non-interactive div */}
+        <div
+          aria-hidden="true"
           style={{
             width: 44,
             height: 44,
@@ -156,11 +156,12 @@ export default function MapPage() {
             backdropFilter: "blur(8px)",
             boxShadow: "var(--shadow-md)",
             color: "var(--ink)",
-            cursor: "pointer",
+            cursor: "default",
+            pointerEvents: "none",
           }}
         >
           <Icon name="filter" size={18} />
-        </button>
+        </div>
       </div>
 
       {/* Chip filter strip — always visible, horizontally scrollable, D-13/D-14/D-15 */}
