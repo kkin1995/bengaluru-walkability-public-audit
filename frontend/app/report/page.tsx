@@ -236,6 +236,7 @@ export default function ReportPage() {
       lng: pending.lng ?? f.lng,
       locationSource: pending.locationSource,
       gpsConfirmed: pending.gpsConfirmed,
+      photoTime: pending.photoTime ?? new Date(),
     }));
     setStep("category");
     // BUG-2: If the pending photo had no GPS, start browser geo concurrently
