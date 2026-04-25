@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Bi } from "@/app/components/ui/Bi";
 import { Btn } from "@/app/components/ui/Btn";
 import { Icon } from "@/app/components/ui/Icon";
@@ -18,22 +19,32 @@ export function SuccessCard({
   onReportAnother,
   onClose,
 }: SuccessCardProps) {
+  const [flash, setFlash] = useState<"share" | "id" | null>(null);
+
+  function flashFor(which: "share" | "id") {
+    setFlash(which);
+    setTimeout(() => setFlash(null), 2000);
+  }
+
   async function handleShare() {
-    const shareData = {
-      title: "Bengaluru Walkability Audit",
-      text: "Help improve pedestrian infrastructure in Bengaluru — report issues near you!",
-      url: typeof window !== "undefined" ? window.location.origin : "",
-    };
+    const url = typeof window !== "undefined" ? window.location.origin : "";
     const nav = typeof navigator !== "undefined" ? navigator : null;
     if (nav && "share" in nav) {
       try {
-        await (nav as Navigator).share(shareData);
-      } catch {
-        /* user cancelled */
-      }
-    } else if (nav && "clipboard" in nav) {
-      await (nav as Navigator).clipboard.writeText(shareData.url);
+        await (nav as Navigator).share({ title: "Bengaluru Walkability Audit", url });
+        return;
+      } catch { /* user cancelled */ }
     }
+    if (nav?.clipboard) {
+      await nav.clipboard.writeText(url);
+      flashFor("share");
+    }
+  }
+
+  async function handleSaveId() {
+    if (!reportId || !navigator?.clipboard) return;
+    await navigator.clipboard.writeText(reportId);
+    flashFor("id");
   }
 
   return (
@@ -127,7 +138,13 @@ export function SuccessCard({
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
             <SectionLabel>Report ID</SectionLabel>
-            <span style={{ fontSize: 14, color: "var(--muted)" }}>Save for reference</span>
+            <button
+              type="button"
+              onClick={handleSaveId}
+              style={{ fontSize: 14, color: "var(--muted)", background: "none", border: "none", cursor: reportId ? "pointer" : "default", padding: 0 }}
+            >
+              {flash === "id" ? "Copied!" : "Save for reference"}
+            </button>
           </div>
           <div
             className="mono"
@@ -195,7 +212,7 @@ export function SuccessCard({
       <div style={{ display: "flex", gap: 10 }}>
         <Btn variant="secondary" size="lg" onClick={handleShare} style={{ flex: 1 }}>
           <Icon name="share" size={16} />
-          <span>Share</span>
+          <span>{flash === "share" ? "Copied!" : "Share"}</span>
         </Btn>
         <Btn variant="accent" size="lg" onClick={onReportAnother} style={{ flex: 2 }}>
           <Bi en="Report another" kn="ಇನ್ನೊಂದು" style={{ alignItems: "center" }} />
