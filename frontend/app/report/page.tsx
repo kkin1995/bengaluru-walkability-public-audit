@@ -111,6 +111,13 @@ export default function ReportPage() {
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [showAdjustMap, setShowAdjustMap] = useState(false);
   const [showContact, setShowContact] = useState(false);
+  // BUG-2: true while browser geolocation is in-flight after an EXIF miss
+  const [gpsLocating, setGpsLocating] = useState(false);
+  // BUG-2: true once browser geo attempt has finished and failed
+  const [gpsFailed, setGpsFailed] = useState(false);
+  // BUG-3: ward label fetched from the public /api/wards/lookup endpoint
+  const [wardLabel, setWardLabel] = useState<string | null>(null);
+  const [wardLoading, setWardLoading] = useState(false);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -121,6 +128,66 @@ export default function ReportPage() {
       if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
     };
   }, [photoPreviewUrl]);
+
+  // BUG-2: Attempt browser geolocation as a fallback after an EXIF miss.
+  // Must run concurrently — does NOT block navigation to "category" step.
+  // On success: update lat/lng and set gpsConfirmed. On failure: set gpsFailed
+  // so the pill label can change from "Locating…" to "Adjust pin".
+  function tryBrowserGeolocation() {
+    if (!("geolocation" in navigator)) {
+      setGpsFailed(true);
+      return;
+    }
+    setGpsLocating(true);
+    setGpsFailed(false);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm((f) => ({
+          ...f,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          locationSource: "manual_pin", // browser geo, not EXIF
+          gpsConfirmed: true,
+        }));
+        setGpsLocating(false);
+      },
+      () => {
+        // Geo denied or timed out — leave coords at default, signal user to adjust
+        setGpsLocating(false);
+        setGpsFailed(true);
+      },
+      { timeout: 10000, maximumAge: 60000 }
+    );
+  }
+
+  // BUG-3: Fetch ward for current coordinates. Re-runs whenever lat/lng changes
+  // (e.g. after pin adjustment). Gracefully degrades on 404 or network error.
+  useEffect(() => {
+    if (step !== "confirm") return;
+    setWardLabel(null);
+    setWardLoading(true);
+    const controller = new AbortController();
+    fetch(
+      `${API_BASE_URL}/api/wards/lookup?lat=${form.lat}&lng=${form.lng}`,
+      { signal: controller.signal }
+    )
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json() as Promise<{ ward_number: number; ward_name: string }>;
+      })
+      .then((data) => {
+        if (data) {
+          setWardLabel(`Ward ${data.ward_number} · ${data.ward_name}`);
+        }
+        setWardLoading(false);
+      })
+      .catch(() => {
+        // Network error or aborted — degrade silently
+        setWardLoading(false);
+      });
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, form.lat, form.lng]);
 
   // On mount: check if home page ReportCTA stored a pending photo
   // If found, skip the photo step and go directly to category
@@ -137,12 +204,19 @@ export default function ReportPage() {
       gpsConfirmed: pending.gpsConfirmed,
     }));
     setStep("category");
+    // BUG-2: If the pending photo had no GPS, start browser geo concurrently
+    if (!pending.gpsConfirmed) {
+      tryBrowserGeolocation();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once on mount only
 
   async function handleFile(file: File) {
     setError(null);
     setPhotoProcessing(true);
+    // Reset geo state for a new photo
+    setGpsLocating(false);
+    setGpsFailed(false);
 
     // Preview from original for responsiveness
     if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
@@ -161,7 +235,7 @@ export default function ReportPage() {
         gps = { latitude: result.latitude, longitude: result.longitude };
       }
     } catch {
-      // EXIF failed — GPS stays null, manual adjust fallback will be offered on confirm screen
+      // EXIF failed — GPS stays null
     }
 
     // Compress if oversized
@@ -192,6 +266,12 @@ export default function ReportPage() {
       gpsConfirmed: !!gps,
     }));
     setStep("category");
+
+    // BUG-2: If EXIF produced no GPS, start browser geolocation concurrently.
+    // Navigation to "category" is not blocked — this runs in the background.
+    if (!gps) {
+      tryBrowserGeolocation();
+    }
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -211,6 +291,9 @@ export default function ReportPage() {
     setSubmittedReportId(null);
     setError(null);
     setShowAdjustMap(false);
+    setGpsLocating(false);
+    setGpsFailed(false);
+    setWardLabel(null);
     if (cameraRef.current) cameraRef.current.value = "";
     if (galleryRef.current) galleryRef.current.value = "";
   }
@@ -536,7 +619,25 @@ export default function ReportPage() {
                     {form.lat.toFixed(4)}, {form.lng.toFixed(4)}
                   </span>
                 </Pill>
+              ) : gpsLocating ? (
+                /* BUG-2: browser geo is in-flight */
+                <Pill tone="neutral" style={{ marginTop: 4 }}>
+                  <span
+                    className="pulse"
+                    style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--muted)" }}
+                  />
+                  Locating…
+                </Pill>
+              ) : gpsFailed ? (
+                /* BUG-2: geo denied or timed out — prompt user to adjust */
+                <Pill tone="neutral" style={{ marginTop: 4 }}>
+                  <span
+                    style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--muted)" }}
+                  />
+                  Adjust pin
+                </Pill>
               ) : (
+                /* Initial state before geo attempt resolves */
                 <Pill tone="neutral" style={{ marginTop: 4 }}>
                   <span
                     className="pulse"
@@ -722,15 +823,15 @@ export default function ReportPage() {
             <LocationMap
               lat={form.lat}
               lng={form.lng}
-              onChange={(lat, lng) =>
+              onChange={(lat, lng) => {
                 setForm((f) => ({
                   ...f,
                   lat,
                   lng,
                   locationSource: "manual_pin",
                   gpsConfirmed: false,
-                }))
-              }
+                }));
+              }}
             />
           ) : (
             <div
@@ -782,6 +883,18 @@ export default function ReportPage() {
               {form.lat.toFixed(4)}° N, {form.lng.toFixed(4)}° E
             </span>
           </div>
+          {/* BUG-3: Ward label — shown beneath coordinates once resolved */}
+          {!wardLoading && wardLabel && (
+            <div
+              style={{
+                marginTop: 4,
+                fontSize: 12,
+                color: "var(--muted)",
+              }}
+            >
+              {wardLabel}
+            </div>
+          )}
           {outOfBounds && (
             <p style={{ color: "var(--danger)", fontSize: 14, marginTop: 8 }}>
               Please drop the pin within Bengaluru.
