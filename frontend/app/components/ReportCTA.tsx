@@ -53,21 +53,30 @@ export function ReportCTA() {
     let lng: number | null = null;
     let gpsConfirmed = false;
     let locationSource: "exif" | "manual_pin" = "manual_pin";
+    let photoTime: Date | null = null;
     try {
       const exifrModule = require("exifr");
       const exifr = (exifrModule.default ?? exifrModule) as {
         gps: (f: File) => Promise<{ latitude: number; longitude: number } | null>;
+        parse: (f: File, opts: Record<string, boolean>) => Promise<Record<string, unknown> | null>;
       };
-      const result = await exifr.gps(file);
-      if (result?.latitude && result?.longitude) {
-        lat = result.latitude;
-        lng = result.longitude;
+      const [gpsResult, exifData] = await Promise.all([
+        exifr.gps(file).catch(() => null),
+        exifr.parse(file, { DateTimeOriginal: true }).catch(() => null),
+      ]);
+      if (gpsResult?.latitude && gpsResult?.longitude) {
+        lat = gpsResult.latitude;
+        lng = gpsResult.longitude;
         gpsConfirmed = true;
         locationSource = "exif";
       }
+      if (exifData?.DateTimeOriginal instanceof Date) {
+        photoTime = exifData.DateTimeOriginal as Date;
+      }
     } catch {
-      // GPS extraction failed — manual pin fallback on /report
+      // EXIF extraction failed — manual pin fallback on /report
     }
+    if (!photoTime) photoTime = new Date();
 
     // Compress if oversized
     let finalFile: File;
@@ -88,7 +97,7 @@ export function ReportCTA() {
       finalFile = file;
     }
 
-    storePendingPhoto({ file: finalFile, previewUrl, lat, lng, locationSource, gpsConfirmed });
+    storePendingPhoto({ file: finalFile, previewUrl, lat, lng, locationSource, gpsConfirmed, photoTime });
     setProcessing(false);
     router.push("/report");
   }

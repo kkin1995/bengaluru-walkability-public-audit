@@ -129,6 +129,17 @@ pub async fn insert_report(
     Ok(row)
 }
 
+/// Returns the total count of all reports in the database.
+/// Used by the list_reports handler to include a `total` field in the response,
+/// enabling the homepage to display a live report count instead of a hardcoded value.
+/// Uses runtime query (not sqlx::query!) to avoid requiring offline sqlx metadata.
+pub async fn count_reports(pool: &PgPool) -> Result<i64, AppError> {
+    let count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM reports")
+        .fetch_one(pool)
+        .await?;
+    Ok(count)
+}
+
 pub async fn list_reports(
     pool: &PgPool,
     page: i64,

@@ -1,39 +1,43 @@
 /**
- * ABUSE-02: Honeypot field automation test.
- * Verifies the hidden website input is present in the DOM with CSS off-screen hiding
- * (position:absolute; left:-9999px) and tabIndex=-1.
- * Using CSS positioning (not display:none) prevents sophisticated bots from detecting
- * the honeypot via computed style inspection.
+ * ABUSE-02: Honeypot field automation tests.
+ * Verifies the hidden honeypot input is present with type="hidden".
+ * Using type="hidden" means browsers never autofill it (no false positives),
+ * while bot scripts that enumerate DOM inputs may still fill it.
  */
 import React from "react";
 import { render } from "@testing-library/react";
 import ReportPage from "../page";
 
-// Mock heavy deps that don't affect honeypot rendering
-jest.mock("@/app/components/LocationMap", () => () => <div data-testid="map-mock" />);
-jest.mock("@/app/components/PhotoCapture", () => () => <div data-testid="photo-mock" />);
+jest.mock("next/dynamic", () => () => {
+  const Mock = () => <div data-testid="location-map" />;
+  Mock.displayName = "DynamicMock";
+  return Mock;
+});
 
-// Mock ReviewStrip to avoid geocode network calls
-jest.mock("@/app/components/ReviewStrip", () => () => <div data-testid="review-strip-mock" />);
+jest.mock("@/app/lib/photo-store", () => ({
+  consumePendingPhoto: jest.fn().mockReturnValue(null),
+  storePendingPhoto: jest.fn(),
+}));
 
-// Mock SubmitSuccess to avoid rendering issues
-jest.mock("@/app/components/SubmitSuccess", () => () => <div data-testid="submit-success-mock" />);
+jest.mock("next/link", () => {
+  const MockLink = ({ href, children, ...rest }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
+    <a href={href} {...rest}>{children}</a>
+  );
+  MockLink.displayName = "MockLink";
+  return MockLink;
+});
 
 describe("ABUSE-02: honeypot field", () => {
-  it("renders hidden website input with off-screen CSS positioning", () => {
+  it("renders honeypot input with data-hp=1 on photo step", () => {
     render(<ReportPage />);
-    const honeypot = document.querySelector('input[name="website"]') as HTMLInputElement | null;
+    const honeypot = document.querySelector('input[data-hp="1"]') as HTMLInputElement | null;
     expect(honeypot).not.toBeNull();
-    expect(honeypot!.tabIndex).toBe(-1);
-    expect(honeypot!.style.position).toBe("absolute");
-    expect(parseInt(honeypot!.style.left, 10)).toBeLessThan(0);
   });
 
-  it("honeypot input is not display:none (bots detect display:none)", () => {
+  it("honeypot is type=hidden so browser autofill never fills it", () => {
     render(<ReportPage />);
-    const honeypot = document.querySelector('input[name="website"]') as HTMLInputElement | null;
+    const honeypot = document.querySelector('input[data-hp="1"]') as HTMLInputElement | null;
     expect(honeypot).not.toBeNull();
-    expect(honeypot!.style.display).not.toBe("none");
-    expect(honeypot!.style.visibility).not.toBe("hidden");
+    expect(honeypot!.type).toBe("hidden");
   });
 });

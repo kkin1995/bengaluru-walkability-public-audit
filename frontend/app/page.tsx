@@ -3,6 +3,7 @@ import { Icon } from "@/app/components/ui/Icon";
 import { Pill } from "@/app/components/ui/Pill";
 import { SectionLabel } from "@/app/components/ui/SectionLabel";
 import { ReportCTA } from "@/app/components/ReportCTA";
+import { INTERNAL_API_URL } from "@/app/lib/config";
 
 // Static scatter positions for map preview (10 dots; deterministic to avoid hydration mismatch)
 const MAP_DOTS: Array<[number, number, "accent" | "warn" | "danger"]> = [
@@ -24,7 +25,22 @@ const DOT_COLORS: Record<"accent" | "warn" | "danger", string> = {
   danger: "var(--danger)",
 };
 
-export default function HomePage() {
+async function fetchReportTotal(): Promise<number | null> {
+  try {
+    const res = await fetch(`${INTERNAL_API_URL}/api/reports?limit=1`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { total?: number };
+    return typeof data.total === "number" ? data.total : null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function HomePage() {
+  const reportTotal = await fetchReportTotal();
+
   return (
     <main
       style={{
@@ -171,10 +187,12 @@ export default function HomePage() {
             />
           ))}
           <div style={{ position: "absolute", left: 12, bottom: 12, display: "flex", gap: 6 }}>
-            <Pill tone="glass">
-              <span className="mono">412</span>
-              <span>reports</span>
-            </Pill>
+            {reportTotal !== null && (
+              <Pill tone="glass">
+                <span className="mono">{reportTotal}</span>
+                <span>reports</span>
+              </Pill>
+            )}
           </div>
           <Link
             href="/map"

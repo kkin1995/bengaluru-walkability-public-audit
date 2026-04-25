@@ -9,6 +9,7 @@ export interface PendingPhoto {
   lng: number | null;
   locationSource: "exif" | "manual_pin";
   gpsConfirmed: boolean;
+  photoTime: Date | null;
 }
 
 let _pending: PendingPhoto | null = null;

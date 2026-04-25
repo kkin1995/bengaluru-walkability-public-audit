@@ -65,9 +65,11 @@ async fn main() {
     // Load .env if present (silently ignore if missing)
     let _ = dotenvy::dotenv();
 
-    // Init tracing
+    // Init tracing — write to stderr (unbuffered) so log lines are never lost
+    // when stdout is redirected to a file and the process is killed mid-buffer.
     tracing_subscriber::fmt()
         .json()
+        .with_writer(std::io::stderr)
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "bengaluru_walkability_backend=info,tower_http=info".into()),

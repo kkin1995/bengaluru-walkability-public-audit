@@ -9,6 +9,7 @@ import { SectionLabel } from "@/app/components/ui/SectionLabel";
 interface SuccessCardProps {
   reportId?: string;
   locationLabel?: string;
+  wardLabel?: string;
   onReportAnother: () => void;
   onClose: () => void;
 }
@@ -16,6 +17,7 @@ interface SuccessCardProps {
 export function SuccessCard({
   reportId,
   locationLabel,
+  wardLabel,
   onReportAnother,
   onClose,
 }: SuccessCardProps) {
@@ -205,6 +207,41 @@ export function SuccessCard({
               </div>
             )}
           </div>
+
+          {/* GBA ward row — shown when ward was auto-detected */}
+          {wardLabel && (
+            <div
+              style={{
+                borderTop: "1px dashed var(--border)",
+                marginTop: 12,
+                paddingTop: 12,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 10,
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  color: "var(--muted)",
+                  background: "var(--surface-2)",
+                  padding: "3px 6px",
+                  borderRadius: 4,
+                }}
+              >
+                GBA
+              </span>
+              <span style={{ fontSize: 12, color: "var(--ink-2)", fontWeight: 500 }}>
+                {wardLabel}
+              </span>
+              <span style={{ fontSize: 10, color: "var(--muted-2)", marginLeft: "auto" }}>
+                Auto-routed
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
