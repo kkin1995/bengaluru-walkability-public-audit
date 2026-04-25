@@ -234,7 +234,7 @@ export default async function HomePage() {
             gap: 6,
             justifyContent: "center",
             flexWrap: "wrap",
-            marginTop: 12,
+            marginTop: 10,
             marginBottom: 0,
             fontSize: 14,
             color: "var(--muted)",
