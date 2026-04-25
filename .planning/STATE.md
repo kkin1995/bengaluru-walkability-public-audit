@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: shipped
-stopped_at: Phase 02.3.1 shipped — PR #1 open, CI green, awaiting merge to main
-last_updated: "2026-04-25T06:00:00.000Z"
-last_activity: 2026-04-25 — Phase 02.3.1 shipped to GitHub, PR #1 created
+status: "Phase 02.3.2 shipped — PR #5"
+stopped_at: Completed 02.3.2-03-PLAN.md — build/lint verification + human visual sign-off; phase 02.3.2 complete
+last_updated: "2026-04-25T14:45:13.324Z"
+last_activity: 2026-04-25
 progress:
-  total_phases: 8
-  completed_phases: 6
-  total_plans: 23
-  completed_plans: 21
-  percent: 91
+  total_phases: 9
+  completed_phases: 7
+  total_plans: 26
+  completed_plans: 24
+  percent: 92
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 Phase: --phase (02.3.1) — EXECUTING
 Plan: 1 of --name
-Status: Executing Phase --phase
-Last activity: 2026-04-25 -- Phase --phase execution started
+Status: Phase 02.3.2 shipped — PR #5
+Last activity: 2026-04-25
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -71,6 +71,9 @@ Progress: [█████████░] 91%
 | Phase 02.3.1 P02 | 25min | 2 tasks | 3 files |
 | Phase 02.3.1 P03 | 40min | 2 tasks | 8 files |
 | Phase 02.3.1 P04 | 4min | 2 tasks | 7 files |
+| Phase 02.3.2 P01 | 3min | 2 tasks | 3 files |
+| Phase 02.3.2 P02 | 3min | 2 tasks | 2 files |
+| Phase 02.3.2 P03 | 10min | 2 tasks | 0 files |
 
 ## Accumulated Context
 
@@ -122,6 +125,14 @@ Progress: [█████████░] 91%
 - photo-store module singleton: storePendingPhoto/consumePendingPhoto for home CTA → /report photo handoff without localStorage or URL params
 - ReportCTA label-wrapped hidden file input: label+input with inset-0/opacity-0 positioning for iOS camera capture from home page
 - Contact accordion UAT deferral overridden: GAP 4 major severity — implemented expand/collapse per UAT evidence, superseding CONTEXT.md display-only deferral
+- Gallery input has no capture attribute — this forces the OS full photo picker instead of camera-only on iOS and Android
+- handleGalleryChange is an exact copy of handleChange — identical EXIF/compress/storePendingPhoto pipeline; behavioral difference is exclusively in the input element (no capture attribute)
+- CategoryGrid gridTemplateColumns reverted from 1fr 1fr 1fr to 1fr 1fr — UI-SPEC (approved 2026-04-25) is authoritative, overriding prior CONTEXT.md D-08 value
+- Privacy notice fontSize set to 13 (Caption scale) per UI-SPEC typography section, not 12 as originally in CONTEXT.md D-10
+- Ternary style split used for chip button styles (two complete style objects) rather than spread approach — avoids TypeScript union error where border appears in both base and conditional spread
+- categoryFilter passed as undefined (not 'all') when activeFilter === 'all' — keeps ReportsMap filter logic clean: undefined means show all
+- onReportsLoaded added to useCallback dependency array — required by exhaustive-deps; setAllReports identity is stable from useState
+- Local CORS_ORIGIN misconfiguration (port 3002 instead of 3000) caused 'Couldn't load reports' during verification — fixed locally; unrelated to code changes on this branch
 
 ### Roadmap Evolution
 
@@ -141,8 +152,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-25T04:31:28.119Z
-Stopped at: Completed 02.3.1-04-PLAN.md — 5 UAT gaps closed; all 736 tests pass
+Last session: 2026-04-25T13:41:21.957Z
+Stopped at: Completed 02.3.2-03-PLAN.md — build/lint verification + human visual sign-off; phase 02.3.2 complete
 Resume file: None
 
 **Planned Phase:** 02.3.1 (implement-walkable-blr-ui-redesign-from-design-file-on-separate-branch) — 4 plans — 2026-04-24T20:47:49.668Z
