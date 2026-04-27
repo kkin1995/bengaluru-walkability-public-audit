@@ -129,3 +129,72 @@ Search existing issues before opening a new one to avoid duplicates.
 By contributing to this project you agree that your contributions will be licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**, the same license that covers the rest of the codebase. See [LICENSE.md](LICENSE.md) for the full text.
 
 The AGPL-3.0 requires that anyone who deploys a modified version of this software over a network must also make the modified source code available to users of that service. If you are unsure whether your contribution is compatible with this requirement, open an issue to discuss it first.
+
+---
+
+## Security audits
+
+CI runs dependency vulnerability scans on every push and pull request. Both audits must pass before a branch can be merged.
+
+### Backend
+
+```bash
+cd backend
+cargo audit   # scans Cargo.lock against the RustSec advisory database
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm audit --audit-level=critical
+```
+
+The frontend audit threshold is set to `critical` rather than `high`. Several `high`-severity advisories affect the Next.js 14 release line and have no available fix within that line; the project is intentionally pinned to the latest 14.x patch. The audit still catches any newly introduced critical-severity issues. If you add a new dependency that introduces a `critical` advisory, you must resolve it before the PR can be merged.
+
+---
+
+## SQLx query cache
+
+The backend uses SQLx compile-time query verification (`query!` / `query_as!` macros). These macros check your SQL against the live database schema at compile time, and they also generate an offline cache so that CI can verify queries without a running database.
+
+**If you add or modify any SQL query**, you must regenerate the cache before pushing:
+
+```bash
+cd backend
+# DATABASE_URL must point to your running local database
+cargo sqlx prepare --database-url "postgres://walkability:secret@localhost:5432/walkability"
+```
+
+This writes updated metadata to `backend/.sqlx/`. Commit that directory alongside your query changes. If the cache is stale, the CI `cargo test` step will fail during offline verification.
+
+---
+
+## Database migrations
+
+Schema changes are applied via SQLx migrations located in `backend/migrations/`. Migrations run automatically on backend startup via `sqlx::migrate!`.
+
+### Adding a migration
+
+1. Create a new file in `backend/migrations/` following the sequential naming convention:
+
+   ```
+   NNN_short_description.sql
+   ```
+
+   Example: `008_add_photo_metadata.sql`
+
+2. Write forward-only SQL. There are no down migrations — if you need to revert, add a new migration that undoes the change.
+
+3. PostGIS extensions (`postgis`, `pgcrypto`) are already enabled by `001_init.sql`. Do not re-create them.
+
+4. The `reports.location` column (GEOGRAPHY type) is auto-populated from lat/lng via a database trigger. Do not write to it directly in migration SQL.
+
+5. After writing the migration, regenerate the SQLx query cache if your migration affects any table referenced by a compile-time query (see [SQLx query cache](#sqlx-query-cache) above).
+
+6. Verify the migration applies cleanly by restarting the backend against a fresh database:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.dev.yml up db -d
+   cd backend && cargo run
+   ```

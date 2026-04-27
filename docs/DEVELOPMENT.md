@@ -345,7 +345,7 @@ npm run test:coverage     # coverage report (thresholds: 70% branches, 75% lines
 
 ## Branch Conventions
 
-See [Git Branching Rule](../.planning/) for the project's branching policy. The short version:
+The project's branching policy:
 
 - Commit feature work to a feature branch (e.g. `feat/my-feature`, `fix/bug-description`).
 - `main` is considered deployed — merge to `main` only when deploying.

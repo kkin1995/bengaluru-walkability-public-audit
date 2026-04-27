@@ -99,7 +99,7 @@ Submit a new walkability report. The request body must be `multipart/form-data`.
 
 **Valid `category` values:**
 
-The category is a free-string stored in the database. The frontend sends one of the following (enforced at the UI layer, not by the API): `no_footpath`, `broken_footpath`, `blocked_footpath`, `no_ramp`, `unsafe_crossing`, `poor_lighting`, `other`.
+The category is a free-string stored in the database. The frontend sends one of the following (enforced at the UI layer, not by the API): `no_footpath`, `broken_footpath`, `blocked_footpath`, `unsafe_crossing`, `poor_lighting`, `other`.
 
 **Coordinate validation:**
 
@@ -473,7 +473,6 @@ Aggregate counts for the dashboard overview. Accessible by both roles.
     "no_footpath": 60,
     "broken_footpath": 30,
     "blocked_footpath": 20,
-    "no_ramp": 15,
     "unsafe_crossing": 10,
     "poor_lighting": 10,
     "other": 5

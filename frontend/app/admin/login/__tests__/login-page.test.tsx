@@ -47,13 +47,21 @@ import LoginPage from "../page";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
+const mockRefresh = jest.fn();
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace, refresh: mockRefresh }),
   // Additional exports that might be consumed by sub-components
   usePathname: () => "/admin/login",
   useSearchParams: () => new URLSearchParams(),
 }));
+
+beforeEach(() => {
+  mockPush.mockClear();
+  mockReplace.mockClear();
+  mockRefresh.mockClear();
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -250,12 +258,12 @@ describe("T3: fetch call shape", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// T4 — On 200 success: redirects to /admin via router.push
+// T4 — On 200 success: redirects to /admin via router.replace + router.refresh
 // Requirement: R-LGN-1 (AC-LGN-1-S1)
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("T4: 200 success — redirect to /admin", () => {
-  it("calls router.push('/admin') after a successful login response", async () => {
+  it("calls router.replace('/admin') and router.refresh() after a successful login response", async () => {
     jest.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -269,9 +277,11 @@ describe("T4: 200 success — redirect to /admin", () => {
     });
 
     await waitFor(() => {
-      // router.push must be called with '/admin' after successful login
-      expect(mockPush).toHaveBeenCalledWith("/admin");
+      // router.replace must be called with '/admin' after successful login
+      expect(mockReplace).toHaveBeenCalledWith("/admin");
     });
+    // router.refresh must also be called to invalidate the RSC cache
+    expect(mockRefresh).toHaveBeenCalled();
   });
 
   it("does NOT show any error message after a successful login", async () => {
@@ -288,7 +298,7 @@ describe("T4: 200 success — redirect to /admin", () => {
     });
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith("/admin");
+      expect(mockReplace).toHaveBeenCalledWith("/admin");
     });
 
     // No error message should appear in the DOM after a success
@@ -391,7 +401,7 @@ describe("T5: 401 response — inline error, password cleared, email retained", 
     expect(emailInput).toHaveValue("ops@example.com");
   });
 
-  it("user remains on /admin/login (router.push is NOT called) after a 401 response", async () => {
+  it("user remains on /admin/login (router.replace is NOT called) after a 401 response", async () => {
     jest.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -408,8 +418,8 @@ describe("T5: 401 response — inline error, password cleared, email retained", 
       expect(screen.getByText(/invalid email or password/i)).toBeInTheDocument();
     });
 
-    // router.push must NOT be called when login fails with 401
-    expect(mockPush).not.toHaveBeenCalled();
+    // router.replace must NOT be called when login fails with 401
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });
 
@@ -466,8 +476,8 @@ describe("T6: 400 response — inline error showing server message", () => {
       expect(screen.queryByRole("button", { name: /signing in/i })).not.toBeInTheDocument();
     });
 
-    // router.push must NOT be called when the server returns 400
-    expect(mockPush).not.toHaveBeenCalled();
+    // router.replace must NOT be called when the server returns 400
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });
 
@@ -791,8 +801,8 @@ describe("T8: 5xx and network errors — generic error message, form preserved",
       ).toBeInTheDocument();
     });
 
-    // router.push must NOT be called when the server returns 5xx
-    expect(mockPush).not.toHaveBeenCalled();
+    // router.replace must NOT be called when the server returns 5xx
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });
 
@@ -1078,7 +1088,7 @@ describe("T12: Other 4xx responses — error or message from body, fallback if a
       expect(screen.getByRole("alert")).toBeInTheDocument();
     });
 
-    // router.push must NOT be called when the server returns any other 4xx
-    expect(mockPush).not.toHaveBeenCalled();
+    // router.replace must NOT be called when the server returns any other 4xx
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

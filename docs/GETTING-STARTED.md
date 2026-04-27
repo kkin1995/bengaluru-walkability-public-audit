@@ -174,3 +174,28 @@ The Rust backend performs a full compile from source on the first `cargo build`.
 - **Running the test suite:** see [docs/TESTING.md](TESTING.md)
 - **Full environment variable reference:** see [docs/CONFIGURATION.md](CONFIGURATION.md)
 - **System architecture and component diagram:** see [docs/ARCHITECTURE.md](ARCHITECTURE.md)
+
+---
+
+## Frontend Environment File
+
+`frontend/.env.local.example` is committed to the repository as the canonical template for frontend environment variables. When running `npm run dev` outside of Docker (Option B, Terminal 3), copy it before starting the dev server:
+
+```bash
+cp frontend/.env.local.example frontend/.env.local
+```
+
+Then open `frontend/.env.local` and add the server-side variable that is not included in the example file:
+
+```bash
+# Add this line — required for Next.js server components calling the API
+INTERNAL_API_URL=http://localhost:3001
+```
+
+`frontend/.env.local` is listed in `.gitignore` and must never be committed.
+
+---
+
+## Staging and Production
+
+This guide covers local development only. For staging and production deployment — including Docker image builds, Railway/Vercel configuration, environment variable secrets management, database migrations on a live instance, and rollback procedures — see [docs/DEPLOYMENT.md](DEPLOYMENT.md).

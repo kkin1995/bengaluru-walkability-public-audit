@@ -391,7 +391,7 @@ Database migrations are forward-only. If a migration must be reversed, write a n
 
 ## Monitoring
 
-No third-party monitoring library is currently integrated. <!-- VERIFY: whether any Sentry/Datadog/OpenTelemetry integration has been added -->
+No third-party monitoring library is currently integrated.
 
 The backend emits structured tracing logs via the `tracing` crate. The `RUST_LOG` environment variable controls the log level (`info` in production, `debug` for troubleshooting). nginx emits JSON-formatted access logs to `/var/log/nginx/access.log` with fields: `time`, `request_id`, `method`, `uri`, `status`, `bytes_sent`, `request_time`, `remote_addr`, `http_user_agent`.
 

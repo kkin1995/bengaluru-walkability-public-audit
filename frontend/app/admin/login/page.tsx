@@ -55,8 +55,13 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        // Success — redirect to /admin
-        router.push("/admin");
+        // Success — replace /admin/login in history and invalidate the RSC cache
+        // so the admin layout re-runs server-side with the new auth cookie attached.
+        // Without router.refresh(), the cached pre-login layout renders without the
+        // sidebar (no cookie visible to the server component) and middleware on a
+        // subsequent hard refresh redirects back to /admin/login.
+        router.replace("/admin");
+        router.refresh();
         return;
       }
 
