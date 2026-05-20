@@ -15,6 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Ward Foundation** - Import ward boundaries, auto-tag all reports to wards, build flexible organization hierarchy (completed 2026-03-12)
 - [x] **Phase 2: Anti-Abuse and Data Quality** - Per-IP rate limiting, honeypot, proximity duplicate flagging, photo hash dedup (gap closure in progress) (completed 2026-03-13)
 - [x] **Phase 02.4: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel** - Decommission Railway, host backend + DB on Arch Linux desktop via Docker Compose, expose via Cloudflare tunnel, self-hosted GitHub Actions runner (INSERTED — must complete before Phase 3) (completed 2026-05-20)
+- [ ] **Phase 02.4.1: Security Hardening** - JPEG magic-bytes upload validation, logout cookie SameSite fix, nginx Content-Type override, weekly backups (pg_dump + uploads) with systemd timer, secret rotation + restore docs, external uptime monitor (INSERTED — must complete before Phase 3)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
@@ -106,6 +107,26 @@ Plans:
 - [x] 02.4-03-PLAN.md — Desktop setup runbook (cloudflared install, tunnel creation, systemd service, self-hosted runner, first manual deploy)
 - [x] 02.4-04-PLAN.md — Vercel + GitHub Secrets/Vars update checklist (NEXT_PUBLIC_API_URL, INTERNAL_API_URL, remove RAILWAY_BACKEND_URL, add BACKEND_URL/FRONTEND_URL/CORS_ORIGIN vars)
 
+### Phase 02.4.1: Security Hardening (INSERTED)
+
+**Goal:** Close the remaining application-level and operational security gaps before Phase 3 GBA launch: JPEG magic-bytes upload validation (stored XSS via SVG), admin logout cookie SameSite fix (cross-domain logout actually clears), nginx Content-Type override on /uploads/, weekly backups of PostgreSQL + uploads volume via systemd timer with 10 KB size validation and 30-day retention, secret rotation + restore documentation in DEPLOYMENT.md, and a free-tier external uptime monitor on /health.
+**Depends on:** Phase 02.4
+**Requirements**: D-01..D-18 (CONTEXT.md decisions; no global REQUIREMENTS.md IDs — pre-launch security hardening pass)
+**Success Criteria** (what must be TRUE):
+  1. POST /api/reports with a non-JPEG body returns HTTP 400 "Only JPEG images are accepted"; valid JPEG (FF D8) accepted
+  2. admin_logout builds a removal cookie with SameSite=None + conditional Secure mirroring admin_login; browser actually clears admin_token cross-domain
+  3. Both nginx configs append `add_header Content-Type "image/jpeg" always;` to the /uploads/ location block; curl -I on the deployed tunnel shows a single Content-Type: image/jpeg header
+  4. backup/backup.sh + three systemd units exist; weekly walkability-backup.timer is enabled on the desktop; a smoke run produces a > 10 KB .sql.gz under /data/backups/db and a .tar.gz under /data/backups/uploads
+  5. DEPLOYMENT.md gains §10 Secret Rotation (JWT_SECRET, POSTGRES_PASSWORD, ADMIN_SEED_PASSWORD) and §11 Backup and Restore (pg_dump restore + uploads volume restore)
+  6. An external uptime monitor (UptimeRobot or Cloudflare Health Checks) polls `<tunnel-url>/health` on a 5-minute cadence with email alerts to amit@orbitak.com
+  7. Tech debt cleanup: zero `TODO: implement` doc-comment lines in handlers/admin.rs or models/admin.rs; Bengaluru bounding-box constants exist exactly once at module level in handlers/reports.rs; stale Railway comment replaced with Cloudflare tunnel reference
+**Plans**: 3 plans
+
+Plans:
+- [ ] 02.4.1-01-PLAN.md — Backend security + cleanup: JPEG magic-bytes guard + bbox dedup (handlers/reports.rs), logout cookie SameSite fix + TODO removal + Railway-reference fix (handlers/admin.rs, models/admin.rs)
+- [ ] 02.4.1-02-PLAN.md — nginx Content-Type override on /uploads/ in both nginx.conf and nginx.server.conf + deployed-tunnel curl -I verification checkpoint
+- [ ] 02.4.1-03-PLAN.md — Operational ops + docs: backup/backup.sh + 3 systemd units, DEPLOYMENT.md §10 Secret Rotation + §11 Backup and Restore, external uptime monitor checkpoint on /health
+
 ### Phase 02.3.1: Implement Walkable BLR UI redesign from design file on separate branch (INSERTED)
 
 **Goal:** On a dedicated `ui-redesign` branch, implement a pixel-faithful Next.js redesign of the 5 citizen-facing screens (Home, Category step, Confirm step, Success, Public Map) per the Walkable BLR design file — introducing a CSS-variable design system, Google Fonts via next/font, and 5 TSX primitives (Bi, Icon, Btn, Pill, SectionLabel) — without merging to main.
@@ -196,7 +217,7 @@ Plans: *(not yet created — Phase 4 has no plan files on disk; planning begins 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 2.4 → 2.4.1 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -207,5 +228,7 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.3 UAT Bug Fixes | 3/3 | Complete | 2026-04-24 |
 | 2.3.1 UI Redesign | 4/4 | Complete | 2026-04-25 |
 | 2.3.2 Frontend Gap-fill | 3/3 | Complete | 2026-04-25 |
+| 2.4 Self-Hosted Infrastructure | 4/4 | Complete | 2026-05-20 |
+| 2.4.1 Security Hardening | 0/3 | Planned (3 plans created 2026-05-20) | - |
 | 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
