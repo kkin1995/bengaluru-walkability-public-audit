@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Ward Foundation** - Import ward boundaries, auto-tag all reports to wards, build flexible organization hierarchy (completed 2026-03-12)
 - [x] **Phase 2: Anti-Abuse and Data Quality** - Per-IP rate limiting, honeypot, proximity duplicate flagging, photo hash dedup (gap closure in progress) (completed 2026-03-13)
-- [ ] **Phase 02.4: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel** - Decommission Railway, host backend + DB on Arch Linux desktop via Docker Compose, expose via Cloudflare tunnel, self-hosted GitHub Actions runner (INSERTED — must complete before Phase 3)
+- [x] **Phase 02.4: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel** - Decommission Railway, host backend + DB on Arch Linux desktop via Docker Compose, expose via Cloudflare tunnel, self-hosted GitHub Actions runner (INSERTED — must complete before Phase 3) (completed 2026-05-20)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
@@ -103,8 +103,8 @@ Plans:
 Plans:
 - [x] 02.4-01-PLAN.md — nginx.server.conf + docker-compose.server.yml (backend-only compose override, stripped nginx config with no frontend upstream)
 - [x] 02.4-02-PLAN.md — Rewrite deploy.yml (remove Railway, add self-hosted runner deploy job + smoke test against Cloudflare tunnel URL)
-- [ ] 02.4-03-PLAN.md — Desktop setup runbook (cloudflared install, tunnel creation, systemd service, self-hosted runner, first manual deploy)
-- [ ] 02.4-04-PLAN.md — Vercel + GitHub Secrets/Vars update checklist (NEXT_PUBLIC_API_URL, INTERNAL_API_URL, remove RAILWAY_BACKEND_URL, add BACKEND_URL/FRONTEND_URL/CORS_ORIGIN vars)
+- [x] 02.4-03-PLAN.md — Desktop setup runbook (cloudflared install, tunnel creation, systemd service, self-hosted runner, first manual deploy)
+- [x] 02.4-04-PLAN.md — Vercel + GitHub Secrets/Vars update checklist (NEXT_PUBLIC_API_URL, INTERNAL_API_URL, remove RAILWAY_BACKEND_URL, add BACKEND_URL/FRONTEND_URL/CORS_ORIGIN vars)
 
 ### Phase 02.3.1: Implement Walkable BLR UI redesign from design file on separate branch (INSERTED)
 
