@@ -1,422 +1,379 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-03-11
+**Analysis Date:** 2026-05-20
 
 ## Test Frameworks
 
-### Frontend
-**Runner:** Jest 29.7.0
-**Config:** `frontend/jest.config.js`
-**Assertion Library:** `@testing-library/jest-dom` 6.9.1
-**Component rendering:** `@testing-library/react` 14.3.1
-**User interaction:** `@testing-library/user-event` 14.6.1
-**Transformer:** `babel-jest` 29.7.0 with `next/babel` preset
+### Backend (Rust)
 
-**Run Commands:**
+**Runner:** Rust's built-in `cargo test`
+**Assertion:** Standard `assert!`, `assert_eq!` with custom failure messages
+
 ```bash
-cd frontend && npm test              # Run all tests (passWithNoTests)
-cd frontend && npm run test:watch    # Watch mode
-cd frontend && npm run test:coverage # Coverage report
+cd backend
+cargo test               # Run all tests (unit + static SQL tests)
+cargo clippy -- -D warnings  # Lint (run before committing)
 ```
+
+### Frontend (TypeScript)
+
+**Runner:** Jest 29 with `jest-environment-jsdom`
+**Assertion Library:** `@testing-library/jest-dom` (extended matchers)
+**Component Testing:** `@testing-library/react` + `@testing-library/user-event`
+**Config:** `frontend/jest.config.js`
+
+```bash
+cd frontend
+npm test                 # Run all tests (passWithNoTests)
+npm run test:watch       # Watch mode
+npm run test:coverage    # With coverage report
+```
+
+---
+
+## Test File Organization
 
 ### Backend
-**Runner:** Cargo's built-in test harness
-**No external test framework** — standard `#[test]` attribute
 
-**Run Commands:**
-```bash
-cd backend && cargo test             # Run all tests (no live DB required)
+**Inline module tests** (`#[cfg(test)] mod tests { ... }`) embedded at the bottom of handler and model source files:
+- `backend/src/handlers/reports.rs` — bbox validation, rate-limit logic, honeypot detection, effective_limit()
+- `backend/src/handlers/admin.rs` — validate_status, validate_create_user_request, require_role
+- `backend/src/models/report.rs` — lat/lng rounding, image_url construction, privacy field exclusion
+
+**Separate test files** for migration SQL static analysis:
+- `backend/tests/migration_phase2_test.rs` — validates `003_super_admin.sql` structure
+- `backend/src/migrations_tests/test_004_migration.rs` — validates `004_ward_boundaries.sql`
+- `backend/src/migrations_tests/test_005_migration.rs` — validates `005_organizations.sql`
+
+### Frontend
+
+All test files live in `__tests__/` subdirectories co-located with the code they test:
+
+```
+frontend/
+├── __tests__/
+│   └── middleware.test.ts           — Next.js edge middleware (runs in node env)
+├── app/
+│   ├── __tests__/
+│   │   ├── home-page.test.tsx
+│   │   ├── report-page.test.tsx
+│   │   ├── layout.test.ts
+│   │   └── utils.test.ts
+│   ├── lib/__tests__/
+│   │   └── constants.test.ts
+│   ├── components/__tests__/
+│   │   ├── PhotoCapture.test.tsx
+│   │   ├── BilingualText.test.tsx
+│   │   ├── CategoryPicker.test.tsx
+│   │   ├── LocationMap.warning.test.tsx
+│   │   ├── ReportsMap.test.tsx
+│   │   ├── ReviewStrip.test.tsx
+│   │   └── SubmitSuccess.test.tsx
+│   ├── components/ui/__tests__/
+│   │   ├── Btn.test.tsx
+│   │   ├── Bi.test.tsx
+│   │   ├── Icon.test.tsx
+│   │   ├── Pill.test.tsx
+│   │   └── SectionLabel.test.tsx
+│   ├── components/redesign/__tests__/
+│   │   ├── CategoryGrid.test.tsx
+│   │   ├── SeverityGrid.test.tsx
+│   │   └── SuccessCard.test.tsx
+│   ├── report/__tests__/
+│   │   └── page.honeypot.test.tsx
+│   └── admin/
+│       ├── __tests__/
+│       │   ├── adminApi.test.ts
+│       │   ├── dashboard.test.tsx
+│       │   ├── layout.phase2.test.tsx
+│       │   ├── reports-page.test.tsx
+│       │   ├── reports-page-ward.test.tsx
+│       │   └── users-page.test.tsx
+│       ├── lib/__tests__/
+│       │   ├── adminApi.phase2.test.ts
+│       │   └── adminApi.relative-url.test.ts
+│       ├── components/__tests__/
+│       │   ├── ReportsTable.test.tsx
+│       │   ├── ReportsTable.subtable.test.tsx
+│       │   ├── StatusBadge.test.tsx
+│       │   ├── StatsCards.test.tsx
+│       │   ├── UserManagementTable.test.tsx
+│       │   └── UserManagementTable.phase2.test.tsx
+│       ├── reports/__tests__/
+│       │   └── page.dedup.test.tsx
+│       ├── reports/map/__tests__/
+│       │   └── page.test.tsx
+│       ├── reports/[id]/__tests__/
+│       │   └── page.test.tsx
+│       ├── login/__tests__/
+│       │   └── login-page.test.tsx
+│       └── profile/__tests__/
+│           └── page.test.tsx
 ```
 
----
-
-## Test Counts
-
-- **Frontend:** ~566 tests passing
-- **Backend:** 177 tests passing (170 unit + 7 migration SQL tests)
-- **No integration tests requiring a live database** — all tests are hermetic
+Naming convention: `ComponentName.test.tsx` for component tests, `featureName.phase2.test.ts` for phase-specific additions.
 
 ---
 
-## Frontend Test Organization
+## Backend Test Approach
 
-**Two isolated Jest projects** (split in `frontend/jest.config.js`):
+### Pure Function Unit Tests
 
-**Project 1 — `middleware`:**
-- Environment: `node` (for Next.js edge runtime globals)
-- Matches: `frontend/__tests__/middleware.test.ts` only
-- Setup: `frontend/jest.setup.node.ts` (minimal — no jsdom APIs)
+The backend testing philosophy is to extract all testable logic into **pure, synchronous functions** that have no I/O dependencies, then test those functions in `#[cfg(test)]` modules:
 
-**Project 2 — `jsdom`:**
-- Environment: `jsdom`
-- Matches: all `__tests__/**/*.(ts|tsx)` and `**/*.test.*` except middleware
-- Setup: `frontend/jest.setup.ts` (full browser API stubs)
-
-**Test file location pattern:**
-- Co-located with source in `__tests__/` subdirectory at the same level
-- Examples:
-  - `frontend/app/components/__tests__/PhotoCapture.test.tsx` tests `frontend/app/components/PhotoCapture.tsx`
-  - `frontend/app/admin/lib/__tests__/adminApi.phase2.test.ts` tests `frontend/app/admin/lib/adminApi.ts`
-  - `frontend/__tests__/middleware.test.ts` tests `frontend/middleware.ts`
-
-**Naming:**
-- `{ComponentName}.test.tsx` — standard test file
-- `{ComponentName}.phase2.test.tsx` — phase-specific additions (e.g., `UserManagementTable.phase2.test.tsx`)
-
----
-
-## Test Structure Patterns
-
-**Suite organization — tests grouped by requirement/acceptance criteria:**
-```typescript
-// File header: lists requirements covered + mocking strategy
-/**
- * Tests for frontend/app/report/page.tsx — 4-step wizard
- *
- * Requirements covered:
- *   R1 / AC1.2 — Photo chosen → auto-advance to step 1 (Location)
- *
- * Mocking strategy:
- *   - PhotoCapture is mocked so we can call onPhoto programmatically.
- */
-
-// describe blocks labeled with requirement code
-describe("R1 / AC1.2 — Photo selection auto-advances to Location step", () => {
-  it("advances to Step 2 (Location) immediately after a photo with GPS is chosen", async () => {
-    render(<ReportPage />);
-    await completeStep0WithGps();
-    expect(screen.getByText(/step 2 of 4: location/i)).toBeInTheDocument();
-  });
-});
-```
-
-**Rust test organization:**
 ```rust
+// Pure helper — extracted from handler for testability
+fn is_honeypot_triggered(website_field: &str) -> bool {
+    !website_field.is_empty()
+}
+
+fn build_rate_limit_key(ip: &str, lat: f64, lng: f64) -> String { ... }
+
+fn effective_limit(raw: i64) -> i64 {
+    if raw <= 0 { 20 } else { raw.clamp(1, 200) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // Constants used across tests
-    const SECRET: &[u8] = b"test-secret-for-unit-tests-only";
-
-    // Test builder helper
-    fn make_test_jwt(role: &str, exp_offset_secs: i64, secret: &[u8]) -> String { ... }
-
-    // Tests labeled with requirement codes in doc comments
-    /// R6.1 — A missing cookie (None) must be rejected immediately.
     #[test]
-    fn test_extract_claims_none_cookie() { ... }
+    fn test_bengaluru_bounds_valid_center() {
+        assert!(is_in_bengaluru(12.9716, 77.5946), "Center must pass");
+    }
 }
 ```
 
+**No test database.** No live HTTP routing. All backend tests run offline via `cargo test`.
+
+### What Backend Tests Cover
+
+- `backend/src/handlers/reports.rs` (inline tests):
+  - Bengaluru bounding box validation (all four edges, corners, out-of-range values)
+  - Default value population (`severity = "medium"`, `location_source = "manual_pin"`)
+  - `effective_limit()` boundary conditions (0, negatives, 1, 100, 199, 200, 201, `i64::MAX`)
+  - Ward lookup failure non-fatal (`unwrap_or_else → None`)
+  - Honeypot detection (`is_honeypot_triggered`)
+  - Rate-limit key format and geohash coordinate order regression guard
+  - `AppError::RateLimited` → HTTP 429 mapping
+
+- `backend/src/models/report.rs` (inline tests):
+  - `into_response()` lat/lng rounding to 3 decimal places (AC5.2)
+  - `image_url` construction from `api_base` + `/uploads/` + `image_path`
+  - `0.0.0.0` never appearing in `image_url` (regression guard PD-R2)
+  - Privacy: `submitter_contact` and `submitter_name` absent from `ReportResponse` JSON
+
+- `backend/tests/migration_phase2_test.rs` and `backend/src/migrations_tests/`:
+  - SQL file static analysis via `include_str!()` — checks that required DDL tokens appear
+  - No live database required
+  - Validates: column names, types, constraints (`NOT NULL DEFAULT FALSE`), `ALTER TABLE` vs `CREATE TABLE`, `ON DELETE SET NULL`, PostGIS geometry type and SRID, GIST index presence
+
+### What Backend Tests Do NOT Cover
+
+- Async handler logic (all handlers with DB calls are not covered by current unit tests)
+- Integration tests against a real PostgreSQL + PostGIS instance
+- Admin handler auth flows end-to-end
+- File upload and EXIF stripping in production conditions
+- Background dedup job (`backend/src/db/dedup_job.rs`) — no tests
+- Ward lookup handler (`backend/src/handlers/wards.rs`) — no tests
+
 ---
 
-## Setup and Teardown
+## Frontend Test Approach
 
-**Global frontend setup (`frontend/jest.setup.ts`):**
-- Installs `@testing-library/jest-dom` matchers
-- Stubs browser APIs not present in jsdom: `fetch`, `URL.createObjectURL`, `URL.revokeObjectURL`, `navigator.share`, `navigator.clipboard`, `window.alert`
-- Stubs `HTMLCanvasElement.prototype.getContext` and `.toBlob` (used by `compressImage`)
-- Patches `HTMLImageElement.prototype.src` setter to fire `onload` synchronously (enables `compressImage` Promise to resolve in tests)
-- Extends `expect` with `toBeNull` and `toBeUndefined` overrides that silently accept an optional documentation message string as second argument
-- Registers `afterEach(() => jest.clearAllMocks())` globally — clears call history between tests without clearing implementations
+### Jest Configuration
 
-**Per-test setup pattern:**
+Two isolated test projects in `frontend/jest.config.js`:
+
+**Project 1: `middleware`** — runs in `node` environment (not jsdom)
+- Only `frontend/__tests__/middleware.test.ts`
+- Setup: `frontend/jest.setup.node.ts` (minimal — no DOM APIs)
+- Needed because `next/server` requires Web Fetch API globals not available in jsdom
+
+**Project 2: `jsdom`** — runs in `jest-environment-jsdom`
+- All other `**/__tests__/**/*.(ts|tsx)` files
+- Setup: `frontend/jest.setup.ts`
+- Coverage enforced: branches 70%, functions 75%, lines 75%, statements 75%
+
+### Test Setup (`frontend/jest.setup.ts`)
+
+Global stubs established for all jsdom tests:
+- `global.fetch = jest.fn()` — stub for network calls
+- `URL.createObjectURL = jest.fn(() => "blob:mock-url")` — for photo preview
+- `URL.revokeObjectURL = jest.fn()`
+- `navigator.share = undefined` — jsdom lacks this
+- `navigator.clipboard.writeText = jest.fn()`
+- `window.alert = jest.fn()`
+- `HTMLCanvasElement.prototype.getContext = jest.fn(...)` — canvas stub
+- `HTMLCanvasElement.prototype.toBlob = jest.fn(callback => callback(new Blob(...)))` — default 1-byte blob (under limit)
+- `HTMLImageElement.prototype.src` — patched to fire `onload` synchronously
+- Custom `toBeNull` and `toBeUndefined` matchers that accept an optional message string
+- `afterEach(() => jest.clearAllMocks())` — clears call history between tests
+
+### Mocking Strategy
+
+**Module mocks declared at top of test file** via `jest.mock()` before the module-under-test import:
+
 ```typescript
-// Tests that need a fresh fetch mock replace global.fetch in beforeEach
+// exifr — UMD module mock
+jest.mock("exifr", () => ({
+  default: { gps: jest.fn(), parse: jest.fn() },
+}));
+
+// adminApi — full mock, individual functions overridden per test
+jest.mock("../lib/adminApi", () => ({
+  getStats: jest.fn(),
+  getAdminReports: jest.fn(),
+  // ... all 11 exports
+}));
+
+// next/navigation — App Router hooks
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  usePathname: () => "/admin/reports",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+// react-leaflet, leaflet, next/dynamic — in jest.config.js moduleNameMapper
+// "^react-leaflet$": "<rootDir>/__mocks__/reactLeaflet.js"
+// "^next/dynamic$": "<rootDir>/__mocks__/nextDynamic.js"
+```
+
+Child components are frequently mocked to expose `data-testid` attributes for assertions, avoiding deep render tree coupling.
+
+**Per-test fetch mock:**
+```typescript
 beforeEach(() => {
   global.fetch = jest.fn();
 });
-// jest.clearAllMocks() in afterEach (registered globally) handles cleanup
+
+// In test:
+(global.fetch as jest.Mock).mockResolvedValueOnce(mockOkResponse({ ... }));
 ```
 
----
+### Test Structure Pattern
 
-## Mocking
-
-**Module-level mocks** (declared before imports, hoisted by Jest):
 ```typescript
-// Mock entire module
-jest.mock("../lib/adminApi", () => ({
-  getStats: jest.fn(),
-  login: jest.fn(),
-  // ... all 11+ exports
-}));
+/**
+ * Tests for [ComponentName]
+ *
+ * Requirements covered:
+ *   R-X / AC-X-S1 — Description
+ *
+ * Mocking strategy:
+ *   - ...
+ */
 
-// Mock with default export (React component)
-jest.mock("../components/PhotoCapture", () => {
-  const MockPhotoCapture = ({ onPhoto }: { onPhoto: ... }) => (
-    <div data-testid="photo-capture">
-      <button onClick={() => onPhoto(new File(["img"], "photo.jpg"), { latitude: 12.9716, longitude: 77.5946 })}>
-        Simulate Photo With GPS
-      </button>
-    </div>
-  );
-  MockPhotoCapture.displayName = "MockPhotoCapture";
-  return MockPhotoCapture;
+describe("R-X / AC-X-S1 — Short description of what is tested", () => {
+  beforeEach(() => {
+    // Set up mock return values
+  });
+
+  it("specific behaviour — AC reference", async () => {
+    render(<Component />);
+    await waitFor(() => {
+      expect(screen.getByText(/.../).toBeInTheDocument();
+    });
+  });
 });
 ```
 
-**exifr mock (must use require pattern in source for Jest interop):**
+### Test Data / Fixtures
+
+No shared fixture files. Test data is constructed inline using helper functions within each test file:
+
 ```typescript
-// In test file:
-jest.mock("exifr", () => ({
-  default: { gps: jest.fn() },
-}));
-
-// In source (PhotoCapture.tsx), load via require not import:
-const exifrModule = require("exifr");
-const exifr = (exifrModule.default ?? exifrModule) as { gps: ... };
-```
-
-**fetch mock:**
-```typescript
-// Spy on global.fetch (preferred — preserves the mock installed in jest.setup.ts)
-const fetchMock = jest.spyOn(global, "fetch").mockResolvedValueOnce({
-  ok: true,
-  json: async () => ({ id: "new-report-id" }),
-} as Response);
-
-// For in-flight (never-resolving) fetch:
-jest.spyOn(global, "fetch").mockReturnValueOnce(new Promise(() => {}));
-
-// For network failure:
-jest.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network error"));
-```
-
-**Global mock files (`frontend/__mocks__/`):**
-- `frontend/__mocks__/reactLeaflet.js` — replaces react-leaflet components with `data-testid` stubs
-- `frontend/__mocks__/leaflet.js` — stubs leaflet (required by `ReportsMap` via `require()`)
-- `frontend/__mocks__/nextDynamic.js` — makes `next/dynamic` render imported modules synchronously via class component with `componentDidMount`
-- `frontend/__mocks__/styleMock.js` — returns `{}` for CSS imports
-
-**What to mock:**
-- All browser APIs not present in jsdom (`fetch`, canvas, clipboard, etc.) — globally in `jest.setup.ts`
-- All child components in page-level tests — to control props and callbacks programmatically via `data-testid` buttons
-- `next/link`, `next/navigation` — mock to plain `<a>` tags or jest.fn() routers
-- `exifr` — always mock to control GPS output per test
-- Leaflet / react-leaflet — always mock via `__mocks__/` (requires real DOM canvas)
-
-**What NOT to mock:**
-- The module under test itself
-- Pure utility functions (test them directly)
-- `adminApi.ts` internal `apiFetch` helper (test it indirectly via `global.fetch` spy)
-
----
-
-## Fixtures and Factories
-
-**TypeScript test factories (inline in test files):**
-```typescript
-// Minimal Response-like object for fetch mocks
-function mockOkResponse(body: unknown, status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-    text: async () => JSON.stringify(body),
-  } as unknown as Response;
+// Backend: fixture builder function
+function make_report(latitude: f64, longitude: f64) -> Report {
+    Report { id: Uuid::nil(), created_at: Utc::now(), ... }
 }
 
-function mockErrorResponse(status: number, body: unknown = { error: "err" }): Response {
-  return { ok: false, status, json: async () => body } as unknown as Response;
-}
-
-// File factory with controlled size
+// Frontend: inline helper
 function makeFile(name: string, sizeBytes: number): File {
   const file = new File(["x"], name, { type: "image/jpeg" });
   Object.defineProperty(file, "size", { value: sizeBytes, writable: false });
   return file;
 }
+
+// Frontend: response helpers
+function mockOkResponse(body: unknown, status = 200): Response { ... }
+function mockErrorResponse(status: number, body: unknown): Response { ... }
 ```
 
-**Rust test builders:**
-```rust
-// Fixture function returning minimal valid struct
-fn make_report(latitude: f64, longitude: f64) -> Report {
-    Report {
-        id: Uuid::nil(),
-        created_at: Utc::now(),
-        image_path: "test.jpg".to_string(),
-        latitude, longitude,
-        category: "no_footpath".to_string(),
-        // ... other fields with non-significant defaults
-    }
-}
+`File.size` is read-only — spoof it with `Object.defineProperty` (see `PhotoCapture.test.tsx`).
 
-// JWT builder with role and expiry offset
-fn make_test_jwt(role: &str, exp_offset_secs: i64, secret: &[u8]) -> String {
-    let now = jsonwebtoken::get_current_timestamp() as i64;
-    let exp = (now + exp_offset_secs) as usize;
-    // ... encode and return
-}
+`HTMLCanvasElement.prototype.toBlob` is overridden per describe block when testing compression failure paths, then restored in `afterEach`.
 
-// Claims builder
-fn claims_with_role(role: &str) -> JwtClaims {
-    JwtClaims { sub: "22222222-...".to_string(), role: role.to_string(), exp: 9999999999, ... }
-}
-```
+### What Frontend Tests Cover
 
-**Location:** Factories are defined inline in each test file — no shared fixtures directory.
+**Components:**
+- `PhotoCapture.tsx` — camera/gallery input rendering, EXIF GPS extraction, compression, preview, X clear button
+- `BilingualText.tsx`, `Bi.tsx` — bilingual rendering
+- `CategoryPicker.tsx`, `CategoryGrid.tsx`, `SeverityGrid.tsx` — selection interaction
+- `ReportsMap.tsx` — map rendering (Leaflet mocked)
+- `SubmitSuccess.tsx`, `SuccessCard.tsx` — success state rendering
+- `ReviewStrip.tsx` — review strip display
+- `LocationMap.tsx` — warning behavior (`.warning.test.tsx`)
+
+**UI primitives:** `Btn.tsx`, `Icon.tsx`, `Pill.tsx`, `SectionLabel.tsx`, `Bi.tsx`
+
+**Admin components:** `ReportsTable.tsx` (including subtable), `StatsCards.tsx`, `StatusBadge.tsx`, `UserManagementTable.tsx`
+
+**Pages:**
+- `app/page.tsx` (home), `app/report/page.tsx` (report flow including honeypot)
+- `app/admin/page.tsx` (dashboard), `app/admin/reports/page.tsx`, `app/admin/users/page.tsx`
+- `app/admin/reports/[id]/page.tsx`, `app/admin/reports/map/page.tsx`
+- `app/admin/login/page.tsx`, `app/admin/profile/page.tsx`
+
+**API client:** `adminApi.ts` — full contract coverage (credentials, HTTP methods, URL patterns, error rejection, success resolution)
+
+**Utilities:** `utils.ts` (haversineDistance — all boundary conditions), `lib/constants.ts`
+
+**Middleware:** Next.js edge middleware auth redirect logic
+
+### What Frontend Tests Do NOT Cover
+
+- `app/map/page.tsx` — no tests
+- `app/lib/photo-store.ts` — no tests
+- `app/lib/translations.ts` — no tests
+- `app/admin/layout.tsx` server-side auth guard — not unit tested (integration concern)
+- Real fetch network calls — all mocked
+- Leaflet/react-leaflet rendering — fully mocked via `__mocks__/reactLeaflet.js`
+- E2E / browser testing — no Playwright or Cypress present
 
 ---
 
-## Coverage
+## CI/CD Pipeline
 
-**Requirements (jsdom project only):**
-- Branches: 70%
-- Functions: 75%
-- Lines: 75%
-- Statements: 75%
+**Config:** `.github/workflows/ci.yml` — triggers on every push to any branch and on pull requests.
 
-**Coverage config in `frontend/jest.config.js`:**
-```javascript
-collectCoverageFrom: [
-  "app/**/*.{ts,tsx}",
-  "!app/**/*.d.ts",
-  "!app/globals.css",
-  "!app/layout.tsx",
-],
+**Three parallel jobs:**
+
+### `frontend-checks`
+```yaml
+- npm ci
+- npm run lint              # next lint (ESLint)
+- npm test -- --passWithNoTests --watchAll=false
+- npm audit --audit-level=critical
 ```
 
-**View Coverage:**
-```bash
-cd frontend && npm run test:coverage
+### `backend-checks`
+```yaml
+- cargo clippy -- -D warnings   # zero warnings policy
+- cargo test                     # all unit + migration static tests
+- cargo audit                    # dependency vulnerability scan
 ```
+
+### `docker-build`
+```yaml
+- docker compose build           # verifies all three images build cleanly
+# POSTGRES_PASSWORD and JWT_SECRET set to dummy values for build-only verification
+```
+
+**Deploy workflow:** `.github/workflows/deploy.yml` — calls CI as a workflow dependency before deploying.
+
+**No integration tests in CI.** All backend tests run without a database. PostGIS/integration coverage is a gap.
 
 ---
 
-## Test Types
-
-**Unit Tests (backend):**
-- Pure function tests with no DB, no async I/O
-- Use `#[cfg(test)] mod tests { ... }` inside source files
-- Files with tests: `backend/src/middleware/auth.rs`, `backend/src/models/report.rs`, `backend/src/models/admin.rs`, `backend/src/handlers/admin.rs`, `backend/src/handlers/reports.rs`, `backend/src/db/admin_queries.rs`, `backend/src/db/admin_seed.rs`, `backend/src/config.rs`
-
-**Migration SQL tests (backend):**
-- Static analysis only — parse SQL file text for required DDL tokens
-- Located in `backend/tests/migration_phase2_test.rs`
-- Use `include_str!("../migrations/003_super_admin.sql")` to read SQL at compile time
-- No live DB required
-
-**Component tests (frontend):**
-- Render component with RTL, assert on DOM output
-- Mock all child components and network calls
-- Located in `frontend/app/components/__tests__/`
-
-**Page-level integration tests (frontend):**
-- Render full page components, drive multi-step flows via `userEvent`
-- Mock leaf components to expose callbacks via `data-testid` buttons
-- Use `act()` around any async state changes, `waitFor()` for async assertions
-- Located in `frontend/app/__tests__/` and `frontend/app/admin/__tests__/`
-
-**API client tests (frontend):**
-- Test contract (HTTP method, URL, headers, body, error/success behavior) via `global.fetch` spy
-- No component rendering
-- Located in `frontend/app/admin/__tests__/adminApi.test.ts` and `frontend/app/admin/lib/__tests__/adminApi.phase2.test.ts`
-
-**Edge middleware tests (frontend):**
-- Pure function tests — `middleware(req)` in, `Response` out
-- Use real `NextRequest` objects (no mocking needed)
-- Run in `node` environment (not jsdom) for Web Fetch API globals
-- Located in `frontend/__tests__/middleware.test.ts`
-
-**E2E Tests:** Not used.
-
----
-
-## Common Patterns
-
-**Async component testing:**
-```typescript
-// Wrap user interactions in act()
-await act(async () => {
-  await userEvent.click(screen.getByRole("button", { name: /submit/i }));
-});
-
-// Use waitFor() for async state changes after interactions
-await waitFor(() => {
-  expect(screen.getByTestId("submit-success")).toBeInTheDocument();
-});
-```
-
-**Multi-step wizard navigation helpers:**
-```typescript
-// Define step-advance helpers and compose them
-async function completeStep0WithGps() {
-  await act(async () => { await userEvent.click(screen.getByTestId("mock-photo-with-gps")); });
-}
-async function navigateToStep3() {
-  await completeStep0WithGps();
-  await advanceFromStep1();
-  await completeStep2();
-}
-```
-
-**Error path testing:**
-```typescript
-// Network failure
-jest.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network error"));
-// ... render and interact ...
-await waitFor(() => {
-  expect(screen.getByText("Couldn't submit — check your connection and try again.")).toBeInTheDocument();
-});
-
-// Server error (non-2xx)
-jest.spyOn(global, "fetch").mockResolvedValueOnce({
-  ok: false, status: 400,
-  json: async () => ({ error: "Please drop the pin within Bengaluru" }),
-} as Response);
-```
-
-**Rust assertion pattern (with failure message):**
-```rust
-assert!(
-    matches!(result, Err(AppError::Unauthorized)),
-    "Expected Err(AppError::Unauthorized) when cookie_val is None, got: {:?}",
-    result
-);
-assert_eq!(
-    response.latitude, 12.972,
-    "12.97165 must round up to 12.972, got {}",
-    response.latitude
-);
-```
-
-**Inspecting FormData payload in fetch mock:**
-```typescript
-const [url, options] = fetchMock.mock.calls[0];
-const body = (options as RequestInit).body as FormData;
-expect(body.get("location_source")).toBe("exif");
-expect(body.get("photo")).toBeInstanceOf(File);
-```
-
-**Component mock with exposed callback via data-testid button:**
-```typescript
-jest.mock("../components/LocationMap", () => {
-  const MockLocationMap = ({ onChange }: { onChange: (lat: number, lng: number) => void }) => (
-    <div data-testid="location-map">
-      <button data-testid="mock-pin-inside" onClick={() => onChange(12.9716, 77.5946)}>
-        Pin Inside Bengaluru
-      </button>
-    </div>
-  );
-  MockLocationMap.displayName = "MockLocationMap";
-  return MockLocationMap;
-});
-```
-
----
-
-## TDD Workflow (Project Convention)
-
-All new features follow strict TDD order (enforced by project workflow):
-1. PRD with acceptance criteria written first
-2. Failing tests written against the ACs before any implementation
-3. Implementation written to make tests pass — test files are never modified during implementation
-
-Test files are the behavioral contract. The comment `// Do NOT modify these tests` appears explicitly in test headers for critical suites (`middleware.test.ts`, `migration_phase2_test.rs`).
-
----
-
-*Testing analysis: 2026-03-11*
+*Testing analysis: 2026-05-20*

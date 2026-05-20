@@ -1,282 +1,337 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-03-11
+**Analysis Date:** 2026-05-20
 
 ## Directory Layout
 
 ```
 bengaluru-walkability-public-audit/
 ├── backend/                    # Rust/Axum REST API (port 3001)
-│   ├── migrations/             # SQLx migration files (run at startup)
-│   │   ├── 001_init.sql        # Core schema: reports, PostGIS types, triggers
-│   │   ├── 002_admin.sql       # admin_users table + audit trail
-│   │   └── 003_super_admin.sql # is_super_admin column
 │   ├── src/
-│   │   ├── main.rs             # Entry point: router, AppState, startup
-│   │   ├── config.rs           # Config::from_env() — env var loading
-│   │   ├── errors.rs           # AppError enum + IntoResponse impl
-│   │   ├── handlers/
-│   │   │   ├── mod.rs          # Handler module exports
+│   │   ├── main.rs             # Entry point: router, middleware, AppState, startup
+│   │   ├── config.rs           # Config struct, reads env vars at startup
+│   │   ├── errors.rs           # AppError enum with IntoResponse
+│   │   ├── handlers/           # Axum request handlers
+│   │   │   ├── admin.rs        # All /api/admin/* handlers
 │   │   │   ├── health.rs       # GET /health
-│   │   │   ├── reports.rs      # Public report CRUD (POST/GET /api/reports)
-│   │   │   └── admin.rs        # All 14 admin handlers (/api/admin/*)
-│   │   ├── db/
-│   │   │   ├── mod.rs          # DB module exports
-│   │   │   ├── queries.rs      # Public report queries (insert, list, get)
-│   │   │   ├── admin_queries.rs # Admin report + user queries
-│   │   │   └── admin_seed.rs   # Super-admin user seeding at startup
+│   │   │   ├── reports.rs      # POST/GET /api/reports, EXIF strip, anti-abuse
+│   │   │   ├── wards.rs        # GET /api/wards/lookup
+│   │   │   └── mod.rs
 │   │   ├── middleware/
-│   │   │   ├── mod.rs          # Middleware module exports
-│   │   │   └── auth.rs         # JWT: extract_claims(), require_role(), require_auth
-│   │   └── models/
-│   │       ├── mod.rs          # Model module exports
-│   │       ├── report.rs       # Report, ReportResponse, CreateReportRequest
-│   │       └── admin.rs        # AdminUser, AdminUserResponse, validation helpers
-│   ├── tests/                  # Integration test files (backend)
-│   ├── uploads/                # Uploaded images (local filesystem, gitignored)
-│   └── Cargo.toml
-├── frontend/                   # Next.js 14 App Router (port 3000)
+│   │   │   ├── auth.rs         # require_auth Tower middleware, JWT validation
+│   │   │   └── mod.rs
+│   │   ├── models/
+│   │   │   ├── report.rs       # Report (DB row), ReportResponse, CreateReportRequest
+│   │   │   ├── admin.rs        # AdminUser, AdminUserResponse, validation helpers
+│   │   │   ├── ward.rs         # Ward model
+│   │   │   ├── organization.rs # Organization model
+│   │   │   └── mod.rs
+│   │   ├── db/
+│   │   │   ├── queries.rs      # Public report queries (insert, list, get, ward lookup)
+│   │   │   ├── admin_queries.rs # Admin-scoped queries
+│   │   │   ├── admin_seed.rs   # Seeds first admin user from env vars at startup
+│   │   │   ├── dedup_job.rs    # Proximity dedup background job (5-min polling)
+│   │   │   └── mod.rs
+│   │   └── migrations_tests/   # Migration smoke tests (no live DB needed for logic tests)
+│   │       ├── test_004_migration.rs
+│   │       ├── test_005_migration.rs
+│   │       └── mod.rs
+│   ├── migrations/             # SQLx migrations (applied on startup via sqlx::migrate!)
+│   │   ├── 001_init.sql        # reports, enums, PostGIS trigger, status_history, PWN scaffolding
+│   │   ├── 002_admin.sql       # admin_users, user_role enum, status_history.changed_by
+│   │   ├── 003_super_admin.sql # admin_users.is_super_admin column
+│   │   ├── 004_ward_boundaries.sql # wards table with GEOGRAPHY polygons (~13MB GeoJSON import)
+│   │   ├── 005_organizations.sql   # organizations table, admin_users.org_id
+│   │   ├── 006_ward_org_scoping.sql # wards.org_id FK for org-scoped visibility
+│   │   └── 007_anti_abuse.sql  # photo_hash, duplicate_*, submitter_ip columns on reports
+│   ├── tests/                  # Integration tests (require live DB)
+│   ├── uploads/                # Local dev upload storage (production: Docker volume)
+│   ├── Cargo.toml              # Rust dependencies
+│   ├── Cargo.lock
+│   └── Dockerfile              # Multi-stage build: cargo-chef → build → runtime
+│
+├── frontend/                   # Next.js 14 TypeScript App Router (port 3000)
 │   ├── app/
-│   │   ├── layout.tsx          # Root HTML layout
-│   │   ├── page.tsx            # Homepage: hero + CTAs
-│   │   ├── globals.css         # Tailwind base styles
-│   │   ├── components/         # Shared public UI components
-│   │   │   ├── BilingualText.tsx     # Bilingual EN/KN text renderer
-│   │   │   ├── CategoryPicker.tsx    # Issue category selection grid
-│   │   │   ├── LocationMap.tsx       # Leaflet map for pin-drop (report wizard)
-│   │   │   ├── PhotoCapture.tsx      # Photo upload + EXIF extraction
-│   │   │   ├── ReportsMap.tsx        # Public map with all reports
-│   │   │   ├── ReviewStrip.tsx       # Review strip (wizard step summary)
-│   │   │   └── SubmitSuccess.tsx     # Post-submission success screen
-│   │   ├── lib/                # Shared frontend utilities and config
-│   │   │   ├── config.ts       # MANDATORY: all env-var config (API_BASE_URL, INTERNAL_API_URL)
-│   │   │   ├── constants.ts    # BENGALURU_BOUNDS, BENGALURU_CENTER
-│   │   │   ├── translations.ts # English/Kannada string pairs + getCategoryLabel()
-│   │   │   └── utils.ts        # Misc utility functions
+│   │   ├── layout.tsx          # Root layout: fonts, global CSS
+│   │   ├── page.tsx            # Home page (landing / CTA)
+│   │   ├── globals.css         # Global styles + CSS custom properties
+│   │   ├── lib/
+│   │   │   ├── config.ts       # ALL env-var config (API_BASE_URL, INTERNAL_API_URL, etc.)
+│   │   │   ├── constants.ts    # BENGALURU_BOUNDS, BENGALURU_CENTER, category/severity lists
+│   │   │   ├── translations.ts # Bilingual label helpers (en/kn)
+│   │   │   ├── photo-store.ts  # In-memory store for photo captured on home → report flow
+│   │   │   └── utils.ts        # Shared utility functions
+│   │   ├── components/         # Shared components used across public pages
+│   │   │   ├── PhotoCapture.tsx      # Camera/file picker with EXIF GPS extraction (exifr)
+│   │   │   ├── LocationMap.tsx       # Leaflet map for manual GPS pin (SSR disabled)
+│   │   │   ├── ReportsMap.tsx        # Public map view with all report pins (SSR disabled)
+│   │   │   ├── CategoryPicker.tsx    # Category selection grid
+│   │   │   ├── BilingualText.tsx     # English + Kannada dual-label display
+│   │   │   ├── ReviewStrip.tsx       # Pre-submit review summary strip
+│   │   │   ├── ReportCTA.tsx         # Call-to-action component
+│   │   │   ├── SubmitSuccess.tsx     # Post-submission success screen
+│   │   │   ├── redesign/             # Phase 02.3.1 redesigned components
+│   │   │   │   ├── CategoryGrid.tsx  # Grid-based category picker
+│   │   │   │   ├── SeverityGrid.tsx  # Severity selector
+│   │   │   │   └── SuccessCard.tsx   # Post-submit success card
+│   │   │   └── ui/                   # Primitive UI components
+│   │   │       ├── Bi.tsx            # Bilingual inline text
+│   │   │       ├── Btn.tsx           # Button primitive
+│   │   │       ├── Icon.tsx          # Icon wrapper
+│   │   │       ├── Pill.tsx          # Category/status pill badge
+│   │   │       └── SectionLabel.tsx  # Section header label
 │   │   ├── report/
-│   │   │   └── page.tsx        # 4-step report submission wizard
+│   │   │   └── page.tsx        # Multi-step report submission wizard (photo → category → confirm)
 │   │   ├── map/
-│   │   │   └── page.tsx        # Public reports map page
-│   │   └── admin/              # Admin dashboard route group
-│   │       ├── layout.tsx      # Server Component: JWT cookie check + sidebar nav
-│   │       ├── page.tsx        # Admin dashboard home (stats overview)
-│   │       ├── login/
-│   │       │   └── page.tsx    # Admin login form
-│   │       ├── reports/
-│   │       │   ├── page.tsx    # Admin reports table with filters
-│   │       │   └── map/
-│   │       │       └── page.tsx # Admin reports map with status-colored pins
-│   │       ├── users/
-│   │       │   └── page.tsx    # User management (admin-only)
-│   │       ├── profile/
-│   │       │   └── page.tsx    # Admin profile + password change
-│   │       ├── components/     # Admin-only UI components
-│   │       │   ├── ReportsTable.tsx      # Sortable/filterable report rows
-│   │       │   ├── StatsCards.tsx        # Dashboard stats cards
-│   │       │   ├── StatusBadge.tsx       # Status pill component
-│   │       │   ├── UserManagementTable.tsx # User list + deactivate
-│   │       │   └── CreateUserModal.tsx   # New user creation modal
-│   │       └── lib/
-│   │           └── adminApi.ts # Typed HTTP client for all admin API calls
-│   ├── __mocks__/              # Jest manual mocks
-│   │   ├── leaflet.js          # Leaflet mock
-│   │   ├── nextDynamic.js      # next/dynamic mock
-│   │   ├── reactLeaflet.js     # react-leaflet mock
-│   │   └── styleMock.js        # CSS module mock
+│   │   │   └── page.tsx        # Public reports map
+│   │   ├── admin/              # Admin dashboard (auth-gated)
+│   │   │   ├── layout.tsx      # Server component: reads admin_token cookie, verifies /auth/me, redirects
+│   │   │   ├── page.tsx        # Admin dashboard home (stats + quick links)
+│   │   │   ├── login/
+│   │   │   │   └── page.tsx    # Admin login form (calls /api/admin/auth/login)
+│   │   │   ├── reports/
+│   │   │   │   ├── page.tsx    # Reports list with filters, pagination, dedup expand
+│   │   │   │   ├── [id]/page.tsx  # Single report detail + status management
+│   │   │   │   └── map/page.tsx   # Admin map view of reports
+│   │   │   ├── users/
+│   │   │   │   └── page.tsx    # User management (list, create, deactivate, org assign)
+│   │   │   ├── profile/
+│   │   │   │   └── page.tsx    # Admin profile: display name, change password
+│   │   │   ├── lib/
+│   │   │   │   └── adminApi.ts # Typed API client for admin endpoints (uses ADMIN_API_BASE_URL="")
+│   │   │   └── components/     # Admin-specific components
+│   │   │       ├── AdminSidebar.tsx      # Responsive sidebar with role-aware nav
+│   │   │       ├── ReportsTable.tsx      # Paginated reports table with expandable dedup rows
+│   │   │       ├── StatsCards.tsx        # Dashboard stats cards
+│   │   │       ├── StatusBadge.tsx       # Status pill with color
+│   │   │       ├── UserManagementTable.tsx # User list with CRUD actions
+│   │   │       └── CreateUserModal.tsx   # Modal for creating a new admin user
+│   │   └── api/
+│   │       └── admin/
+│   │           └── [...path]/route.ts  # Catch-all admin proxy: forwards all /api/admin/* to backend
+│   ├── __mocks__/              # Jest module mocks
+│   │   └── next/font/          # next/font mock for tests
+│   ├── __tests__/              # Root-level integration tests
 │   ├── public/                 # Static assets
-│   ├── jest.config.js          # Jest config (two environments: jsdom + node)
-│   ├── jest.setup.ts           # Jest setup (RTL + custom matchers)
-│   ├── next.config.ts          # Next.js config (output: standalone)
-│   └── tsconfig.json
+│   ├── next.config.mjs         # Next.js config (no rewrites; proxy is in route.ts)
+│   ├── jest.config.ts          # Jest config with jsdom environment
+│   ├── jest.setup.ts           # @testing-library/jest-dom setup
+│   ├── tsconfig.json           # TypeScript config with @/* path alias → ./
+│   ├── package.json
+│   └── Dockerfile              # Multi-stage build with Next.js standalone output
+│
 ├── nginx/
-│   └── nginx.conf              # Reverse proxy: routing, rate limits, security headers
-├── docker-compose.yml          # Production stack (4 services: db, backend, frontend, nginx)
-├── docker-compose.dev.yml      # Dev overrides (bind-mount source, no nginx)
-├── .github/
-│   └── workflows/
-│       ├── ci.yml              # CI: frontend-checks, backend-checks, docker-build (parallel)
-│       └── deploy.yml          # Deploy: reuses ci.yml then SSH-deploy
+│   ├── nginx.conf              # Full-stack config (frontend + backend; used in Docker dev/prod)
+│   └── nginx.server.conf       # Backend-only config (Phase 02.4 self-hosted; no frontend upstream)
+│
+├── data/                       # Source data files (GeoJSON ward boundaries, etc.)
+├── design-ref/                 # UI design references
 ├── docs/
 │   └── ac/                     # Acceptance criteria documents
-└── CLAUDE.md                   # Project setup instructions
+├── .github/
+│   └── workflows/
+│       ├── ci.yml              # CI: lint, test, build (called by deploy.yml)
+│       └── deploy.yml          # CD: ci → deploy (self-hosted runner) → smoke-test
+├── .planning/
+│   ├── codebase/               # Codebase map documents (this directory)
+│   ├── phases/                 # Per-phase implementation plans and summaries
+│   └── debug/                  # Debug session logs
+├── docker-compose.yml          # Production/dev full-stack compose
+├── docker-compose.dev.yml      # Local dev overrides (hot reload)
+├── docker-compose.server.yml   # Phase 02.4: backend-only override for self-hosted desktop
+├── DEPLOYMENT.md               # Self-hosted Arch Linux + Cloudflare Tunnel runbook (Phase 02.4)
+└── CLAUDE.md                   # Project instructions for Claude agents
 ```
 
-## Directory Purposes
+## Backend Module Breakdown
 
-**`backend/src/handlers/`:**
-- Purpose: Axum route handler functions — one file per domain
-- Contains: Async functions receiving `State<AppState>` and extractors; parse request, validate, call `db/`, return `Result<Json<_>, AppError>`
-- Key files: `handlers/reports.rs` (public CRUD + EXIF strip), `handlers/admin.rs` (14 admin handlers)
+### `backend/src/handlers/`
 
-**`backend/src/db/`:**
-- Purpose: Raw SQLx query functions — no business logic, just DB access
-- Contains: Functions taking `&PgPool` + parameters, returning `Result<_, AppError>`
-- Key files: `db/queries.rs` (public report SQL), `db/admin_queries.rs` (admin SQL), `db/admin_seed.rs` (startup seeding)
+| File | Routes handled |
+|------|----------------|
+| `reports.rs` | `POST /api/reports`, `GET /api/reports`, `GET /api/reports/:id` |
+| `admin.rs` | All `/api/admin/*` routes (auth, reports, users, stats, organizations) |
+| `health.rs` | `GET /health` |
+| `wards.rs` | `GET /api/wards/lookup` |
 
-**`backend/src/models/`:**
-- Purpose: Rust structs representing DB rows and API response shapes
-- Contains: `FromRow` DB structs, plain response structs, request parsing structs, validation pure functions
-- Key files: `models/report.rs` (Report + ReportResponse), `models/admin.rs` (AdminUser + AdminUserResponse + validators)
+### `backend/src/models/`
 
-**`backend/src/middleware/`:**
-- Purpose: Axum middleware layers
-- Contains: JWT extraction and role-gating (pure functions + async middleware)
-- Key files: `middleware/auth.rs`
+| File | Types |
+|------|-------|
+| `report.rs` | `Report` (DB row), `ReportResponse` (public API), `CreateReportRequest`, `ListReportsQuery` |
+| `admin.rs` | `AdminUser` (DB row), `AdminUserResponse`, `LoginRequest`, `CreateUserRequest`, `UpdateStatusRequest`, `StatsResponse`, `JwtClaims`, `UpdateProfileRequest`, `ChangePasswordRequest`, validation helpers |
+| `ward.rs` | Ward model |
+| `organization.rs` | `Organization` model |
 
-**`backend/migrations/`:**
-- Purpose: Versioned SQL migration files applied automatically by `sqlx::migrate!()` on startup
-- Contains: DDL for all tables, enums, triggers, indexes
-- Key files: `001_init.sql` (core schema + PostGIS), `002_admin.sql` (admin_users), `003_super_admin.sql` (is_super_admin column)
+### `backend/src/db/`
 
-**`frontend/app/components/`:**
-- Purpose: Shared client-side UI components used across public pages
-- Contains: React components; Leaflet map components are always client-only (use `"use client"` directive or loaded via `dynamic(..., { ssr: false })`)
-- Key files: `PhotoCapture.tsx`, `LocationMap.tsx`, `ReportsMap.tsx`
+| File | Purpose |
+|------|---------|
+| `queries.rs` | Public report queries: `insert_report`, `list_reports`, `get_report_by_id`, `count_reports`, `check_photo_hash_exists`, `get_ward_for_point` |
+| `admin_queries.rs` | Admin queries: list/get/update/delete reports, user management, stats aggregation, org queries |
+| `admin_seed.rs` | Seeds first super-admin user from `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` env vars at startup |
+| `dedup_job.rs` | Background proximity dedup (5-min interval, `ST_DWithin` 50m, links via `duplicate_of_id`) |
 
-**`frontend/app/lib/`:**
-- Purpose: Non-component utilities, configuration, and shared data
-- Contains: Config exports, geographic constants, translation strings, utility functions
-- Key files: `config.ts` (MANDATORY single source of truth for env vars), `constants.ts` (bbox + center), `translations.ts`
+### `backend/src/middleware/`
 
-**`frontend/app/admin/`:**
-- Purpose: Entire admin dashboard — route group with shared server-side auth layout
-- Contains: Pages, admin-specific components, typed API client
-- Key files: `admin/layout.tsx` (auth guard), `admin/lib/adminApi.ts` (typed API client)
+| File | Purpose |
+|------|---------|
+| `auth.rs` | `require_auth` Axum middleware (JWT cookie validation), `extract_claims()` pure function, `require_role()` pure function, all unit-tested |
 
-**`frontend/__mocks__/`:**
-- Purpose: Jest manual mocks for browser-only libraries
-- Contains: Mocks for Leaflet, react-leaflet, next/dynamic, CSS modules
-- Generated: No — manually maintained
-- Committed: Yes
+## Frontend App Router Structure
 
-## Key File Locations
+### Pages
 
-**Entry Points:**
-- `backend/src/main.rs`: Rust server startup, router construction, AppState initialization
-- `frontend/app/page.tsx`: Next.js homepage
-- `frontend/app/layout.tsx`: Root HTML document layout
+| Route | File | Type |
+|-------|------|------|
+| `/` | `app/page.tsx` | Client |
+| `/report` | `app/report/page.tsx` | Client (multi-step wizard) |
+| `/map` | `app/map/page.tsx` | Client |
+| `/admin` | `app/admin/page.tsx` | Server (auth-gated via layout) |
+| `/admin/login` | `app/admin/login/page.tsx` | Client |
+| `/admin/reports` | `app/admin/reports/page.tsx` | Client |
+| `/admin/reports/[id]` | `app/admin/reports/[id]/page.tsx` | Client |
+| `/admin/reports/map` | `app/admin/reports/map/page.tsx` | Client |
+| `/admin/users` | `app/admin/users/page.tsx` | Client |
+| `/admin/profile` | `app/admin/profile/page.tsx` | Client |
+| `/api/admin/[...path]` | `app/api/admin/[...path]/route.ts` | API Route (proxy) |
 
-**Configuration:**
-- `frontend/app/lib/config.ts`: MANDATORY — all frontend env-var config (never inline `process.env.*` elsewhere)
-- `frontend/app/lib/constants.ts`: Static geographic constants (bbox, center)
-- `backend/src/config.rs`: Backend env-var loading via `Config::from_env()`
-- `docker-compose.yml`: Production environment variable values for all services
-- `nginx/nginx.conf`: Reverse proxy routing, rate limits, security headers
+### Auth Guard
 
-**Core Business Logic:**
-- `backend/src/handlers/reports.rs`: Public report ingestion (EXIF strip, bbox validation, file save, DB insert)
-- `backend/src/handlers/admin.rs`: All 14 admin API handlers
-- `backend/src/middleware/auth.rs`: JWT validation (`extract_claims`, `require_role`, `require_auth`)
-- `backend/src/models/report.rs`: `Report::into_response()` — coordinate rounding, field exclusion
-- `frontend/app/report/page.tsx`: 4-step citizen report wizard
+`frontend/app/admin/layout.tsx` is a **Server Component** that:
+1. Skips auth for `/admin/login` path
+2. Reads `admin_token` cookie via `next/headers`
+3. Fetches `INTERNAL_API_URL/api/admin/auth/me` to verify session
+4. Redirects to `/admin/login` on missing cookie or non-OK response
+5. Passes `role` to `AdminSidebar` for role-based nav rendering
 
-**Database:**
-- `backend/migrations/001_init.sql`: Core schema, PostGIS types, triggers, indexes
-- `backend/migrations/002_admin.sql`: Admin users schema
-- `backend/src/db/queries.rs`: Public report SQL
-- `backend/src/db/admin_queries.rs`: Admin SQL
+### Admin API Client
 
-**Testing:**
-- `frontend/jest.config.js`: Jest config (split environments)
-- `frontend/jest.setup.ts`: RTL + custom matchers setup
-- `frontend/__mocks__/`: Manual mocks for Leaflet and next/dynamic
-- `backend/tests/`: Backend integration tests
-- Test files: co-located in `__tests__/` subdirectories next to source files
+`frontend/app/admin/lib/adminApi.ts` — All API calls use `credentials: "include"` and `ADMIN_API_BASE_URL` (always `""` = relative URLs). Non-2xx responses throw `Error("HTTP {status}")`.
 
-## Naming Conventions
+### Key Library Files
 
-**Files (Backend):**
-- Rust modules: `snake_case.rs` (e.g., `admin_queries.rs`, `admin_seed.rs`)
-- Handler files grouped by domain: `reports.rs`, `admin.rs`, `health.rs`
+| File | Purpose |
+|------|---------|
+| `app/lib/config.ts` | Single source of truth for all env-var config |
+| `app/lib/constants.ts` | `BENGALURU_BOUNDS`, `BENGALURU_CENTER`, category/severity label arrays |
+| `app/lib/translations.ts` | `getCategoryLabel()` and bilingual helpers |
+| `app/lib/photo-store.ts` | In-memory photo handoff between home page capture and report wizard |
+| `app/lib/utils.ts` | Generic utilities |
 
-**Files (Frontend):**
-- React components: `PascalCase.tsx` (e.g., `PhotoCapture.tsx`, `ReportsTable.tsx`)
-- Utilities and config: `camelCase.ts` (e.g., `adminApi.ts`, `config.ts`, `constants.ts`)
-- Next.js pages: `page.tsx` (App Router convention)
-- Next.js layouts: `layout.tsx`
-- Test directories: `__tests__/` co-located with source
-- Mock files: `camelCase.js` in `frontend/__mocks__/`
+## Migration Files Summary
 
-**Directories:**
-- Backend modules: `snake_case/` (e.g., `handlers/`, `db/`, `models/`, `middleware/`)
-- Frontend routes: `kebab-case/` following Next.js App Router conventions (e.g., `admin/`, `reports/`, `map/`)
-- Admin sub-routes: nested under `frontend/app/admin/` (e.g., `login/`, `reports/map/`, `profile/`)
+| File | What it creates/modifies |
+|------|--------------------------|
+| `001_init.sql` | Extensions (postgis, pgcrypto); enums (issue_category, severity_level, report_status, location_source); `reports` table with PostGIS trigger; `status_history`; PWN scaffold tables (bus_stops, metro_stations) |
+| `002_admin.sql` | `user_role` enum; `admin_users` table; adds `changed_by` FK to `status_history` |
+| `003_super_admin.sql` | Adds `is_super_admin BOOLEAN NOT NULL DEFAULT FALSE` to `admin_users` |
+| `004_ward_boundaries.sql` | `wards` table with GEOGRAPHY polygon column (~13MB GeoJSON ward boundary data) |
+| `005_organizations.sql` | `organizations` table (self-referential adjacency list); adds `org_id` FK to `admin_users` |
+| `006_ward_org_scoping.sql` | Adds `org_id` FK to `wards` for org-scoped report visibility |
+| `007_anti_abuse.sql` | Adds `photo_hash`, `duplicate_of_id`, `duplicate_count`, `duplicate_confidence`, `submitter_ip` to `reports` |
+
+## Configuration Files
+
+| File | Controls |
+|------|----------|
+| `docker-compose.yml` | Service definitions: db, backend, frontend, nginx; resource limits; health checks |
+| `docker-compose.dev.yml` | Local dev overrides (volume mounts for hot reload) |
+| `docker-compose.server.yml` | Phase 02.4 backend-only override: removes frontend nginx dependency, swaps nginx config |
+| `nginx/nginx.conf` | Full-stack routing, rate limiting (3 zones), security headers for /admin |
+| `nginx/nginx.server.conf` | Backend-only routing (Phase 02.4); no frontend upstream; catch-all 404 |
+| `backend/Cargo.toml` | Rust dependencies (axum, sqlx, argon2, img-parts, geohash, governor, etc.) |
+| `frontend/next.config.mjs` | Next.js config (standalone output, no rewrites) |
+| `frontend/tsconfig.json` | TypeScript config; path alias `@/*` → `./` |
+| `frontend/jest.config.ts` | Jest with jsdom environment, `@/*` path alias |
+| `.github/workflows/ci.yml` | CI: cargo test, cargo clippy, npm test, npm run build |
+| `.github/workflows/deploy.yml` | CD: 3-job pipeline (ci → deploy → smoke-test) |
+
+## Test File Locations
+
+Backend tests are co-located with source (Rust `#[cfg(test)]` modules inside each file):
+- `backend/src/middleware/auth.rs` — JWT validation unit tests
+- `backend/src/handlers/reports.rs` — bbox validation, anti-abuse, rate limit, honeypot tests
+- `backend/src/models/report.rs` — lat/lng rounding, privacy, image URL tests
+- `backend/src/models/admin.rs` — model validation, serialization, auth logic tests
+- `backend/src/config.rs` — PUBLIC_URL resolution tests
+- `backend/src/db/dedup_job.rs` — SQL constant tests (no live DB needed)
+- `backend/tests/` — Integration tests requiring live DB
+- `backend/src/migrations_tests/` — Migration smoke tests
+
+Frontend tests are in `__tests__/` subdirectories co-located with the code they test:
+- `frontend/app/__tests__/` — Home page, layout, report page, utils
+- `frontend/app/report/__tests__/` — Honeypot behavior
+- `frontend/app/components/__tests__/` — Component tests
+- `frontend/app/components/redesign/__tests__/` — Redesigned component tests
+- `frontend/app/components/ui/__tests__/` — UI primitive tests
+- `frontend/app/admin/__tests__/` — Admin page and API tests
+- `frontend/app/admin/components/__tests__/` — Admin component tests
+- `frontend/app/admin/lib/__tests__/` — adminApi client tests
+- `frontend/app/admin/login/__tests__/` — Login page tests
+- `frontend/app/admin/profile/__tests__/` — Profile page tests
+- `frontend/app/admin/reports/[id]/__tests__/` — Report detail tests
+- `frontend/app/admin/reports/map/__tests__/` — Admin map tests
+- `frontend/__tests__/` — Root-level integration tests
+- `frontend/__mocks__/` — Module mocks (next/font)
 
 ## Where to Add New Code
 
-**New Public API Endpoint:**
-- Handler function: `backend/src/handlers/reports.rs` or new file in `backend/src/handlers/`
+**New public API endpoint:**
+- Handler function: `backend/src/handlers/reports.rs` (or a new handler file in `backend/src/handlers/`)
+- Route registration: `backend/src/main.rs` (add to the public Router)
 - DB query: `backend/src/db/queries.rs`
-- Route registration: `backend/src/main.rs` in the public `Router::new()` block
-- Response model: `backend/src/models/report.rs` if new response shape needed
+- Model struct: `backend/src/models/report.rs`
 
-**New Admin API Endpoint:**
+**New admin API endpoint:**
 - Handler function: `backend/src/handlers/admin.rs`
+- Route registration: `backend/src/main.rs` (add to `admin_protected_router` if auth required)
 - DB query: `backend/src/db/admin_queries.rs`
-- Route registration: `backend/src/main.rs` in `admin_protected_router` block (or `admin_auth_router` if unauthenticated)
-- Frontend call: add named export to `frontend/app/admin/lib/adminApi.ts`
+- Frontend API client method: `frontend/app/admin/lib/adminApi.ts`
 
-**New Frontend Page (Public):**
-- Implementation: new directory under `frontend/app/` with `page.tsx`
-- Tests: `frontend/app/<route>/__tests__/page.test.tsx`
+**New admin page:**
+- Page: `frontend/app/admin/<name>/page.tsx`
+- Tests: `frontend/app/admin/<name>/__tests__/page.test.tsx`
+- Nav link: `frontend/app/admin/components/AdminSidebar.tsx`
 
-**New Frontend Admin Page:**
-- Implementation: new directory under `frontend/app/admin/` with `page.tsx`
-- Tests: `frontend/app/admin/<route>/__tests__/page.test.tsx`
-- Any new API calls: add to `frontend/app/admin/lib/adminApi.ts`
+**New shared frontend component:**
+- Reusable primitive: `frontend/app/components/ui/`
+- Domain-specific: `frontend/app/components/`
+- Tests: same directory under `__tests__/`
 
-**New Shared UI Component:**
-- Public component: `frontend/app/components/<ComponentName>.tsx`
-- Admin-only component: `frontend/app/admin/components/<ComponentName>.tsx`
-- Tests: co-located in `__tests__/` subdirectory
+**New database migration:**
+- File: `backend/migrations/<NNN>_description.sql` (sequential number)
+- Applied automatically at backend startup via `sqlx::migrate!("./migrations")`
+- Run `cargo sqlx prepare` after adding queries that reference new tables
 
-**New Environment Variable:**
-- Frontend client-side: add export to `frontend/app/lib/config.ts` (never inline in component files)
-- Frontend server-side: add export to `frontend/app/lib/config.ts` using `process.env.*`
-- Backend: add field to `Config` struct in `backend/src/config.rs` and read in `Config::from_env()`
-- Docker: add to `docker-compose.yml` under the appropriate service `environment:` block
-
-**New Database Table:**
-- Add migration: `backend/migrations/00N_description.sql` (next sequential number)
-- Add model struct: `backend/src/models/` (new file or extend existing)
-- Add query functions: `backend/src/db/` (appropriate file)
-- Run `cargo sqlx prepare --database-url "..."` to update offline metadata after schema changes
-
-**New Geographic Constant (bbox, center):**
-- Add to `frontend/app/lib/constants.ts` only — never hard-code in component files
+**New utility:**
+- Frontend: `frontend/app/lib/utils.ts`
+- Backend: add to relevant `db/` or `models/` module, or create a new module in `backend/src/`
 
 ## Special Directories
 
 **`backend/uploads/`:**
-- Purpose: Local filesystem storage for uploaded images served via tower-http `ServeDir`
-- Generated: Yes — created at startup by `std::fs::create_dir_all`
-- Committed: No (gitignored)
+- Purpose: Local filesystem storage for EXIF-stripped uploaded images
+- In Docker production: replaced by named volume `uploads` mounted at `/app/uploads`
+- In self-hosted (Phase 02.4): persists on host via Docker named volume
+- Generated: No (must exist or be created; `main.rs` calls `create_dir_all`)
+- Committed: No (`.gitignore`)
+
+**`backend/.sqlx/`:**
+- Purpose: SQLx compile-time query metadata cache for offline builds
+- Generated: Yes — via `cargo sqlx prepare --database-url "..."`
+- Committed: Yes — required for CI builds without a live DB
 
 **`frontend/.next/`:**
-- Purpose: Next.js build output and cache
+- Purpose: Next.js build output
 - Generated: Yes
-- Committed: No (gitignored)
-
-**`frontend/__mocks__/`:**
-- Purpose: Jest manual mocks for browser-only dependencies (Leaflet, next/dynamic)
-- Generated: No — manually maintained
-- Committed: Yes
-
-**`.claude/`:**
-- Purpose: Claude agent memory files and skill definitions for specialized agents
-- Generated: Partially (agent memory is written by agents)
-- Committed: Yes (skills and agent definitions), agent memory files may vary
+- Committed: No
 
 **`.planning/`:**
-- Purpose: GSD planning documents — codebase analysis and implementation phase plans
-- Generated: By GSD planning commands
-- Committed: Yes
-
-**`docs/ac/`:**
-- Purpose: Acceptance criteria documents used as the source of truth for TDD test authoring
-- Generated: No — written by `prd-to-ac-converter` agent
+- Purpose: GSD planning documents (codebase maps, phase plans, debug logs)
+- Generated: By GSD agents
 - Committed: Yes
 
 ---
 
-*Structure analysis: 2026-03-11*
+*Structure analysis: 2026-05-20*

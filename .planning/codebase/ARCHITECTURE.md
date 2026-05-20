@@ -1,194 +1,287 @@
+<!-- refreshed: 2026-05-20 -->
 # Architecture
 
-**Analysis Date:** 2026-03-11
-**Last updated:** 2026-04-25 — added cross-domain auth (Vercel/Railway), anti-abuse middleware, ward routing, geolocation fallback, new endpoints from PRs #2/#3
+**Analysis Date:** 2026-05-20
 
-## Pattern Overview
+## System Overview
 
-**Overall:** Multi-tier monorepo with separate Rust API backend and Next.js frontend, connected through nginx reverse proxy.
+```text
+┌────────────────────────────────────────────────────────────────────┐
+│                     Public Internet                                 │
+│   Cloudflare Tunnel (production) OR direct HTTP (dev)              │
+└───────────────────────────┬────────────────────────────────────────┘
+                            │ HTTPS (prod) / HTTP:80 (dev)
+                            ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                   nginx:alpine  (port 80)                          │
+│   nginx/nginx.conf (full stack)                                    │
+│   nginx/nginx.server.conf (backend-only, Phase 02.4)              │
+│                                                                    │
+│   Routing rules:                                                   │
+│     = /api/admin/auth/login → backend (rate: 5r/min, burst 3)     │
+│     /api/admin/            → backend (rate: 60r/min, burst 10)    │
+│     /api/                  → backend (rate: 5r/min uploads)       │
+│     /uploads/              → backend ServeDir (30d cache)          │
+│     /health                → backend                               │
+│     /admin*                → frontend (+ security headers)        │
+│     /                      → frontend (catch-all)                 │
+└────────┬─────────────────────────┬─────────────────────────────────┘
+         │                         │
+         ▼                         ▼
+┌─────────────────┐    ┌──────────────────────────┐
+│  Rust/Axum      │    │   Next.js 14 (App Router) │
+│  Backend :3001  │    │   Frontend :3000           │
+│  backend/src/   │    │   frontend/app/            │
+└────────┬────────┘    └──────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────┐
+│   PostgreSQL 16 + PostGIS 3.4 (port 5432)       │
+│   image: postgis/postgis:16-3.4-alpine          │
+│   Named volume: postgres_data                    │
+└─────────────────────────────────────────────────┘
+```
 
-**Key Characteristics:**
-- Strict separation between public citizen-facing API and protected admin API
-- Two distinct auth contexts: no-auth public submissions, JWT-cookie admin sessions
-- Privacy-by-design: EXIF stripped server-side, coordinates rounded in API responses, contact details excluded from public endpoints
-- DB models carry full precision/data; response structs (`*Response`) are separate and safe to serialize
-- All map components use SSR-disabled dynamic imports (Leaflet requires `window`)
+## Component Responsibilities
 
-## Layers
+| Component | Responsibility | Key Files |
+|-----------|----------------|-----------|
+| nginx | Reverse proxy, rate limiting, TLS termination point, security headers | `nginx/nginx.conf`, `nginx/nginx.server.conf` |
+| Rust/Axum backend | REST API, image processing, auth, background jobs | `backend/src/main.rs`, `backend/src/handlers/` |
+| Next.js frontend | Citizen-facing UI, admin dashboard, admin proxy route | `frontend/app/` |
+| PostgreSQL + PostGIS | Persistent storage, geospatial queries, geography column | `backend/migrations/` |
+| Admin proxy route | Forwards `/api/admin/*` from Next.js to Rust, preserving cookies | `frontend/app/api/admin/[...path]/route.ts` |
+| Dedup background job | Proximity deduplication polling every 5 min | `backend/src/db/dedup_job.rs` |
+| Cloudflare Tunnel | Public HTTPS ingress for self-hosted desktop (Phase 02.4) | `docker-compose.server.yml`, `DEPLOYMENT.md` |
 
-**Nginx Reverse Proxy:**
-- Purpose: Single entry point on port 80; rate-limits, security headers, request-ID injection, routes traffic to frontend or backend
-- Location: `nginx/nginx.conf`
-- Contains: Rate-limit zones (3 distinct zones: upload, admin_login, admin_api), upstream blocks, location routing rules
-- Depends on: backend (port 3001), frontend (port 3000)
-- Used by: All external HTTP clients
+## Request Flow: Public Report Submission
 
-**Rust/Axum Backend:**
-- Purpose: REST API, image ingestion, business validation, DB persistence
-- Location: `backend/src/`
-- Contains: Route handlers, models, DB query functions, JWT middleware, config loader
-- Depends on: PostgreSQL/PostGIS via SQLx, local filesystem for uploads
-- Used by: nginx, and directly by Next.js server components via INTERNAL_API_URL
+1. Browser submits multipart/form-data POST to `/api/reports`
+2. nginx rate-limits (5 req/min zone=upload, POST-only) and proxies to `backend:3001`, injecting `X-Real-IP`
+3. `create_report` handler (`backend/src/handlers/reports.rs`) processes multipart fields:
+   a. Checks honeypot `website` field (ABUSE-02) — returns fake 200 if triggered
+   b. Computes SHA256 of raw bytes, checks `photo_hash` uniqueness (ABUSE-03)
+   c. Validates Bengaluru bounding box (lat 12.7342–13.1739, lng 77.3791–77.8731)
+   d. Checks per-IP+geohash-6 rate limiter (ABUSE-01, 2 reports/hour)
+   e. Looks up ward via PostGIS `ST_Within` (`backend/src/db/queries.rs`)
+   f. Strips EXIF from JPEG bytes using `img-parts` (privacy, belt-and-suspenders)
+   g. Writes EXIF-stripped file to `uploads/` volume as UUID.jpg
+   h. Inserts row into `reports` table; PostGIS trigger auto-populates `location` column
+4. Backend returns `ReportResponse` JSON (lat/lng rounded to 3dp, no PII fields)
 
-**Next.js Frontend:**
-- Purpose: Public citizen UI (home, report wizard, map) and admin dashboard
-- Location: `frontend/app/`
-- Contains: Page components, shared UI components, typed API client, lib utilities
-- Depends on: backend via nginx proxy (client-side) or INTERNAL_API_URL (server-side SSR)
-- Used by: nginx
+## Request Flow: Admin Dashboard
 
-**Anti-Abuse Middleware (Backend):**
-- Purpose: Rate limiting and bot detection on the public submission path
-- Location: `backend/src/handlers/reports.rs`, `backend/src/main.rs`
-- Contains: `governor` crate per-IP per-geohash-6 rate limiter (2 reports/IP/geohash-6/hour); honeypot hidden field check (type=hidden); SHA256 photo hash dedup; proximity dedup async job (ST_DWithin 50m, 5-min poll)
-- Depends on: AppState (rate limiter state stored in-process), PostgreSQL (dedup queries)
-- Used by: `POST /api/reports` handler
+1. Admin browser navigates to `/admin/*` (served by Next.js via nginx)
+2. `AdminLayout` server component (`frontend/app/admin/layout.tsx`) reads `admin_token` cookie, calls `INTERNAL_API_URL/api/admin/auth/me` server-side to verify session; redirects to `/admin/login` on failure
+3. Client-side admin pages call relative `/api/admin/*` URLs
+4. Next.js API proxy route (`frontend/app/api/admin/[...path]/route.ts`) receives call, forwards to `INTERNAL_API_URL/api/admin/...` (Docker internal: `http://backend:3001`; Vercel/production: Cloudflare tunnel URL), forwarding the `admin_token` cookie and propagating `Set-Cookie` on response
+5. Rust admin handlers (`backend/src/handlers/admin.rs`) are behind `require_auth` middleware, which validates the `admin_token` JWT cookie
 
-**Ward & Organization Layer (Backend):**
-- Purpose: Geospatial routing of reports to Bengaluru wards and organization hierarchy
-- Location: `backend/src/handlers/wards.rs`, `backend/src/db/ward_queries.rs`
-- Contains: `wards` table (PostGIS MULTIPOLYGON boundaries), `organizations` table (self-referential hierarchy), `ST_Within` lookup at submission time, `GET /api/wards/lookup` public endpoint
-- Depends on: PostgreSQL/PostGIS
-- Used by: `POST /api/reports` (auto-tag), `GET /api/wards/lookup` (frontend ward display)
+## Auth Architecture
 
-**PostgreSQL/PostGIS:**
-- Purpose: Persistent storage for reports, admin users, status history, ward boundaries, and geospatial scaffolding
-- Location: managed by Docker volume `postgres_data`
-- Contains: `reports`, `status_history`, `admin_users`, `wards`, `organizations`, `bus_stops`, `metro_stations` tables; PostGIS GEOGRAPHY/GEOMETRY columns; triggers for location population and `updated_at`
-- Depends on: nothing
-- Used by: Rust backend only
+**Token type:** HS256 JWT stored as HttpOnly cookie named `admin_token`
 
-## Data Flow
+**Claims:** `{ sub: UUID, email: string, role: "admin"|"reviewer", exp: unix_timestamp }`
 
-**Public Report Submission:**
+**Login flow:**
+1. POST `/api/admin/auth/login` with `{email, password}` JSON body
+2. Handler fetches `admin_users` row by email, verifies Argon2id hash
+3. Issues JWT signed with `JWT_SECRET` (env var, min 32 chars), expiry = `JWT_SESSION_HOURS` (default 24, clamp 1–168)
+4. Sets `admin_token` cookie with `HttpOnly=true`, `SameSite=Strict`, `Secure=true` (production), `Path=/`
 
-1. Citizen opens `/report` in browser; Next.js renders the redesigned 2-step report flow (Category → Confirm → Success)
-2. `PhotoCapture.tsx` extracts GPS from EXIF client-side using `exifr` (privacy: raw GPS bytes never sent to server); if EXIF GPS unavailable, browser geolocation API is tried as a fallback; if that also fails, user places a manual Leaflet pin
-3. After location is confirmed, `GET /api/wards/lookup?lat=&lng=` fetches and displays the ward name in the UI (informational)
-4. On submit, browser sends multipart `POST /api/reports` to nginx; honeypot field must be empty
-5. Nginx applies `upload` rate limit zone (5r/m POST-only) and proxies to `backend:3001`
-6. `handlers/reports.rs::create_report` checks `governor` per-IP per-geohash-6 rate limit; checks honeypot field; checks SHA256 photo hash for exact duplicate
-7. Handler validates Bengaluru bbox, strips EXIF via `img-parts`, writes JPEG to `backend/uploads/<uuid>.jpg`
-8. `db/queries.rs::insert_report` inserts row; PostGIS trigger `trg_set_report_location` populates `GEOGRAPHY` column from lat/lng; async dedup job later runs `ST_DWithin 50m` proximity check
-9. Handler calls `Report::into_response()` which rounds lat/lng to 3dp and excludes `submitter_contact` and `submitter_name`
-10. JSON response returned; `SuccessCard` component renders confirmation
+**Middleware:** `require_auth` (`backend/src/middleware/auth.rs`) — Tower middleware that:
+- Reads `admin_token` cookie from request
+- Calls `extract_claims()` pure function: validates HS256 signature, rejects `alg:none`, rejects expired tokens
+- Injects `JwtClaims` into request extensions for downstream handlers
+- All protected admin routes sit behind this layer via `.layer(axum::middleware::from_fn_with_state(arc_state.clone(), require_auth))` in `main.rs`
 
-**Public Map View:**
+**Role gating:** `require_role()` pure function — `admin` is a superset of `reviewer`. Role checked inside handlers where needed.
 
-1. Browser loads `/map`; Next.js renders page shell (SSR-safe)
-2. `ReportsMap` component loaded client-side only via `nextDynamic(..., { ssr: false })`
-3. Component fetches `GET /api/reports` (paginated, filterable by category/status)
-4. Leaflet renders `CircleMarker` per report with category-colored pins
+**Super-admin:** Single `is_super_admin BOOLEAN` column on `admin_users`. Set only by `backend/src/db/admin_seed.rs` (env-seeded first user). Cannot be set via API (`api_create_can_set_super_admin()` always returns false). Super-admin cannot be deactivated (`guard_super_admin_deactivation()` enforced before any DB mutation).
 
-**Admin Authentication:**
+**Password storage:** Argon2id via `argon2` crate. Never returned in any API response (compile-time guarantee: `AdminUserResponse` struct has no `password_hash` field).
 
-1. Admin POSTs credentials to `/api/admin/auth/login` via `/admin/login` page
-2. Nginx routes through `admin_login` zone (5r/m, burst=3); request reaches backend
-3. Handler validates credentials with Argon2id, issues JWT as `HttpOnly; SameSite=None; Secure` cookie named `admin_token` (SameSite=None enables cross-domain use in Vercel+Railway staging)
-4. Subsequent protected requests pass through `middleware::auth::require_auth` which calls `extract_claims()` to decode cookie
-5. Next.js `admin/layout.tsx` (Server Component) also validates the cookie via server-to-server fetch to `INTERNAL_API_URL/api/admin/auth/me`
-6. In cross-domain deployments (Vercel frontend + Railway backend), Next.js `rewrites()` in `next.config.mjs` proxy `/api/admin/*` to `INTERNAL_API_URL` so the admin cookie is set on the Vercel domain and included in all subsequent admin requests
+## Image Handling Pipeline
 
-**Admin Report Management:**
+```
+Browser
+  │
+  ├── User selects photo (frontend/app/components/PhotoCapture.tsx)
+  │
+  ├── Client-side EXIF extraction: `exifr` library reads GPS from EXIF in-browser
+  │     → lat/lng pre-populated in form (privacy: raw GPS never sent as separate field)
+  │
+  ├── User submits multipart/form-data with: photo bytes, lat, lng, category, severity, etc.
+  │
+  └── backend/src/handlers/reports.rs (create_report)
+        │
+        ├── SHA256 hash computed on RAW bytes BEFORE stripping (for duplicate detection)
+        │
+        ├── strip_exif(): img-parts removes EXIF APP1 segment from JPEG bytes
+        │     Falls back to original bytes if JPEG parsing fails
+        │
+        ├── EXIF-stripped bytes written to backend/uploads/<UUID>.jpg
+        │
+        └── image_url constructed as: {PUBLIC_URL}/uploads/<UUID>.jpg
+```
 
-1. Admin dashboard page calls typed functions from `frontend/app/admin/lib/adminApi.ts`
-2. All fetches include `credentials: 'include'` to send `admin_token` cookie
-3. Backend protected routes verify JWT; role gating via `require_role()` helper
-4. Status updates write to `status_history` audit table via DB trigger
+Client-side EXIF extraction means GPS coordinates are user-confirmable/overridable before submission. Server-side EXIF stripping (`img_parts::jpeg::Jpeg::set_exif(None)`) is a belt-and-suspenders privacy control ensuring GPS never persists on disk.
 
-**State Management:**
-- Frontend state: React `useState` within page components; no global state store
-- No Redux or Context API for data; each page fetches independently
-- URL search params used for filter state in admin reports page (`useSearchParams`)
-- `useRef` pattern used for router references in callbacks to avoid stale closure / infinite re-render
+## PostGIS Geography Column and Location Trigger
 
-## Key Abstractions
+Migration `backend/migrations/001_init.sql` defines:
 
-**AppState (Backend):**
-- Purpose: Shared application state injected into every Axum handler via `State` extractor
-- Examples: `backend/src/main.rs` (definition), all handler files (consumption)
-- Pattern: `Arc<PgPool>`, `jwt_secret: Arc<Vec<u8>>`, `uploads_dir: String`, `api_base_url: String`, `jwt_session_hours: u64`
+```sql
+location GEOGRAPHY(POINT, 4326) NOT NULL
+```
 
-**AppError:**
-- Purpose: Unified error type that implements `IntoResponse` — converts domain errors to typed HTTP responses
-- Examples: `backend/src/errors.rs`
-- Pattern: `thiserror::Error` enum; variants map to HTTP status codes; internal details logged via tracing, not leaked to client
+This column is **never set directly by application code**. A `BEFORE INSERT OR UPDATE` trigger auto-populates it:
 
-**DB Row / Response separation:**
-- Purpose: DB structs (`Report`, `AdminUser`) hold all columns including sensitive ones; `*Response` structs are the safe public shape
-- Examples: `backend/src/models/report.rs` (`Report` vs `ReportResponse`), `backend/src/models/admin.rs` (`AdminUser` vs `AdminUserResponse`)
-- Pattern: `fn into_response(self, ...) -> *Response` consumes the DB struct, applies transformations (rounding, field exclusion), and produces the serializable output
+```sql
+CREATE TRIGGER trg_set_report_location
+BEFORE INSERT OR UPDATE ON reports
+FOR EACH ROW EXECUTE FUNCTION set_location_from_lat_lng();
+-- set_location_from_lat_lng: ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326)::geography
+```
 
-**Config (Backend):**
-- Purpose: Reads all environment variables once at startup; panics on missing required vars
-- Examples: `backend/src/config.rs`
-- Pattern: `Config::from_env()` builds the struct; `PUBLIC_URL` defaults to `"http://localhost"` when absent/empty
+The application only stores `latitude` and `longitude` as `FLOAT8` columns. The `GEOGRAPHY` column is maintained by the DB and used exclusively for geospatial queries (`ST_DWithin` for proximity dedup, `ST_Within` for ward lookup).
 
-**Config (Frontend):**
-- Purpose: Single source of truth for all env-var-based runtime configuration — MANDATORY pattern per project rules
-- Examples: `frontend/app/lib/config.ts`
-- Pattern: `API_BASE_URL = NEXT_PUBLIC_API_URL ?? ""` for client-side (relative URLs); `INTERNAL_API_URL = process.env.INTERNAL_API_URL ?? "http://localhost:3001"` for server-side SSR
+Spatial index: `idx_reports_location ON reports USING GIST(location)` — enables fast proximity queries.
 
-**JWT Middleware:**
-- Purpose: Stateless bearer auth for all `/api/admin/*` protected routes
-- Examples: `backend/src/middleware/auth.rs`
-- Pattern: Pure functions `extract_claims()` and `require_role()` separate from Axum extractor `require_auth`; HS256 only, algorithm substitution prevented
+## Data Models
 
-**adminApi.ts:**
-- Purpose: Typed HTTP client for the admin dashboard; all functions include `credentials: 'include'`
-- Examples: `frontend/app/admin/lib/adminApi.ts`
-- Pattern: Named exports per endpoint; non-2xx responses reject with status code; imports `API_BASE_URL` from config; `ADMIN_API_BASE_URL` is hardcoded to `""` (always relative) so admin cookies stay on Vercel domain in cross-domain deployments
+### `reports` table (migrations 001, 007)
 
-**UI Design System (Frontend):**
-- Purpose: CSS variable tokens + reusable UI primitives for the citizen-facing redesign
-- Location: `frontend/app/globals.css` (CSS variables), `frontend/app/components/ui/` (primitives)
-- Contains: `--color-*`, `--font-*`, `--radius-*` tokens; `Bi` (bilingual text), `Icon` (Bootstrap Icons), `Btn` (button), `Pill` (status/category badge), `SectionLabel` (section heading) components; Google Fonts via `next/font`
-- Pattern: `data-*` attributes (`data-tone`, `data-variant`, `data-size`, `data-component`) on primitive elements — CSS variables drive visual variants; data attributes are the testable substitutes in jsdom tests
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID PK | `gen_random_uuid()` |
+| `created_at` / `updated_at` | TIMESTAMPTZ | `updated_at` maintained by trigger |
+| `image_path` | TEXT | Filename only (UUID.jpg); URL built at runtime from `PUBLIC_URL` |
+| `latitude`, `longitude` | FLOAT8 | Raw coordinates stored at full precision; rounded to 3dp in API response |
+| `location` | GEOGRAPHY(POINT, 4326) | Auto-set by trigger; never written by app |
+| `category` | `issue_category` enum | no_footpath, broken_footpath, blocked_footpath, unsafe_crossing, poor_lighting, other |
+| `severity` | `severity_level` enum | low, medium, high |
+| `status` | `report_status` enum | submitted, under_review, resolved |
+| `location_source` | `location_source` enum | exif, manual_pin |
+| `ward_id` | UUID FK → wards | Nullable; set at creation via PostGIS lookup |
+| `photo_hash` | TEXT | SHA256 hex; unique index (WHERE NOT NULL) for exact duplicate detection |
+| `duplicate_of_id` | UUID FK self | Points to original report; NULL = original |
+| `duplicate_count` | INT | Count of reports linked to this one |
+| `duplicate_confidence` | TEXT | 'low' or 'high' (high when ≥2 distinct IPs) |
+| `submitter_ip` | TEXT | Admin-only; never in public API response |
+| `submitter_name`, `submitter_contact` | TEXT | Nullable; excluded from `ReportResponse` (privacy) |
 
-## Entry Points
+Rust struct: `backend/src/models/report.rs` — `Report` (DB row), `ReportResponse` (API shape), `CreateReportRequest` (multipart form parse target).
 
-**Backend (Rust):**
-- Location: `backend/src/main.rs`
-- Triggers: `cargo run` or Docker `CMD`
-- Responsibilities: Load `.env`, init tracing (JSON), connect PostgreSQL pool, run SQLx migrations, seed admin user, build router, start TCP listener on `$PORT` (default 3001)
+### `admin_users` table (migrations 002, 003, 005)
 
-**Frontend (Next.js):**
-- Location: `frontend/app/layout.tsx` (root layout), `frontend/app/page.tsx` (home)
-- Triggers: `npm run dev` or Docker standalone build
-- Responsibilities: Render homepage with report and map CTAs; App Router handles all routing
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID PK | |
+| `email` | TEXT UNIQUE | |
+| `password_hash` | TEXT | Argon2id; NEVER in any API response |
+| `role` | `user_role` enum | admin, reviewer |
+| `is_active` | BOOLEAN | Soft-delete; super-admin cannot be deactivated |
+| `is_super_admin` | BOOLEAN NOT NULL DEFAULT FALSE | Set only by seed; immutable via API |
+| `org_id` | UUID FK → organizations | Nullable; scopes report visibility to org's ward subtree |
+| `last_login_at` | TIMESTAMPTZ | Updated on each successful login |
 
-**Admin Layout (Server Component):**
-- Location: `frontend/app/admin/layout.tsx`
-- Triggers: Any navigation to `/admin/*`
-- Responsibilities: Read `admin_token` cookie, call `INTERNAL_API_URL/api/admin/auth/me` server-side, redirect to `/admin/login` if invalid, inject sidebar nav with role-gated links
+Rust struct: `backend/src/models/admin.rs` — `AdminUser` (DB row), `AdminUserResponse` (API shape, omits `password_hash`).
 
-**Public Report Wizard:**
-- Location: `frontend/app/report/page.tsx`
-- Triggers: User clicks "Report an Issue" CTA
-- Responsibilities: 4-step wizard (Photo → Location → Category → Details); client-side Bengaluru bbox validation; multipart submission to `/api/reports`
+### `status_history` table (migration 001, amended by 002)
 
-**Public Map:**
-- Location: `frontend/app/map/page.tsx`
-- Triggers: User clicks "View All Reports" CTA
-- Responsibilities: Renders Leaflet map with all public reports; `ReportsMap` component is SSR-disabled
+Audit trail for every status transition on a report. Columns: `id`, `report_id`, `old_status`, `new_status`, `changed_at`, `note`, `changed_by` (FK → `admin_users`).
+
+### `organizations` table (migration 005)
+
+Self-referential adjacency list: GBA → corporation → ward_office. Used to scope admin visibility. `org_type` enum: `'gba'`, `'corporation'`, `'ward_office'`.
+
+### `wards` table (migration 004)
+
+Ward boundary polygons (GeoJSON source in `data/`). `org_id` FK → organizations added in migration 006 for org-scoped report access.
+
+## Anti-Abuse Architecture
+
+Four independent layers operating in `create_report` and as a background job:
+
+1. **ABUSE-01 — Rate limiter** (`governor` crate): Per-IP+geohash-6 key, 2 submissions/hour. Applied after bounding box validation. Key format: `"{ip}:{geohash6}"`. `governor::DefaultKeyedRateLimiter<String>` shared via `Arc` in `AppState`.
+
+2. **ABUSE-02 — Honeypot**: Hidden `website` form field. If non-empty, handler returns a fake `ReportResponse` (nil UUID) without any DB write or visible error signal.
+
+3. **ABUSE-03 — Photo hash deduplication**: SHA256 of raw photo bytes computed before EXIF strip. If `photo_hash` already exists in DB → fake success. Unique index `idx_reports_photo_hash` (WHERE photo_hash IS NOT NULL) enforces uniqueness.
+
+4. **ABUSE-04 — Proximity dedup job** (`backend/src/db/dedup_job.rs`): Tokio background task spawned at startup, polling every 5 minutes. Uses `ST_DWithin(..., 50.0)` to find unlinked reports within 50m of same-category open reports; links via `duplicate_of_id`. Sets `duplicate_confidence` to 'high' when ≥2 distinct submitter IPs.
+
+## Phase 02.4: Self-Hosted Infrastructure (Arch Linux + Cloudflare Tunnel)
+
+Phase 02.4 decommissioned Railway in favor of a self-hosted desktop deployment:
+
+- **`docker-compose.server.yml`** — Compose override: removes frontend as blocking nginx dependency (`required: false`), mounts `nginx/nginx.server.conf`, parks frontend behind `frontend-only` profile.
+
+- **`nginx/nginx.server.conf`** — Backend-only nginx config. No `upstream frontend`. All non-API/non-upload routes return 404. Identical rate-limiting zones to `nginx.conf`.
+
+- **Cloudflare Tunnel**: `cloudflared` systemd service routes public HTTPS to `localhost:80`. Full setup in `DEPLOYMENT.md`.
+
+- **`.github/workflows/deploy.yml`**: 3-job pipeline: `ci` (GitHub-hosted) → `deploy` (self-hosted runner `walkability-prod` on Arch Linux desktop) → `smoke-test` (verifies `vars.BACKEND_URL/health` and `vars.BACKEND_URL/api/reports`).
+
+- **Vercel frontend** calls backend via the Cloudflare tunnel URL set in `NEXT_PUBLIC_API_URL` and `INTERNAL_API_URL` Vercel env vars. These must match `vars.BACKEND_URL` and `vars.CORS_ORIGIN` in GitHub Actions exactly.
+
+## Architectural Constraints
+
+- **Threading:** Tokio async runtime. No worker threads beyond Tokio's thread pool. Rate limiter (`Arc<governor::DefaultKeyedRateLimiter<String>>`) is `Clone + Send + Sync`.
+- **Global state:** `AppState` struct cloned per-request by Axum. No mutable global state. Defined in `backend/src/main.rs`.
+- **CORS:** `allow_credentials(true)` is incompatible with wildcard origin; only the exact `CORS_ORIGIN` value is accepted. Mismatch causes silent admin login failure (no cookie set).
+- **SSR caveat:** Leaflet uses `window` — all map components must use `dynamic(() => import(...), { ssr: false })`. See `frontend/app/report/page.tsx` (LocationMap import) and `frontend/app/components/ReportsMap.tsx`.
+- **Cookie domain:** In production, `admin_token` cookie is set on the backend domain (Cloudflare tunnel URL). The Next.js admin proxy route (`frontend/app/api/admin/[...path]/route.ts`) explicitly forwards `Set-Cookie` headers. Using Next.js `rewrites()` instead silently drops cookies.
+- **Coordinate order:** `geohash::encode` takes `Coord { x: longitude, y: latitude }` (NOT lat, lng). Unit tests in `backend/src/handlers/reports.rs` guard this regression.
+- **SQLx compile-time checks:** Queries verified against live DB at compile time. Run `cargo sqlx prepare --database-url "..."` after any SQL changes to regenerate `.sqlx/` metadata for offline builds.
+- **Body limit:** nginx `client_max_body_size 20M` and Axum `DefaultBodyLimit::max(20 * 1024 * 1024)` must stay in sync to handle 3–5 MB iPhone JPEGs.
+
+## Anti-Patterns
+
+### Direct `process.env.*` in component files
+
+**What happens:** Component reads `process.env.NEXT_PUBLIC_API_URL` directly outside `config.ts`.
+**Why it's wrong:** Creates scattered, untestable env coupling; baked-at-build-time values become invisible.
+**Do this instead:** All env-var config must go through `frontend/app/lib/config.ts` exports (`API_BASE_URL`, `ADMIN_API_BASE_URL`, `INTERNAL_API_URL`).
+
+### Setting `location` column directly
+
+**What happens:** Application code tries to INSERT/UPDATE `reports.location`.
+**Why it's wrong:** The `trg_set_report_location` trigger overwrites it from `latitude`/`longitude` anyway.
+**Do this instead:** Only set `latitude` and `longitude`. The trigger handles `location` automatically.
+
+### Using Next.js `rewrites()` for admin API proxy
+
+**What happens:** Admin API calls routed via Next.js `rewrites()` in `next.config.mjs`.
+**Why it's wrong:** Next.js silently drops `Set-Cookie` response headers in rewrites, breaking admin login.
+**Do this instead:** Use the catch-all API route handler at `frontend/app/api/admin/[...path]/route.ts`.
 
 ## Error Handling
 
-**Strategy:** Return structured JSON errors from backend; frontend surfaces user-friendly messages inline
+**Strategy:** Typed `AppError` enum (`backend/src/errors.rs`) with `IntoResponse` implementation:
 
-**Patterns:**
-- Backend: `AppError` enum implements `IntoResponse`; every handler returns `Result<_, AppError>`; database errors produce 500 (detail logged, not sent to client); 400 bad request messages are sent verbatim to client (user-facing)
-- Frontend public: `try/catch` around fetch calls; inline `error` state rendered in UI; retry button in `ReportsMap`
-- Frontend admin: `adminApi.ts` rejects on non-2xx; individual pages catch and display error messages; rate-limit 429 triggers countdown timer in login page
+| Variant | HTTP Status |
+|---------|-------------|
+| `Unauthorized` | 401 |
+| `Forbidden` | 403 |
+| `NotFound` | 404 |
+| `BadRequest(String)` | 400 |
+| `RateLimited(String)` | 429 |
+| `Internal` | 500 |
+
+Ward lookup failure is non-fatal: `unwrap_or_else` returns `None` and logs a warning; report submission continues without ward assignment.
 
 ## Cross-Cutting Concerns
 
-**Logging:** `tracing` crate with `fmt().json()` output; `request_id_middleware` in `main.rs` reads `X-Request-ID` from nginx, injects into tracing span, echoes in response header; log level controlled by `RUST_LOG` env var
+**Logging:** `tracing` + `tracing_subscriber` with JSON format written to stderr. Structured fields include `request_id`. nginx adds `X-Request-ID` header forwarded to backend for log correlation. Level controlled by `RUST_LOG` env var.
 
-**Validation:** Two-layer: client-side bbox check in `frontend/app/report/page.tsx::isInBengaluru()`; authoritative server-side bbox check in `backend/src/handlers/reports.rs::create_report()`; Argon2id for password hashing in admin auth
+**Request tracing:** `request_id_middleware` in `backend/src/main.rs` propagates `X-Request-ID` through the Axum stack and echoes it in the response.
 
-**Authentication:** Public API routes have no auth; admin routes protected by `require_auth` Axum middleware; admin layout double-checks via server-side `/api/admin/auth/me` call; edge middleware (`frontend/middleware.ts`) provides additional redirect guard
+**Validation:** Pure helper functions in `backend/src/models/admin.rs` (`validate_password_length`, `validate_email_format`, `validate_role`, `validate_display_name`, `validate_new_password`) — no I/O, fully unit-tested.
+
+**Privacy:** Submitter name, contact, and IP never appear in public `ReportResponse`. Lat/lng rounded to 3 decimal places (~111m precision) in `Report::into_response()`. EXIF stripped server-side before disk write.
 
 ---
 
-*Architecture analysis: 2026-03-11 | Last updated: 2026-04-25*
+*Architecture analysis: 2026-05-20*
