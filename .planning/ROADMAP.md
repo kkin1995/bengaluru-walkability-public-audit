@@ -229,6 +229,6 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.3.1 UI Redesign | 4/4 | Complete | 2026-04-25 |
 | 2.3.2 Frontend Gap-fill | 3/3 | Complete | 2026-04-25 |
 | 2.4 Self-Hosted Infrastructure | 4/4 | Complete | 2026-05-20 |
-| 2.4.1 Security Hardening | 0/3 | Planned (3 plans created 2026-05-20) | - |
+| 2.4.1 Security Hardening | 0/3 | Planned    |  |
 | 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
