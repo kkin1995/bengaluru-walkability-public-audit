@@ -58,13 +58,18 @@ pub async fn run_dedup_loop(pool: Arc<PgPool>) {
 async fn run_dedup_pass(pool: &PgPool) -> Result<(), crate::errors::AppError> {
     use uuid::Uuid;
 
-    // Find reports created in the last 15 minutes without duplicate_of_id
+    // Find reports created in the last 15 minutes without duplicate_of_id.
+    // WR-06: LIMIT 500 caps per-pass work so a spam burst cannot cause thousands
+    // of concurrent PostGIS spatial queries per tick or cause this pass to run
+    // longer than the 5-minute tick interval (which would cause concurrent passes
+    // and potential deadlocks on the same rows).
     let candidates = sqlx::query_as::<_, (Uuid, String, f64, f64)>(
         r#"SELECT id, category::TEXT, latitude, longitude
            FROM reports
            WHERE duplicate_of_id IS NULL
              AND created_at >= NOW() - INTERVAL '15 minutes'
-           ORDER BY created_at ASC"#,
+           ORDER BY created_at ASC
+           LIMIT 500"#,
     )
     .fetch_all(pool)
     .await?;
