@@ -1,9 +1,13 @@
 #!/bin/bash
 set -euo pipefail
+umask 0077   # CR-02: all backup files and dirs get mode 0600/0700 — owner-only read/write
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-COMPOSE_FILE="/home/karankinariwala/bengaluru-walkability-public-audit/docker-compose.yml"
-COMPOSE_SERVER_FILE="/home/karankinariwala/bengaluru-walkability-public-audit/docker-compose.server.yml"
+# CR-03: Derive REPO_ROOT from the script's own location so the script works
+# regardless of which user or directory the repo is cloned into.
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+COMPOSE_FILE="${REPO_ROOT}/docker-compose.yml"
+COMPOSE_SERVER_FILE="${REPO_ROOT}/docker-compose.server.yml"
 BACKUP_ROOT="/data/backups"
 MIN_SIZE_KB=10
 DATE=$(date +%Y%m%d_%H%M%S)
@@ -21,7 +25,13 @@ if [ -z "$DB_CONTAINER" ]; then
     echo "BACKUP FAILED: db container is not running" >&2
     exit 1
 fi
-docker exec "$DB_CONTAINER" pg_dump -U walkability walkability | gzip > "$DB_BACKUP_FILE"
+
+# CR-04: Read the database password from .env and pass it only as PGPASSWORD
+# scoped to this docker exec call — never on the command line (visible in ps).
+POSTGRES_PASSWORD=$(grep '^POSTGRES_PASSWORD=' "${REPO_ROOT}/.env" | cut -d= -f2-)
+docker exec -e "PGPASSWORD=${POSTGRES_PASSWORD}" "$DB_CONTAINER" \
+    pg_dump -U walkability walkability | gzip > "$DB_BACKUP_FILE"
+unset POSTGRES_PASSWORD
 
 # ── Validate pg_dump output size ──────────────────────────────────────────────
 # Exit 1 on validation failure so systemd OnFailure= unit fires (D-14).
@@ -47,7 +57,9 @@ docker run --rm \
 # ── 30-day retention ──────────────────────────────────────────────────────────
 # Runs only after a successful pg_dump + size validation so a failed run does
 # not delete the previous successful backups prematurely (D-15).
-find "$BACKUP_ROOT" -mtime +30 -name "*.sql.gz" -delete
-find "$BACKUP_ROOT" -mtime +30 -name "*.tar.gz" -delete
+# WR-04: Scope cleanup to specific subdirectories and file patterns so
+# unrelated .tar.gz or .sql.gz files under BACKUP_ROOT are never deleted.
+find "$DB_BACKUP_DIR"      -mtime +30 -name "*.sql.gz"  -delete
+find "$UPLOADS_BACKUP_DIR" -mtime +30 -name "*.tar.gz"  -delete
 
 echo "Backup complete: $DB_BACKUP_FILE and $UPLOADS_BACKUP_FILE"
