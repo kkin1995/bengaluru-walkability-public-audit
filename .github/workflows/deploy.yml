@@ -1,5 +1,21 @@
 name: Deploy
 
+# Required GitHub Actions configuration:
+# Secrets (Settings > Secrets and variables > Actions > Secrets):
+#   POSTGRES_PASSWORD      — postgres container password (strong random)
+#   JWT_SECRET             — backend session-token signing key (openssl rand -hex 32)
+#   ADMIN_SEED_EMAIL       — initial super-admin email
+#   ADMIN_SEED_PASSWORD    — initial super-admin password (min 12 chars)
+# Variables (Settings > Secrets and variables > Actions > Variables):
+#   BACKEND_URL    — public Cloudflare tunnel URL for the desktop backend
+#   FRONTEND_URL   — Vercel frontend URL (e.g. staging-walkability.kinariwala.com)
+#   CORS_ORIGIN    — exact origin string the backend should allow (matches FRONTEND_URL, no trailing slash)
+# Environments (Settings > Environments):
+#   production     — required by the deploy job's `environment: production` gate
+# Self-hosted runner:
+#   Must be installed on the Arch Linux desktop and labeled: self-hosted, linux, walkability-prod
+#   Runner user must be a member of the docker group.
+
 on:
   push:
     branches:
@@ -9,43 +25,55 @@ on:
 jobs:
   ci:
     name: "Run CI checks"
-    # Reuse the canonical CI workflow so deploy never ships code that has not
-    # passed lint, tests, and docker-build verification.
     uses: ./.github/workflows/ci.yml
 
-  smoke-test:
-    name: "Smoke test staging"
+  deploy:
+    name: "Deploy to Arch Linux desktop"
     needs: ci
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, walkability-prod]
+    environment: production
     env:
-      VERCEL_STAGING_URL: https://staging-walkability.kinariwala.com
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      COOKIE_SECURE: "true"
+      CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}
+      ADMIN_SEED_EMAIL: ${{ secrets.ADMIN_SEED_EMAIL }}
+      ADMIN_SEED_PASSWORD: ${{ secrets.ADMIN_SEED_PASSWORD }}
     steps:
-      - name: "Check Railway configuration"
-        id: config
-        env:
-          # Expose the secret into the step environment for the null check.
-          # Secrets cannot be referenced in job-level if: conditions, so we
-          # check here and propagate a step output to gate subsequent steps.
-          URL: ${{ secrets.RAILWAY_BACKEND_URL }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker compose -f docker-compose.yml -f docker-compose.server.yml build backend
+
+      - name: Apply deployment
+        run: docker compose -f docker-compose.yml -f docker-compose.server.yml up -d --remove-orphans db backend nginx
+
+      - name: Wait for local health
         run: |
-          if [[ -n "$URL" ]]; then
-            echo "RAILWAY_BACKEND_URL=$URL" >> "$GITHUB_ENV"
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-            echo "Railway URL configured — smoke tests will run"
-          else
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::RAILWAY_BACKEND_URL secret not set — smoke tests skipped. Set the secret in GitHub Settings > Secrets to enable post-deploy validation."
-          fi
+          for i in 1 2 3 4 5 6; do
+            if curl -sf --max-time 5 http://localhost/health; then
+              echo ""
+              echo "Local health OK on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i/6 failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "Local health check failed after 6 attempts"
+          docker compose -f docker-compose.yml -f docker-compose.server.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.server.yml logs --tail=50 backend nginx || true
+          exit 1
 
-      - name: Wait for Railway and Vercel redeploy to start
-        if: steps.config.outputs.configured == 'true'
-        run: sleep 30
-
-      - name: "Health check - Railway backend (with retry)"
-        if: steps.config.outputs.configured == 'true'
+  smoke-test:
+    name: "Smoke test"
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Health check — Cloudflare tunnel backend (with retry)"
         run: |
           for i in 1 2 3 4 5; do
-            if curl -sf --max-time 10 "$RAILWAY_BACKEND_URL/health"; then
+            if curl -sf --max-time 10 "${{ vars.BACKEND_URL }}/health"; then
               echo ""
               echo "Backend healthy on attempt $i"
               exit 0
@@ -56,18 +84,12 @@ jobs:
           echo "Backend health check failed after 5 attempts"
           exit 1
 
-      - name: "API check - Railway reports endpoint"
-        if: steps.config.outputs.configured == 'true'
+      - name: "API check — reports endpoint"
         run: |
-          response=$(curl -sf --max-time 10 "$RAILWAY_BACKEND_URL/api/reports")
-          echo "Reports endpoint responded: $(echo "$response" | head -c 200)"
+          curl -sf --max-time 10 "${{ vars.BACKEND_URL }}/api/reports" | head -c 200
 
-      - name: "Frontend check - Vercel staging"
-        if: steps.config.outputs.configured == 'true'
+      - name: "Frontend check — Vercel"
         run: |
-          status=$(curl -sf --max-time 15 -o /dev/null -w "%{http_code}" "$VERCEL_STAGING_URL")
-          echo "Vercel staging HTTP $status"
-          if [ "$status" -ne 200 ]; then
-            echo "Expected HTTP 200, got $status"
-            exit 1
-          fi
+          status=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 15 "${{ vars.FRONTEND_URL }}")
+          echo "Frontend HTTP $status"
+          [ "$status" -eq 200 ]
