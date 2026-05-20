@@ -1,4 +1,7 @@
 [Unit]
+# This service is activated by walkability-backup.timer.
+# Do NOT enable this service directly — enable the timer:
+#   sudo systemctl enable --now walkability-backup.timer
 Description=Walkability DB and uploads backup
 OnFailure=walkability-backup-failure.service
 
