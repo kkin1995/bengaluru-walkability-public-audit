@@ -19,21 +19,11 @@ async function proxyAdmin(
     ? undefined
     : await request.blob();
 
-  let backendRes: Response;
-  try {
-    backendRes = await fetch(targetUrl.toString(), {
-      method: request.method,
-      headers: forwardHeaders,
-      body,
-    });
-  } catch (err) {
-    console.error('[admin-proxy] fetch failed', { url: targetUrl.toString(), err: String(err) });
-    return new NextResponse(JSON.stringify({ error: 'upstream_unreachable' }), {
-      status: 502,
-      headers: { 'content-type': 'application/json' },
-    });
-  }
-  console.log('[admin-proxy]', request.method, targetUrl.toString(), '->', backendRes.status);
+  const backendRes = await fetch(targetUrl.toString(), {
+    method: request.method,
+    headers: forwardHeaders,
+    body,
+  });
 
   const responseHeaders = new Headers();
   // Explicitly forward Set-Cookie so the admin_token cookie lands on the
