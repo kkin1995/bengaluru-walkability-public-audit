@@ -4,7 +4,7 @@ OnFailure=walkability-backup-failure.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/walkability/backup/backup.sh
+ExecStart=/home/karankinariwala/bengaluru-walkability-public-audit/backup/backup.sh
 User=root
 StandardOutput=journal
 StandardError=journal

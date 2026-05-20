@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-COMPOSE_FILE="/opt/walkability/docker-compose.yml"
-COMPOSE_SERVER_FILE="/opt/walkability/docker-compose.server.yml"
+COMPOSE_FILE="/home/karankinariwala/bengaluru-walkability-public-audit/docker-compose.yml"
+COMPOSE_SERVER_FILE="/home/karankinariwala/bengaluru-walkability-public-audit/docker-compose.server.yml"
 BACKUP_ROOT="/data/backups"
 MIN_SIZE_KB=10
 DATE=$(date +%Y%m%d_%H%M%S)
