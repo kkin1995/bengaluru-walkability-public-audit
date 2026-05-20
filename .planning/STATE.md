@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
+status: verifying
 stopped_at: Phase 02.4.1 context gathered
-last_updated: "2026-05-20T18:27:02.905Z"
+last_updated: "2026-05-20T18:47:56.400Z"
 last_activity: 2026-05-20
 progress:
   total_phases: 11
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 33
-  completed_plans: 30
-  percent: 73
+  completed_plans: 31
+  percent: 82
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 ## Current Position
 
-Phase: 02.4.1 (security-hardening) — EXECUTING
+Phase: 02.4.1 (security-hardening) — COMPLETE
 Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-05-20
+Status: All plans complete
+Last activity: 2026-05-21
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -75,6 +75,7 @@ Progress: [█████████░] 91%
 | Phase 02.3.2 P02 | 3min | 2 tasks | 2 files |
 | Phase 02.3.2 P03 | 10min | 2 tasks | 0 files |
 | Phase 02.4.1-security-hardening P02 | 15min | 2 tasks | 2 files |
+| Phase 02.4.1-security-hardening P03 | 2d | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -134,6 +135,10 @@ Progress: [█████████░] 91%
 - categoryFilter passed as undefined (not 'all') when activeFilter === 'all' — keeps ReportsMap filter logic clean: undefined means show all
 - onReportsLoaded added to useCallback dependency array — required by exhaustive-deps; setAllReports identity is stable from useState
 - Local CORS_ORIGIN misconfiguration (port 3002 instead of 3000) caused 'Couldn't load reports' during verification — fixed locally; unrelated to code changes on this branch
+- [Phase 02.4.1-03]: alpine tar czf used for uploads volume backup — alpine base has no rsync; tar produces faithful archive matching §11 restore flow, no information lost vs rsync approach
+- [Phase 02.4.1-03]: docker exec used for pg_dump (not docker run --network) — avoids auto-generated Compose network name ambiguity; established pattern for all future backup tooling
+- [Phase 02.4.1-03]: Persistent=true on walkability-backup.timer — catches missed weekly runs after host reboot without operator intervention
+- [Phase 02.4.1-03]: UptimeRobot free tier chosen for /health monitoring — HTTP/s keyword monitor, 5-min interval, no paid plan required; monitor green on https://api-walkability.nammadaari.com/health
 
 ### Roadmap Evolution
 
@@ -155,8 +160,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-20T18:27:02.896Z
-Stopped at: Phase 02.4.1 context gathered
+Last session: 2026-05-21T00:00:00Z
+Stopped at: Completed 02.4.1-03-PLAN.md — Phase 02.4.1 security-hardening all plans complete
 Resume file: None
 
 **Planned Phase:** 02.3.1 (implement-walkable-blr-ui-redesign-from-design-file-on-separate-branch) — 4 plans — 2026-04-24T20:47:49.668Z

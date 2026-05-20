@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Ward Foundation** - Import ward boundaries, auto-tag all reports to wards, build flexible organization hierarchy (completed 2026-03-12)
 - [x] **Phase 2: Anti-Abuse and Data Quality** - Per-IP rate limiting, honeypot, proximity duplicate flagging, photo hash dedup (gap closure in progress) (completed 2026-03-13)
 - [x] **Phase 02.4: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel** - Decommission Railway, host backend + DB on Arch Linux desktop via Docker Compose, expose via Cloudflare tunnel, self-hosted GitHub Actions runner (INSERTED — must complete before Phase 3) (completed 2026-05-20)
-- [ ] **Phase 02.4.1: Security Hardening** - JPEG magic-bytes upload validation, logout cookie SameSite fix, nginx Content-Type override, weekly backups (pg_dump + uploads) with systemd timer, secret rotation + restore docs, external uptime monitor (INSERTED — must complete before Phase 3)
+- [x] **Phase 02.4.1: Security Hardening** - JPEG magic-bytes upload validation, logout cookie SameSite fix, nginx Content-Type override, weekly backups (pg_dump + uploads) with systemd timer, secret rotation + restore docs, external uptime monitor (INSERTED — must complete before Phase 3) (completed 2026-05-20)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
@@ -124,8 +124,8 @@ Plans:
 
 Plans:
 - [x] 02.4.1-01-PLAN.md — Backend security + cleanup: JPEG magic-bytes guard + bbox dedup (handlers/reports.rs), logout cookie SameSite fix + TODO removal + Railway-reference fix (handlers/admin.rs, models/admin.rs)
-- [ ] 02.4.1-02-PLAN.md — nginx Content-Type override on /uploads/ in both nginx.conf and nginx.server.conf + deployed-tunnel curl -I verification checkpoint
-- [ ] 02.4.1-03-PLAN.md — Operational ops + docs: backup/backup.sh + 3 systemd units, DEPLOYMENT.md §10 Secret Rotation + §11 Backup and Restore, external uptime monitor checkpoint on /health
+- [x] 02.4.1-02-PLAN.md — nginx Content-Type override on /uploads/ in both nginx.conf and nginx.server.conf + deployed-tunnel curl -I verification checkpoint
+- [x] 02.4.1-03-PLAN.md — Operational ops + docs: backup/backup.sh + 3 systemd units, DEPLOYMENT.md §10 Secret Rotation + §11 Backup and Restore, external uptime monitor checkpoint on /health
 
 ### Phase 02.3.1: Implement Walkable BLR UI redesign from design file on separate branch (INSERTED)
 
@@ -229,6 +229,6 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.3.1 UI Redesign | 4/4 | Complete | 2026-04-25 |
 | 2.3.2 Frontend Gap-fill | 3/3 | Complete | 2026-04-25 |
 | 2.4 Self-Hosted Infrastructure | 4/4 | Complete | 2026-05-20 |
-| 2.4.1 Security Hardening | 1/3 | In Progress|  |
+| 2.4.1 Security Hardening | 3/3 | Complete   | 2026-05-20 |
 | 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
