@@ -1,0 +1,10 @@
+[Unit]
+Description=Walkability DB and uploads backup
+OnFailure=walkability-backup-failure.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/walkability/backup/backup.sh
+User=root
+StandardOutput=journal
+StandardError=journal
