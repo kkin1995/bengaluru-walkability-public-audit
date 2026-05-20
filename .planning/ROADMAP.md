@@ -123,7 +123,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02.4.1-01-PLAN.md — Backend security + cleanup: JPEG magic-bytes guard + bbox dedup (handlers/reports.rs), logout cookie SameSite fix + TODO removal + Railway-reference fix (handlers/admin.rs, models/admin.rs)
+- [x] 02.4.1-01-PLAN.md — Backend security + cleanup: JPEG magic-bytes guard + bbox dedup (handlers/reports.rs), logout cookie SameSite fix + TODO removal + Railway-reference fix (handlers/admin.rs, models/admin.rs)
 - [ ] 02.4.1-02-PLAN.md — nginx Content-Type override on /uploads/ in both nginx.conf and nginx.server.conf + deployed-tunnel curl -I verification checkpoint
 - [ ] 02.4.1-03-PLAN.md — Operational ops + docs: backup/backup.sh + 3 systemd units, DEPLOYMENT.md §10 Secret Rotation + §11 Backup and Restore, external uptime monitor checkpoint on /health
 
@@ -229,6 +229,6 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.3.1 UI Redesign | 4/4 | Complete | 2026-04-25 |
 | 2.3.2 Frontend Gap-fill | 3/3 | Complete | 2026-04-25 |
 | 2.4 Self-Hosted Infrastructure | 4/4 | Complete | 2026-05-20 |
-| 2.4.1 Security Hardening | 0/3 | Planned    |  |
+| 2.4.1 Security Hardening | 1/3 | In Progress|  |
 | 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
