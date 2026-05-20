@@ -101,8 +101,8 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 02.4-01-PLAN.md — nginx.server.conf + docker-compose.server.yml (backend-only compose override, stripped nginx config with no frontend upstream)
-- [ ] 02.4-02-PLAN.md — Rewrite deploy.yml (remove Railway, add self-hosted runner deploy job + smoke test against Cloudflare tunnel URL)
+- [x] 02.4-01-PLAN.md — nginx.server.conf + docker-compose.server.yml (backend-only compose override, stripped nginx config with no frontend upstream)
+- [x] 02.4-02-PLAN.md — Rewrite deploy.yml (remove Railway, add self-hosted runner deploy job + smoke test against Cloudflare tunnel URL)
 - [ ] 02.4-03-PLAN.md — Desktop setup runbook (cloudflared install, tunnel creation, systemd service, self-hosted runner, first manual deploy)
 - [ ] 02.4-04-PLAN.md — Vercel + GitHub Secrets/Vars update checklist (NEXT_PUBLIC_API_URL, INTERNAL_API_URL, remove RAILWAY_BACKEND_URL, add BACKEND_URL/FRONTEND_URL/CORS_ORIGIN vars)
 
