@@ -54,6 +54,13 @@ docker run --rm \
     alpine \
     tar czf "/backup/uploads_${DATE}.tar.gz" -C /data .
 
+# ── Validate uploads archive size ─────────────────────────────────────────────
+UPLOADS_SIZE=$(du -k "$UPLOADS_BACKUP_FILE" | cut -f1)
+if [ "$UPLOADS_SIZE" -lt 1 ]; then
+    echo "BACKUP VALIDATION FAILED: uploads backup is empty" >&2
+    exit 1
+fi
+
 # ── 30-day retention ──────────────────────────────────────────────────────────
 # Runs only after a successful pg_dump + size validation so a failed run does
 # not delete the previous successful backups prematurely (D-15).
