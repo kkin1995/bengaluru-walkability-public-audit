@@ -269,8 +269,9 @@ pub async fn create_report(
             None
         });
 
-    // Strip EXIF from image before saving
-    let clean_bytes = strip_exif(&req.image_bytes);
+    // Strip EXIF from image before saving — propagate error on parse failure
+    // instead of writing potentially malformed bytes to disk (WR-02).
+    let clean_bytes = strip_exif(&req.image_bytes)?;
 
     // Save to disk
     let file_uuid = Uuid::new_v4();
@@ -339,17 +340,17 @@ pub async fn get_report(
 }
 
 /// Strip all EXIF metadata from JPEG bytes using img-parts.
-/// Falls back to returning the original bytes if parsing fails.
-fn strip_exif(bytes: &[u8]) -> Vec<u8> {
+/// Returns an error if parsing fails — the SOI magic-byte check is necessary
+/// but not sufficient; a polyglot file starting with 0xFF 0xD8 but otherwise
+/// malformed would reach disk verbatim with the old fallback (WR-02).
+fn strip_exif(bytes: &[u8]) -> Result<Vec<u8>, crate::errors::AppError> {
     use img_parts::{jpeg::Jpeg, ImageEXIF};
-
-    match Jpeg::from_bytes(bytes.to_vec().into()) {
-        Ok(mut jpeg) => {
+    Jpeg::from_bytes(bytes.to_vec().into())
+        .map(|mut jpeg| {
             jpeg.set_exif(None);
             jpeg.encoder().bytes().to_vec()
-        }
-        Err(_) => bytes.to_vec(),
-    }
+        })
+        .map_err(|_| crate::errors::AppError::BadRequest("Image processing failed: not a valid JPEG".into()))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
