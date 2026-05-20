@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 02.3.2-03-PLAN.md — build/lint verification + human visual sign-off; phase 02.3.2 complete
-last_updated: "2026-05-20T06:04:22.398Z"
-last_activity: 2026-05-20 -- Phase 02.4 execution started
+status: "Phase inserted — awaiting /gsd:plan-phase 02.4.1"
+stopped_at: Phase 02.4.1 context gathered
+last_updated: "2026-05-20T11:47:03.066Z"
+last_activity: 2026-05-20 -- Phase 02.4.1 inserted (security-hardening)
 progress:
-  total_phases: 10
-  completed_phases: 7
+  total_phases: 11
+  completed_phases: 8
   total_plans: 30
-  completed_plans: 24
-  percent: 70
+  completed_plans: 28
+  percent: 73
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase 02.4 — self-hosted-infrastructure-arch-linux-cloudflare-tunnel
+**Current focus:** Phase 02.4.1 — security-hardening
 
 ## Current Position
 
-Phase: 02.4 (self-hosted-infrastructure-arch-linux-cloudflare-tunnel) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 02.4
-Last activity: 2026-05-20 -- Phase 02.4 execution started
+Phase: 02.4.1 (security-hardening) — NOT PLANNED
+Plan: 0 of TBD
+Status: Phase inserted — awaiting /gsd:plan-phase 02.4.1
+Last activity: 2026-05-20 -- Phase 02.4.1 inserted (security-hardening)
 
 Progress: [█████████░] 92%
 
@@ -141,6 +141,7 @@ Progress: [█████████░] 92%
 - Phase 02.3 inserted after Phase 02: UAT Bug Fixes — admin category label, iOS camera UX, admin mobile layout, map legend consistency (URGENT) — 5 issues found in 02.2-HUMAN-UAT.md field test; fix before Phase 3 executes
 - Phase 02.3.1 inserted after Phase 02.3: Implement Walkable BLR UI redesign from design file on separate branch (URGENT)
 - Phase 02.4 inserted after Phase 02.3.2: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel: decommission Railway, host backend on desktop via Cloudflare tunnel (URGENT)
+- Phase 02.4.1 inserted after Phase 02.4: Security Hardening (URGENT)
 
 ### Pending Todos
 
@@ -153,8 +154,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-25T13:41:21.957Z
-Stopped at: Completed 02.3.2-03-PLAN.md — build/lint verification + human visual sign-off; phase 02.3.2 complete
-Resume file: None
+Last session: 2026-05-20T11:47:03.058Z
+Stopped at: Phase 02.4.1 context gathered
+Resume file: .planning/phases/02.4.1-security-hardening/02.4.1-CONTEXT.md
 
 **Planned Phase:** 02.3.1 (implement-walkable-blr-ui-redesign-from-design-file-on-separate-branch) — 4 plans — 2026-04-24T20:47:49.668Z
