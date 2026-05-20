@@ -110,7 +110,13 @@ mod tests {
             updated_at: now,
         };
         let json = serde_json::to_string(&resp).expect("OrganizationResponse must serialize");
-        assert!(json.contains("org_type"), "JSON must contain org_type field");
-        assert!(json.contains("parent_id"), "JSON must contain parent_id field");
+        assert!(
+            json.contains("org_type"),
+            "JSON must contain org_type field"
+        );
+        assert!(
+            json.contains("parent_id"),
+            "JSON must contain parent_id field"
+        );
     }
 }

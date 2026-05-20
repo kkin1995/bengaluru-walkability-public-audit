@@ -70,12 +70,10 @@ pub async fn get_ward_label_for_point(
 /// Check whether a photo with the given SHA256 hash already exists in the DB.
 /// Used by create_report to silently reject exact duplicate photo uploads.
 pub async fn check_photo_hash_exists(pool: &PgPool, hash: &str) -> Result<bool, AppError> {
-    let count = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM reports WHERE photo_hash = $1",
-    )
-    .bind(hash)
-    .fetch_one(pool)
-    .await?;
+    let count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM reports WHERE photo_hash = $1")
+        .bind(hash)
+        .fetch_one(pool)
+        .await?;
     Ok(count > 0)
 }
 
@@ -254,7 +252,7 @@ mod tests {
     #[test]
     fn ward_lookup_failure_produces_none() {
         let result: Result<Option<Uuid>, String> = Err("PostGIS error".to_string());
-        let ward_id = result.unwrap_or_else(|_| None);
+        let ward_id = result.ok().flatten();
         assert!(
             ward_id.is_none(),
             "Ward lookup failure must produce None (non-fatal); got Some(_)"

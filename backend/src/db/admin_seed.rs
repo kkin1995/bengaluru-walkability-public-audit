@@ -288,11 +288,13 @@ mod tests {
         // should_seed() only looks at email/password non-emptiness.
         // It must not have any is_super_admin logic embedded in it
         // (is_super_admin is set unconditionally by the seed INSERT, not by this guard).
-        assert!(should_seed("admin@example.com", "securepassword123"),
+        assert!(
+            should_seed("admin@example.com", "securepassword123"),
             "should_seed() must return true when both email and password are non-empty; \
              this basic check must not be entangled with is_super_admin logic"
         );
-        assert!(!should_seed("", "anypassword"),
+        assert!(
+            !should_seed("", "anypassword"),
             "should_seed() must return false when email is empty"
         );
     }

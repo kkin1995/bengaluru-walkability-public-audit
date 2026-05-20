@@ -13,6 +13,16 @@ use crate::{
     AppState,
 };
 
+// ── Bengaluru bounding box constants ────────────────────────────────────────
+//
+// Defined once at module level so both the handler and the test module share
+// the same values. Moving them here removes the previous duplication between
+// create_report (lines ~210-213) and mod tests (lines ~342-345).
+const LAT_MIN: f64 = 12.7342;
+const LAT_MAX: f64 = 13.1739;
+const LNG_MIN: f64 = 77.3791;
+const LNG_MAX: f64 = 77.8731;
+
 // ── Anti-abuse pure helper functions ────────────────────────────────────────
 //
 // These are extracted as top-level functions (not methods) so they can be
@@ -30,8 +40,7 @@ fn is_honeypot_triggered(website_field: &str) -> bool {
 /// Precision 6 gives ~1.2 km × 0.6 km cells — appropriate for hyperlocal dedup.
 fn build_rate_limit_key(ip: &str, lat: f64, lng: f64) -> String {
     use geohash::{encode, Coord};
-    let cell = encode(Coord { x: lng, y: lat }, 6usize)
-        .unwrap_or_else(|_| "000000".to_string());
+    let cell = encode(Coord { x: lng, y: lat }, 6usize).unwrap_or_else(|_| "000000".to_string());
     format!("{}:{}", ip, cell)
 }
 
@@ -50,6 +59,16 @@ fn extract_client_ip(
                 .map(|a| a.ip().to_string())
                 .unwrap_or_else(|| "unknown".to_string())
         })
+}
+
+/// D-05/D-06: Returns true when `bytes` begins with the JPEG SOI (Start of Image)
+/// marker `0xFF 0xD8`. Legitimate JPEG files always start with these two bytes.
+///
+/// Security note: this check must occur BEFORE `strip_exif`, because `img-parts`
+/// silently returns the original bytes on parse failure — a non-JPEG would be
+/// written to disk verbatim if it were allowed past this guard (see RESEARCH.md Pitfall 1).
+fn is_jpeg(bytes: &[u8]) -> bool {
+    bytes.len() >= 2 && bytes[0] == 0xFF && bytes[1] == 0xD8
 }
 
 /// ABUSE-02: Returns a fake HTTP 200 ReportResponse-shaped body for honeypot
@@ -87,10 +106,7 @@ pub async fn create_report(
         let name = field.name().unwrap_or("").to_string();
         match name.as_str() {
             "photo" => {
-                req.image_filename = field
-                    .file_name()
-                    .unwrap_or("upload.jpg")
-                    .to_string();
+                req.image_filename = field.file_name().unwrap_or("upload.jpg").to_string();
                 req.image_bytes = field
                     .bytes()
                     .await
@@ -165,7 +181,10 @@ pub async fn create_report(
                 // Return a fake success response silently; bots get no error signal.
                 let text = field.text().await.unwrap_or_default();
                 if is_honeypot_triggered(&text) {
-                    tracing::warn!(honeypot_value_len = text.len(), "ABUSE-02: honeypot triggered, returning fake success");
+                    tracing::warn!(
+                        honeypot_value_len = text.len(),
+                        "ABUSE-02: honeypot triggered, returning fake success"
+                    );
                     return Ok(Json(fake_success_response()));
                 }
             }
@@ -179,6 +198,12 @@ pub async fn create_report(
     // Validate required fields
     if req.image_bytes.is_empty() {
         return Err(AppError::BadRequest("Photo is required".into()));
+    }
+    // D-05/D-06/D-07: Validate JPEG magic bytes before any processing.
+    // Must come BEFORE strip_exif — img-parts silently falls back on parse errors,
+    // which would allow non-JPEG files (e.g. SVG) to reach disk verbatim.
+    if !is_jpeg(&req.image_bytes) {
+        return Err(AppError::BadRequest("Only JPEG images are accepted".into()));
     }
     if req.category.is_empty() {
         return Err(AppError::BadRequest("Category is required".into()));
@@ -207,12 +232,10 @@ pub async fn create_report(
     }
 
     // Validate coordinates fall within Bengaluru
-    const LAT_MIN: f64 = 12.7342;
-    const LAT_MAX: f64 = 13.1739;
-    const LNG_MIN: f64 = 77.3791;
-    const LNG_MAX: f64 = 77.8731;
-    if req.latitude < LAT_MIN || req.latitude > LAT_MAX
-        || req.longitude < LNG_MIN || req.longitude > LNG_MAX
+    if req.latitude < LAT_MIN
+        || req.latitude > LAT_MAX
+        || req.longitude < LNG_MIN
+        || req.longitude > LNG_MAX
     {
         return Err(AppError::BadRequest(
             "Please drop the pin within Bengaluru".into(),
@@ -246,8 +269,9 @@ pub async fn create_report(
             None
         });
 
-    // Strip EXIF from image before saving
-    let clean_bytes = strip_exif(&req.image_bytes);
+    // Strip EXIF from image before saving — propagate error on parse failure
+    // instead of writing potentially malformed bytes to disk (WR-02).
+    let clean_bytes = strip_exif(&req.image_bytes)?;
 
     // Save to disk
     let file_uuid = Uuid::new_v4();
@@ -266,7 +290,11 @@ pub async fn list_reports(
     State(state): State<AppState>,
     Query(params): Query<ListReportsQuery>,
 ) -> Result<Json<Value>, AppError> {
-    let limit = if params.limit <= 0 { 20 } else { params.limit.clamp(1, 200) };
+    let limit = if params.limit <= 0 {
+        20
+    } else {
+        params.limit.clamp(1, 200)
+    };
     let page = params.page.max(1);
 
     // Run the paginated list and the total count concurrently.
@@ -312,17 +340,17 @@ pub async fn get_report(
 }
 
 /// Strip all EXIF metadata from JPEG bytes using img-parts.
-/// Falls back to returning the original bytes if parsing fails.
-fn strip_exif(bytes: &[u8]) -> Vec<u8> {
+/// Returns an error if parsing fails — the SOI magic-byte check is necessary
+/// but not sufficient; a polyglot file starting with 0xFF 0xD8 but otherwise
+/// malformed would reach disk verbatim with the old fallback (WR-02).
+fn strip_exif(bytes: &[u8]) -> Result<Vec<u8>, crate::errors::AppError> {
     use img_parts::{jpeg::Jpeg, ImageEXIF};
-
-    match Jpeg::from_bytes(bytes.to_vec().into()) {
-        Ok(mut jpeg) => {
+    Jpeg::from_bytes(bytes.to_vec().into())
+        .map(|mut jpeg| {
             jpeg.set_exif(None);
             jpeg.encoder().bytes().to_vec()
-        }
-        Err(_) => bytes.to_vec(),
-    }
+        })
+        .map_err(|_| crate::errors::AppError::BadRequest("Image processing failed: not a valid JPEG".into()))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -337,18 +365,13 @@ fn strip_exif(bytes: &[u8]) -> Vec<u8> {
 // ─────────────────────────────────────────────────────────────────────────────
 #[cfg(test)]
 mod tests {
-    // ── Bengaluru bounding box constants (must match the handler exactly) ─────
-
-    const LAT_MIN: f64 = 12.7342;
-    const LAT_MAX: f64 = 13.1739;
-    const LNG_MIN: f64 = 77.3791;
-    const LNG_MAX: f64 = 77.8731;
+    use super::*;
 
     /// Returns true when the coordinate is within the Bengaluru bounding box.
     /// This mirrors the guard in create_report() verbatim so that any change to
     /// the production predicate causes these tests to fail immediately.
     fn is_in_bengaluru(lat: f64, lng: f64) -> bool {
-        !(lat < LAT_MIN || lat > LAT_MAX || lng < LNG_MIN || lng > LNG_MAX)
+        (LAT_MIN..=LAT_MAX).contains(&lat) && (LNG_MIN..=LNG_MAX).contains(&lng)
     }
 
     // ── Happy-path: valid Bengaluru coordinates ───────────────────────────────
@@ -542,7 +565,11 @@ mod tests {
     // and then update the production line in list_reports() to match.
     // Tests must NOT be modified — they are the contract.
     fn effective_limit(raw: i64) -> i64 {
-        if raw <= 0 { 20 } else { raw.clamp(1, 200) }
+        if raw <= 0 {
+            20
+        } else {
+            raw.clamp(1, 200)
+        }
     }
 
     // EC-1: zero must fall back to default 20, not be clamped to 1
@@ -710,11 +737,69 @@ mod tests {
     fn ward_lookup_failure_does_not_block_report() {
         // Simulates the unwrap_or_else behavior: Err from get_ward_for_point → None
         let result: Result<Option<uuid::Uuid>, String> = Err("PostGIS error".to_string());
-        let ward_id = result.unwrap_or_else(|_| None);
+        let ward_id = result.ok().flatten();
         assert!(
             ward_id.is_none(),
             "Ward lookup failure must produce None (non-fatal); \
              report submission must not be blocked by ward lookup errors"
+        );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JPEG validation unit tests
+//
+// Requirements covered:
+//   D-05/D-06/D-07 — JPEG magic bytes check in create_report
+//
+// Pure unit tests: no database, no I/O, no Axum routing.
+// ─────────────────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod jpeg_validation_tests {
+    use super::*;
+
+    /// D-06: valid JPEG bytes (FF D8 SOI + APP0 marker prefix) must be accepted.
+    #[test]
+    fn jpeg_magic_bytes_accepted() {
+        assert!(
+            is_jpeg(&[0xFF, 0xD8, 0xFF, 0xE0, 0x00]),
+            "Bytes starting with 0xFF 0xD8 (JPEG SOI marker) must be accepted as JPEG"
+        );
+    }
+
+    /// D-06: SVG content (XML declaration) must be rejected — not a JPEG.
+    #[test]
+    fn svg_rejected_not_jpeg() {
+        assert!(
+            !is_jpeg(b"<?xml version=\"1.0\""),
+            "SVG/XML bytes must be rejected: first bytes are not 0xFF 0xD8"
+        );
+    }
+
+    /// D-06: PNG magic bytes (89 50 4E 47) must be rejected — not a JPEG.
+    #[test]
+    fn png_rejected_not_jpeg() {
+        assert!(
+            !is_jpeg(&[0x89, 0x50, 0x4E, 0x47]),
+            "PNG bytes (0x89 0x50 0x4E 0x47) must be rejected as not-JPEG"
+        );
+    }
+
+    /// D-06: empty buffer must be rejected without panicking.
+    #[test]
+    fn empty_bytes_rejected() {
+        assert!(
+            !is_jpeg(&[]),
+            "Empty byte slice must be rejected (no SOI marker possible)"
+        );
+    }
+
+    /// D-06: single byte must be rejected without panicking (can't be two-byte SOI).
+    #[test]
+    fn single_byte_rejected() {
+        assert!(
+            !is_jpeg(&[0xFF]),
+            "Single byte 0xFF is not a complete JPEG SOI marker — must be rejected"
         );
     }
 }
@@ -776,9 +861,9 @@ mod rate_limit_honeypot_tests {
             "Rate limit key must start with IP address followed by colon. Got: {}",
             key
         );
-        // Key is "{ip}:{geohash6}" — geohash6 is 6 chars, total ≥ 9+1 chars
+        // Key is "{ip}:{geohash6}" — geohash6 is 6 chars, total > 9 chars
         assert!(
-            key.len() >= "1.2.3.4:".len() + 1,
+            key.len() > "1.2.3.4:".len(),
             "Rate limit key must contain geohash suffix after colon. Got: {}",
             key
         );
@@ -802,16 +887,27 @@ mod rate_limit_honeypot_tests {
         use geohash::{encode, Coord};
 
         // Correct order: x=longitude, y=latitude (Bengaluru city center)
-        let correct = encode(Coord { x: 77.5946, y: 12.9716 }, 6)
-            .expect("encode must succeed for valid Bengaluru coordinates");
+        let correct = encode(
+            Coord {
+                x: 77.5946,
+                y: 12.9716,
+            },
+            6,
+        )
+        .expect("encode must succeed for valid Bengaluru coordinates");
 
         // Swapped order: x=latitude, y=longitude (WRONG — regression guard)
-        let swapped = encode(Coord { x: 12.9716, y: 77.5946 }, 6)
-            .expect("encode must succeed even for swapped coordinates");
+        let swapped = encode(
+            Coord {
+                x: 12.9716,
+                y: 77.5946,
+            },
+            6,
+        )
+        .expect("encode must succeed even for swapped coordinates");
 
         assert_ne!(
-            correct,
-            swapped,
+            correct, swapped,
             "Correct (lng,lat) and swapped (lat,lng) coordinate order must produce \
              DIFFERENT geohashes. If they are equal, the coordinate order is wrong."
         );

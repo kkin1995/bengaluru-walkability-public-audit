@@ -1,0 +1,6 @@
+[Unit]
+Description=Alert on Walkability backup failure
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/logger -t walkability-backup "ALERT: Walkability backup FAILED. Check journalctl -u walkability-backup.service"

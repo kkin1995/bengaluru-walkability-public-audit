@@ -7,8 +7,8 @@
 // SQL constants are module-level so unit tests can verify correctness
 // without a live database.
 
-use std::sync::Arc;
 use sqlx::PgPool;
+use std::sync::Arc;
 
 // SQL constants exposed for unit testing (verifiable without a DB connection)
 
@@ -27,8 +27,7 @@ pub const FIND_NEARBY_OPEN_REPORT_SQL: &str = r#"
     LIMIT 1
 "#;
 
-pub const LINK_DUPLICATE_SQL: &str =
-    "UPDATE reports SET duplicate_of_id = $2 WHERE id = $1";
+pub const LINK_DUPLICATE_SQL: &str = "UPDATE reports SET duplicate_of_id = $2 WHERE id = $1";
 
 pub const INCREMENT_DUPLICATE_COUNT_SQL: &str = r#"
     UPDATE reports SET
@@ -59,13 +58,18 @@ pub async fn run_dedup_loop(pool: Arc<PgPool>) {
 async fn run_dedup_pass(pool: &PgPool) -> Result<(), crate::errors::AppError> {
     use uuid::Uuid;
 
-    // Find reports created in the last 15 minutes without duplicate_of_id
+    // Find reports created in the last 15 minutes without duplicate_of_id.
+    // WR-06: LIMIT 500 caps per-pass work so a spam burst cannot cause thousands
+    // of concurrent PostGIS spatial queries per tick or cause this pass to run
+    // longer than the 5-minute tick interval (which would cause concurrent passes
+    // and potential deadlocks on the same rows).
     let candidates = sqlx::query_as::<_, (Uuid, String, f64, f64)>(
         r#"SELECT id, category::TEXT, latitude, longitude
            FROM reports
            WHERE duplicate_of_id IS NULL
              AND created_at >= NOW() - INTERVAL '15 minutes'
-           ORDER BY created_at ASC"#,
+           ORDER BY created_at ASC
+           LIMIT 500"#,
     )
     .fetch_all(pool)
     .await?;
@@ -159,8 +163,7 @@ mod tests {
     #[test]
     fn dedup_update_increments_atomically() {
         assert!(
-            INCREMENT_DUPLICATE_COUNT_SQL
-                .contains("duplicate_count = duplicate_count + 1"),
+            INCREMENT_DUPLICATE_COUNT_SQL.contains("duplicate_count = duplicate_count + 1"),
             "Must use atomic SQL increment, not read-then-write"
         );
     }
@@ -168,8 +171,7 @@ mod tests {
     #[test]
     fn dedup_update_sets_confidence_on_distinct_ips() {
         assert!(
-            INCREMENT_DUPLICATE_COUNT_SQL
-                .contains("COUNT(DISTINCT submitter_ip)"),
+            INCREMENT_DUPLICATE_COUNT_SQL.contains("COUNT(DISTINCT submitter_ip)"),
             "Confidence must be set based on distinct submitter IPs"
         );
         assert!(

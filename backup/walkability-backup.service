@@ -1,0 +1,20 @@
+[Unit]
+# This service is activated by walkability-backup.timer.
+# Do NOT enable this service directly — enable the timer:
+#   sudo systemctl enable --now walkability-backup.timer
+Description=Walkability DB and uploads backup
+OnFailure=walkability-backup-failure.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/walkability/backup/backup.sh
+# WR-05: Run as a dedicated low-privilege user instead of root.
+# The walkability-backup user only needs docker group membership and write
+# access to /data/backups/. A shell injection in any subprocess call would
+# gain docker-group access at worst, not root access.
+# Setup: useradd -r -s /sbin/nologin walkability-backup
+#        usermod -aG docker walkability-backup
+#        chown walkability-backup:walkability-backup /data/backups
+User=walkability-backup
+StandardOutput=journal
+StandardError=journal

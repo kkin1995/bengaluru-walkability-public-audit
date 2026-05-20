@@ -161,8 +161,7 @@ pub async fn create_admin_user(
 // SQL for the deactivation UPDATE — exposed as a const so deactivate_admin_user_sql()
 // can return the exact string that the live function uses, satisfying the test that
 // verifies the atomic super-admin guard (AC-SA-BE-3-F1, SA Security Considerations).
-const DEACTIVATE_ADMIN_USER_SQL: &str =
-    "UPDATE admin_users SET is_active = FALSE \
+const DEACTIVATE_ADMIN_USER_SQL: &str = "UPDATE admin_users SET is_active = FALSE \
      WHERE id = $1 AND is_active = TRUE AND is_super_admin = FALSE";
 
 /// Soft-deactivate an admin user (sets `is_active = false`).
@@ -171,10 +170,7 @@ const DEACTIVATE_ADMIN_USER_SQL: &str =
 /// (not found / not updated) rather than an error, so the caller's NotFound path
 /// is exercised. The handler layer calls guard_super_admin_deactivation() before
 /// reaching this function for a pre-DB Forbidden response.
-pub async fn deactivate_admin_user(
-    pool: &PgPool,
-    user_id: Uuid,
-) -> Result<bool, AppError> {
+pub async fn deactivate_admin_user(pool: &PgPool, user_id: Uuid) -> Result<bool, AppError> {
     let result = sqlx::query(DEACTIVATE_ADMIN_USER_SQL)
         .bind(user_id)
         .execute(pool)
@@ -283,12 +279,24 @@ pub async fn count_admin_reports(
     );
 
     let mut q = sqlx::query_scalar::<_, i64>(&sql);
-    if let Some(v) = category  { q = q.bind(v); }
-    if let Some(v) = status    { q = q.bind(v); }
-    if let Some(v) = severity  { q = q.bind(v); }
-    if let Some(v) = date_from { q = q.bind(v); }
-    if let Some(v) = date_to   { q = q.bind(v); }
-    if let Some(id) = org_id   { q = q.bind(id); }
+    if let Some(v) = category {
+        q = q.bind(v);
+    }
+    if let Some(v) = status {
+        q = q.bind(v);
+    }
+    if let Some(v) = severity {
+        q = q.bind(v);
+    }
+    if let Some(v) = date_from {
+        q = q.bind(v);
+    }
+    if let Some(v) = date_to {
+        q = q.bind(v);
+    }
+    if let Some(id) = org_id {
+        q = q.bind(id);
+    }
 
     let count = q.fetch_one(pool).await?;
     Ok(count)
@@ -373,12 +381,24 @@ pub async fn list_admin_reports(
 
     // Bind filter values in the same order as conditions were added.
     let mut q = sqlx::query(&sql);
-    if let Some(v) = category   { q = q.bind(v); }
-    if let Some(v) = status     { q = q.bind(v); }
-    if let Some(v) = severity   { q = q.bind(v); }
-    if let Some(v) = date_from  { q = q.bind(v); }
-    if let Some(v) = date_to    { q = q.bind(v); }
-    if let Some(id) = org_id    { q = q.bind(id); }
+    if let Some(v) = category {
+        q = q.bind(v);
+    }
+    if let Some(v) = status {
+        q = q.bind(v);
+    }
+    if let Some(v) = severity {
+        q = q.bind(v);
+    }
+    if let Some(v) = date_from {
+        q = q.bind(v);
+    }
+    if let Some(v) = date_to {
+        q = q.bind(v);
+    }
+    if let Some(id) = org_id {
+        q = q.bind(id);
+    }
     q = q.bind(limit).bind(offset);
 
     let rows = q.fetch_all(pool).await?;
@@ -515,13 +535,11 @@ pub async fn update_report_status(
     let mut tx = pool.begin().await?;
 
     // Update the report; cast the string to the report_status enum.
-    let result = sqlx::query(
-        "UPDATE reports SET status = $1::report_status WHERE id = $2",
-    )
-    .bind(new_status)
-    .bind(report_id)
-    .execute(&mut *tx)
-    .await?;
+    let result = sqlx::query("UPDATE reports SET status = $1::report_status WHERE id = $2")
+        .bind(new_status)
+        .bind(report_id)
+        .execute(&mut *tx)
+        .await?;
 
     if result.rows_affected() == 0 {
         // Report not found — roll back and signal miss.
@@ -549,10 +567,7 @@ pub async fn update_report_status(
 
 /// Delete a report row and return its `image_path` so the caller can remove
 /// the file from disk. Returns `None` if no such report exists.
-pub async fn delete_report(
-    pool: &PgPool,
-    report_id: Uuid,
-) -> Result<Option<String>, AppError> {
+pub async fn delete_report(pool: &PgPool, report_id: Uuid) -> Result<Option<String>, AppError> {
     let row = sqlx::query("DELETE FROM reports WHERE id = $1 RETURNING image_path")
         .bind(report_id)
         .fetch_optional(pool)
@@ -574,12 +589,11 @@ pub async fn get_report_stats(pool: &PgPool) -> Result<StatsResponse, AppError> 
         .await?;
 
     // Seed every expected key with 0 so callers always see a full map (R34).
-    let mut by_status: std::collections::HashMap<String, i64> = [
-        "submitted", "under_review", "resolved",
-    ]
-    .iter()
-    .map(|k| (k.to_string(), 0))
-    .collect();
+    let mut by_status: std::collections::HashMap<String, i64> =
+        ["submitted", "under_review", "resolved"]
+            .iter()
+            .map(|k| (k.to_string(), 0))
+            .collect();
 
     let mut by_category: std::collections::HashMap<String, i64> = [
         "no_footpath",
@@ -595,19 +609,17 @@ pub async fn get_report_stats(pool: &PgPool) -> Result<StatsResponse, AppError> 
     .map(|k| (k.to_string(), 0))
     .collect();
 
-    let mut by_severity: std::collections::HashMap<String, i64> = [
-        "low", "medium", "high", "critical",
-    ]
-    .iter()
-    .map(|k| (k.to_string(), 0))
-    .collect();
+    let mut by_severity: std::collections::HashMap<String, i64> =
+        ["low", "medium", "high", "critical"]
+            .iter()
+            .map(|k| (k.to_string(), 0))
+            .collect();
 
     // Overwrite with actual DB counts.
-    let status_rows = sqlx::query(
-        "SELECT status::TEXT AS status, COUNT(*) AS cnt FROM reports GROUP BY status",
-    )
-    .fetch_all(pool)
-    .await?;
+    let status_rows =
+        sqlx::query("SELECT status::TEXT AS status, COUNT(*) AS cnt FROM reports GROUP BY status")
+            .fetch_all(pool)
+            .await?;
     for row in &status_rows {
         let key: String = row.get("status");
         let cnt: i64 = row.get("cnt");
@@ -690,13 +702,12 @@ pub async fn update_admin_password(
     user_id: Uuid,
     new_password_hash: &str,
 ) -> Result<(), AppError> {
-    let result = sqlx::query(
-        "UPDATE admin_users SET password_hash = $2, updated_at = NOW() WHERE id = $1",
-    )
-    .bind(user_id)
-    .bind(new_password_hash)
-    .execute(pool)
-    .await?;
+    let result =
+        sqlx::query("UPDATE admin_users SET password_hash = $2, updated_at = NOW() WHERE id = $1")
+            .bind(user_id)
+            .bind(new_password_hash)
+            .execute(pool)
+            .await?;
 
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound);
@@ -714,10 +725,7 @@ pub async fn get_admin_user_by_id(
     pool: &PgPool,
     user_id: Uuid,
 ) -> Result<Option<AdminUser>, AppError> {
-    let sql = format!(
-        "SELECT {} FROM admin_users WHERE id = $1",
-        ADMIN_USER_COLS
-    );
+    let sql = format!("SELECT {} FROM admin_users WHERE id = $1", ADMIN_USER_COLS);
     let row = sqlx::query_as::<_, AdminUserRow>(&sql)
         .bind(user_id)
         .fetch_optional(pool)
@@ -754,13 +762,12 @@ pub async fn assign_user_org(
     user_id: Uuid,
     org_id: Option<Uuid>,
 ) -> Result<(), AppError> {
-    let result = sqlx::query(
-        "UPDATE admin_users SET org_id = $1 WHERE id = $2 AND is_active = TRUE",
-    )
-    .bind(org_id)
-    .bind(user_id)
-    .execute(pool)
-    .await?;
+    let result =
+        sqlx::query("UPDATE admin_users SET org_id = $1 WHERE id = $2 AND is_active = TRUE")
+            .bind(org_id)
+            .bind(user_id)
+            .execute(pool)
+            .await?;
 
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound);
@@ -961,8 +968,7 @@ mod tests {
     #[test]
     fn list_admin_reports_sql_includes_ward_join() {
         // Build the SQL the same way list_admin_reports does (no filters).
-        let (where_clause, param_idx) =
-            build_report_where_clause(None, None, None, None, None, 1);
+        let (where_clause, param_idx) = build_report_where_clause(None, None, None, None, None, 1);
         let limit_idx = param_idx;
         let offset_idx = param_idx + 1;
         let sql = format!(
@@ -1005,8 +1011,7 @@ mod tests {
     /// SELECT COUNT(*) so the total matches across the same filter set.
     #[test]
     fn count_admin_reports_sql_includes_ward_join_and_count() {
-        let (where_clause, _) =
-            build_report_where_clause(None, None, None, None, None, 1);
+        let (where_clause, _) = build_report_where_clause(None, None, None, None, None, 1);
         let sql = format!(
             r#"
             SELECT COUNT(*)
@@ -1057,17 +1062,13 @@ mod tests {
     /// an empty string and leave param_idx at 1.
     #[test]
     fn build_report_where_clause_no_filters_is_empty() {
-        let (clause, next_idx) =
-            build_report_where_clause(None, None, None, None, None, 1);
+        let (clause, next_idx) = build_report_where_clause(None, None, None, None, None, 1);
         assert!(
             clause.is_empty(),
             "No-filter clause must be empty; got: {:?}",
             clause
         );
-        assert_eq!(
-            next_idx, 1,
-            "With no filters, param_idx must remain at 1"
-        );
+        assert_eq!(next_idx, 1, "With no filters, param_idx must remain at 1");
     }
 
     /// WARD-03 — assign_user_org update must target correct table and column.
@@ -1158,8 +1159,7 @@ mod tests {
     #[test]
     fn list_admin_reports_with_org_id_includes_recursive_cte() {
         let org_id = Some(Uuid::nil());
-        let (where_clause, param_idx) =
-            build_report_where_clause(None, None, None, None, None, 1);
+        let (where_clause, param_idx) = build_report_where_clause(None, None, None, None, None, 1);
         // Simulate what list_admin_reports does with org_id = Some
         let org_clause = if let Some(id) = org_id {
             let _ = id; // use the value
@@ -1221,8 +1221,7 @@ mod tests {
     #[test]
     fn list_admin_reports_with_no_org_id_has_no_cte() {
         let org_id: Option<Uuid> = None;
-        let (where_clause, _param_idx) =
-            build_report_where_clause(None, None, None, None, None, 1);
+        let (where_clause, _param_idx) = build_report_where_clause(None, None, None, None, None, 1);
         let org_clause = if org_id.is_some() {
             "WITH RECURSIVE org_subtree".to_string()
         } else {

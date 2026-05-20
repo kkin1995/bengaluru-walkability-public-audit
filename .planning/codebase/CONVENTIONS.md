@@ -1,224 +1,268 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-03-11
+**Analysis Date:** 2026-05-20
 
-## Languages and Style Tools
+## Rust Code Style
 
-**Frontend (TypeScript/React):**
-- TypeScript 5, strict mode enabled (`"strict": true` in `frontend/tsconfig.json`)
-- ESLint via `eslint-config-next` (run with `npm run lint`; no `.eslintrc` file — config lives in `package.json` implicitly via next)
-- No Prettier config detected; formatting is enforced by the team but not by a config file
+### Naming Patterns
 
-**Backend (Rust):**
-- Cargo's built-in `rustfmt` (default formatting)
-- `cargo clippy` for lints
-- No custom `.clippy.toml` detected
+**Functions:** `snake_case` for all function names.
+- Handlers: `admin_list_reports`, `admin_create_user`, `create_report`, `list_reports`
+- Pure helpers: `build_rate_limit_key`, `extract_client_ip`, `is_honeypot_triggered`, `strip_exif`
+- DB query functions: `get_ward_for_point`, `insert_report`, `check_photo_hash_exists`
+
+**Types/Structs/Enums:** `PascalCase`
+- `AppState`, `AppError`, `Report`, `ReportResponse`, `CreateReportRequest`, `ListReportsQuery`
+
+**Constants:** `SCREAMING_SNAKE_CASE`
+- `LAT_MIN`, `LAT_MAX`, `LNG_MIN`, `LNG_MAX`
+
+**Module files:** `snake_case.rs` — `reports.rs`, `admin.rs`, `admin_queries.rs`, `admin_seed.rs`, `dedup_job.rs`
+
+### Error Handling
+
+Use `thiserror` for all backend error types. The single `AppError` enum in `backend/src/errors.rs` covers all error cases:
+
+```rust
+#[derive(Debug, Error)]
+pub enum AppError {
+    #[error("Database error: {0}")]
+    Database(#[from] sqlx::Error),
+    #[error("Not found")]
+    NotFound,
+    #[error("Bad request: {0}")]
+    BadRequest(String),
+    #[error("Unauthorized")]
+    Unauthorized,
+    #[error("Forbidden")]
+    Forbidden,
+    #[error("Conflict: {0}")]
+    Conflict(String),
+    #[error("Rate limited: {0}")]
+    RateLimited(String),
+    // ...
+}
+```
+
+`AppError` implements `IntoResponse` and returns `Json(json!({ "error": message }))` — all error responses use this single `error` key. Never expose internal error details or stack traces to clients.
+
+Handlers return `Result<Json<T>, AppError>`. Never use `unwrap()` in handlers — use `?` for propagation or `.unwrap_or_else(|e| { ... })` for non-fatal failures:
+
+```rust
+// Non-fatal pattern (ward lookup failure must not block report submission)
+let ward_id = queries::get_ward_for_point(&state.pool, req.latitude, req.longitude)
+    .await
+    .unwrap_or_else(|e| {
+        tracing::warn!(lat = req.latitude, lng = req.longitude, error = %e,
+            "Ward lookup failed; report will be stored without ward assignment");
+        None
+    });
+```
+
+### Logging
+
+Use `tracing` macros, NOT `println!`. Structured key=value format in macro arguments:
+
+```rust
+tracing::warn!(honeypot_value_len = text.len(), "ABUSE-02: honeypot triggered");
+tracing::warn!(photo_hash = %photo_hash, "ABUSE-03: duplicate photo hash");
+tracing::error!("Database error: {e}");
+tracing::info!("Database migrations applied");
+```
+
+Log level policy: `error` for DB/IO failures, `warn` for anti-abuse triggers and non-fatal failures, `info` for startup lifecycle events. Never log PII fields (submitter_name, submitter_contact, submitter_ip).
+
+### Comments
+
+- Inline comment headers use `//` with ASCII banner separators: `// ── Section Name ──────────`
+- Three-section structure in complex handler files: `§ 1 — Public types`, `§ 2 — Pure helpers`, `§ 3 — Async handlers`
+- Requirement tags referenced in comments: `// ABUSE-01`, `// ABUSE-02`, `// AC2.2`, `// WARD-02`, `// FINDING-007`
+- Doc comments on public items use `///` with description on first line
+- `#[allow(dead_code)]` with inline comment explaining WHY the field is suppressed (see `backend/src/models/report.rs`)
+
+### Module Organization (backend)
+
+```
+backend/src/
+├── main.rs              — AppState, routing, startup
+├── config.rs            — Config::from_env()
+├── errors.rs            — AppError enum + IntoResponse impl
+├── handlers/
+│   ├── mod.rs
+│   ├── reports.rs       — public report handlers + inline unit tests
+│   ├── admin.rs         — admin handlers, pure validation helpers + inline tests
+│   ├── health.rs
+│   └── wards.rs
+├── models/
+│   ├── report.rs        — Report (DB row), ReportResponse (JSON), CreateReportRequest
+│   ├── admin.rs         — AdminUser, login/request types
+│   ├── ward.rs
+│   └── organization.rs
+├── db/
+│   ├── queries.rs       — public report DB queries
+│   ├── admin_queries.rs — admin DB queries
+│   ├── admin_seed.rs
+│   └── dedup_job.rs     — background dedup loop
+├── middleware/
+│   └── auth.rs          — JWT validation, require_auth, JwtClaims
+└── migrations_tests/    — SQL static-analysis tests (no live DB)
+    ├── mod.rs
+    ├── test_004_migration.rs
+    └── test_005_migration.rs
+```
+
+### API Response Shapes
+
+**Success (single resource):** Returns the resource struct directly as JSON.
+```json
+{ "id": "uuid", "created_at": "...", "image_url": "...", ... }
+```
+
+**Success (paginated list):** Fixed envelope shape:
+```json
+{
+  "page": 1,
+  "limit": 20,
+  "count": 5,
+  "total": 100,
+  "items": [...]
+}
+```
+`total` is omitted if the count query fails (non-fatal degradation pattern).
+
+**Error:** Always `{ "error": "Human-readable message" }` with appropriate HTTP status code. Never includes stack traces or internal details.
+
+**Optional fields:** Use `#[serde(skip_serializing_if = "Option::is_none")]` on `Option<T>` fields that are absent from the public API but present in admin views (e.g. `ward_name` on `ReportResponse`).
+
+### SQL / Migration Patterns
+
+- Migration files in `backend/migrations/`, numbered sequentially: `001_init.sql` through `007_anti_abuse.sql`
+- Applied automatically via `sqlx::migrate!("./migrations")` on startup in `backend/src/main.rs`
+- Incremental only — migrations must use `ALTER TABLE`, never `DROP TABLE` or `DROP COLUMN`
+- All new boolean columns require `NOT NULL DEFAULT FALSE`
+- PostGIS coordinate order in `ST_MakePoint` is `(longitude, latitude)` — X,Y order. Parameters are always documented with inline comments: `-- $1 = latitude (Y)`, `-- $2 = longitude (X)`
+- SQL queries in Rust use raw string literals `r#"..."#` for multiline SQL
+- SQLx compile-time query checks: run `cargo sqlx prepare --database-url "..."` after changing any SQL query
 
 ---
 
-## Naming Patterns
+## TypeScript / React Conventions
 
-**Files:**
-- React components: PascalCase (`PhotoCapture.tsx`, `ReportsMap.tsx`, `StatusBadge.tsx`)
-- Next.js route files: lowercase (`page.tsx`, `layout.tsx`, `middleware.ts`)
-- Utility/lib files: camelCase (`adminApi.ts`, `config.ts`, `constants.ts`)
-- Test files: co-located in `__tests__/` subdirectory, named `{ComponentName}.test.tsx` or `{feature}.test.ts`
-- Phase-scoped tests: `{Component}.phase2.test.tsx` for phase-specific test suites
-- Rust modules: snake_case (`admin_queries.rs`, `admin_seed.rs`, `auth.rs`)
+### Naming Patterns
 
-**Functions:**
-- TypeScript: camelCase functions (`apiFetch`, `fetchReports`, `handleFile`, `makeRequest`)
-- React components: PascalCase (`PhotoCapture`, `UserManagementTable`)
-- Rust: snake_case (`extract_claims`, `require_role`, `create_report`)
-- Test helpers: descriptive names that read as sentences (`completeStep0WithGps`, `advanceFromStep1`, `navigateToStep3`)
+**Components:** `PascalCase.tsx`
+- Feature components: `PhotoCapture.tsx`, `LocationMap.tsx`, `ReportsMap.tsx`, `CategoryPicker.tsx`
+- UI primitives in `frontend/app/components/ui/`: short names — `Btn.tsx`, `Bi.tsx`, `Icon.tsx`, `Pill.tsx`, `SectionLabel.tsx`
+- Redesign variants in `frontend/app/components/redesign/`: `CategoryGrid.tsx`, `SeverityGrid.tsx`, `SuccessCard.tsx`
+- Admin components in `frontend/app/admin/components/`: `ReportsTable.tsx`, `StatsCards.tsx`, `UserManagementTable.tsx`
 
-**Variables:**
-- TypeScript: camelCase (`currentUserId`, `isSuperAdmin`, `fetchReports`)
-- Rust: snake_case (`cookie_val`, `required_role`, `exp_offset_secs`)
-- Constants: SCREAMING_SNAKE_CASE (`MAX_BYTES`, `SECRET`, `WRONG_SECRET`, `BENGALURU_CENTER`)
+**Functions:** `camelCase` (`haversineDistance`, `compressImage`, `handleFile`, `tryBrowserGeolocation`)
+**Types/Interfaces:** `PascalCase` (`FormState`, `BtnProps`, `GpsCoords`, `AdminReport`, `Step`)
+**Constants:** `SCREAMING_SNAKE_CASE` for module-level constants (`MAX_BYTES`, `INITIAL_FORM`)
+**Exported domain constants:** `SCREAMING_SNAKE_CASE` in `frontend/app/lib/constants.ts` (`BENGALURU_BOUNDS`, `BENGALURU_CENTER`)
 
-**Types/Interfaces:**
-- TypeScript: PascalCase (`AdminUser`, `CreateUserPayload`, `AdminReportFilters`)
-- Rust structs: PascalCase (`JwtClaims`, `AppError`, `CreateReportRequest`, `ReportResponse`)
-- Rust enums: PascalCase with descriptive variants (`AppError::Unauthorized`, `AppError::Forbidden`)
+### Component Patterns
 
----
+All client components declare `"use client"` as the very first line of the file (before imports). Server components have no directive.
 
-## Import Organization
-
-**TypeScript order (observed pattern):**
-1. React and framework imports (`import React from "react"`, `import { ... } from "next/..."`)
-2. Third-party library imports (`import { ... } from "@testing-library/react"`)
-3. Internal absolute imports using `@/` alias (`import { API_BASE_URL } from "@/app/lib/config"`)
-4. Relative imports (`import PhotoCapture from "../PhotoCapture"`)
-
-**Path Aliases:**
-- `@/*` maps to `frontend/` root (defined in `frontend/tsconfig.json`)
-- Example: `import { API_BASE_URL } from "@/app/lib/config"` resolves to `frontend/app/lib/config.ts`
-
----
-
-## Environment Configuration
-
-**Mandatory rule:** All `process.env.*` references must live exclusively in `frontend/app/lib/config.ts`. Never inline `process.env.*` in individual component or page files.
-
-**Pattern in `frontend/app/lib/config.ts`:**
+Page components use default export:
 ```typescript
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-export const INTERNAL_API_URL = process.env.INTERNAL_API_URL ?? "http://localhost:3001";
+export default function ReportPage() { ... }
 ```
 
-**Static geo constants** live in `frontend/app/lib/constants.ts` (not config.ts):
+UI library components use named exports:
 ```typescript
-export const BENGALURU_BOUNDS = { latMin: 12.7342, latMax: 13.1739, ... };
-export const BENGALURU_CENTER = { lat: 12.9716, lng: 77.5946 };
+export function Btn({ variant = "primary", size = "md", ...rest }: BtnProps) { ... }
 ```
 
----
+Props interfaces use the `Props` suffix: `BtnProps`, `BiProps`, `PhotoCaptureProps`.
 
-## React Component Patterns
-
-**Client components:** Always add `"use client"` directive at top of file when using hooks, event handlers, or browser APIs.
-
-**Dynamic imports for SSR-incompatible modules:**
+Inline state for page-level components is preferred over context. Functional updaters for state derived from previous state:
 ```typescript
-// Leaflet requires window — always use dynamic import with ssr: false
-const LocationMap = dynamic(() => import("../components/LocationMap"), { ssr: false });
+setForm((f) => ({ ...f, lat: newLat, lng: newLng, locationSource: "manual_pin" }));
 ```
 
-**Leaflet icon fix (required in every map component):**
-```typescript
-const L = require("leaflet");
-delete (L.Icon.Default.prototype as Record<string, unknown>)._getIconUrl;
-L.Icon.Default.mergeOptions({ iconRetinaUrl: "...", iconUrl: "...", shadowUrl: "..." });
-```
+### App Router Conventions
 
-**useRef pattern for router in callbacks** (prevents infinite re-render loop):
-```typescript
-const routerRef = useRef(router);
-routerRef.current = router;
-const handleNav = useCallback(() => { routerRef.current.push("/..."); }, []);
-```
+- All Leaflet/map components must use `next/dynamic` with `ssr: false` — Leaflet uses `window`:
+  ```typescript
+  const LocationMap = dynamic(() => import("../components/LocationMap"), {
+    ssr: false,
+    loading: () => <div>Loading map…</div>,
+  });
+  ```
+- `eslint-disable-next-line @next/next/no-img-element` with comment required when using raw `<img>` (justified for object URL preview images only)
+- `// eslint-disable-next-line react-hooks/exhaustive-deps` with comment explaining the intentional omission required when ignoring deps in `useEffect`
 
-**exifr require pattern** (handles both webpack and Jest environments):
+### Import Organization
+
+**Order (observed in `frontend/app/report/page.tsx`):**
+1. React hooks and Next.js built-ins (`react`, `next/link`, `next/navigation`, `next/dynamic`)
+2. Internal lib imports via `@/app/lib/...`
+3. Internal component imports via `@/app/components/...`
+
+**Path alias:** `@/` resolves to the `frontend/` directory root. Always use `@/app/lib/config` not relative paths like `../../lib/config`.
+
+**Dynamic imports:** Use `next/dynamic` only for SSR-incompatible components (Leaflet maps).
+
+**exifr quirk:** Must use `require()` (not `import`) because exifr@7 ships UMD:
 ```typescript
 const exifrModule = require("exifr");
 const exifr = (exifrModule.default ?? exifrModule) as { gps: (f: File) => Promise<...> };
 ```
+This pattern appears in `frontend/app/report/page.tsx` and `frontend/app/components/PhotoCapture.tsx`.
 
----
+### Environment Variable Conventions
 
-## Error Handling
+All environment-variable-based config must live in `frontend/app/lib/config.ts`. Never inline `process.env.*` directly in component or page files.
 
-**Frontend — API calls:**
-```typescript
-// All admin API calls go through the shared apiFetch helper in adminApi.ts
-// It throws `new Error("HTTP ${res.status}")` on non-2xx responses
-async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(url, { ...options, credentials: "include" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  if (res.status === 204) return undefined as unknown as T;
-  return res.json() as Promise<T>;
+Current exports from `frontend/app/lib/config.ts`:
+- `API_BASE_URL` — client-side, public reports/map API (`NEXT_PUBLIC_API_URL ?? ""`)
+- `ADMIN_API_BASE_URL` — hardcoded `""` (relative URLs via Next.js rewrites)
+- `INTERNAL_API_URL` — server-side only (`INTERNAL_API_URL ?? "http://localhost:3001"`)
+
+### adminApi Contracts
+
+`frontend/app/admin/lib/adminApi.ts` imports from `config.ts`. Every fetch call must include `credentials: "include"` for HttpOnly cookie auth. Non-2xx responses must reject the returned Promise with an error containing the HTTP status code.
+
+### ESLint Configuration
+
+`frontend/.eslintrc.json`:
+```json
+{
+  "extends": "next/core-web-vitals",
+  "ignorePatterns": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
+  "rules": {
+    "@typescript-eslint/no-var-requires": "off"
+  }
 }
 ```
 
-**Frontend — User-facing error strings:**
-- Always use human-readable messages, not raw Error messages
-- Pattern: `setError("Couldn't load reports — tap to retry.")` (not error.message)
-- Network failures get a specific connection error: `"Couldn't submit — check your connection and try again."`
+- Test files are excluded from linting
+- `no-var-requires` is disabled to allow the `require("exifr")` UMD compat pattern
+- `next/core-web-vitals` rules are otherwise enforced
 
-**Frontend — try/catch async:**
-- Use `async/await` with `try/catch` rather than `.then()/.catch()` chaining (Jest compatibility)
-- `catch` blocks for EXIF extraction use empty catch since GPS is optional: `catch { /* GPS will be null */ }`
+### Styling Approach
 
-**Backend — AppError enum:**
-```rust
-// All handler errors return AppError variants from backend/src/errors.rs
-pub enum AppError {
-    Database(#[from] sqlx::Error),
-    NotFound,
-    BadRequest(String),
-    Internal(String),
-    Io(#[from] std::io::Error),
-    Unauthorized,
-    Forbidden,
-    Conflict(String),
-}
-// IntoResponse impl maps each variant to the correct HTTP status + JSON body
-```
+Two coexisting styles (do not mix in the same component):
 
-**Backend — error propagation:**
-```rust
-// Use ? operator with .map_err() to convert field parse errors
-req.latitude = text.parse()
-    .map_err(|_| AppError::BadRequest("Invalid latitude".into()))?;
-```
+**Tailwind CSS** — legacy components only: `PhotoCapture.tsx`, `BilingualText.tsx`. Use Tailwind if modifying these files.
+
+**CSS custom properties via inline `style` objects** — all new work: `report/page.tsx`, all `ui/` primitives, `redesign/` directory. Token names:
+- Colors: `var(--bg)`, `var(--surface)`, `var(--surface-2)`, `var(--ink)`, `var(--ink-2)`, `var(--muted)`, `var(--accent)`, `var(--accent-ink)`, `var(--border)`, `var(--border-strong)`, `var(--danger)`
+- Radii: `var(--r-sm)`, `var(--r-md)`, `var(--r-lg)`, `var(--r-xl)`, `var(--r-full)`
+- Shadows: `var(--shadow-md)`
+- Fonts: `var(--font-sans)`, `var(--font-mono)`
+
+New components added to `app/components/redesign/` or `app/components/ui/` must use the CSS custom property approach, not Tailwind.
+
+### Comment Style (TypeScript)
+
+- File-level JSDoc block describing purpose and contracts (see `frontend/app/admin/lib/adminApi.ts`)
+- Requirement tags in inline comments: `// R-API-1`, `// AC-API-1-S1`, `// ABUSE-02`, `// BUG-2`, `// BUG-3`, `// BUG-4`
+- Inline section headers: `// ─── Section Name ─────────────────────────────────`
+- `eslint-disable` comments always include the rule name and a justification comment on the preceding line
 
 ---
 
-## Logging
-
-**Backend:** `tracing` crate with JSON output (`tracing-subscriber` with `.json()` formatter).
-- Only errors are logged in `AppError::into_response()`: `tracing::error!("Database error: {e}")`
-- Request IDs injected via `X-Request-ID` header from nginx, propagated into tracing spans
-
-**Frontend:** No structured logging. Browser `console.*` is not used in source files (no observed pattern).
-
----
-
-## Comments
-
-**When to comment:**
-- Module-level `//!` doc comments for Rust modules explaining security contracts
-- Function-level `///` doc comments for Rust public functions with input/output tables (see `backend/src/middleware/auth.rs`)
-- Test file header JSDoc blocks listing requirements covered and mocking strategy
-- Inline `//` comments for non-obvious decisions (SSR caveats, EXIF quirks, exifr interop)
-
-**Rust doc table pattern (used for security-sensitive functions):**
-```rust
-/// # Contract
-///
-/// | Input                    | Output                        |
-/// |--------------------------|-------------------------------|
-/// | `None`                   | `Err(AppError::Unauthorized)` |
-/// | Valid JWT, future exp    | `Ok(JwtClaims { … })`         |
-```
-
-**Test file header pattern (TypeScript):**
-```typescript
-/**
- * Tests for frontend/app/report/page.tsx — 4-step wizard
- *
- * Requirements covered:
- *   R1 / AC1.2 — Photo chosen → auto-advance to step 1
- *
- * Mocking strategy:
- *   - PhotoCapture is mocked so we can call onPhoto programmatically.
- */
-```
-
----
-
-## TypeScript Strictness
-
-- `strict: true` is enabled — no implicit `any`, no implicit `undefined`
-- `esModuleInterop: true` — enables default import of CommonJS modules
-- Cast pattern for `as unknown as T` is used when crossing type boundaries (e.g., `undefined as unknown as T` for 204 responses)
-- `Record<string, unknown>` used instead of `any` for dynamic object shapes
-- Optional properties use `?:` not `| undefined` in interfaces
-
----
-
-## Module Design
-
-**Exports:**
-- TypeScript: named exports for functions/types, default export for React components
-- Rust: `pub` functions/structs only where needed; pure helper functions documented as unit-testable
-
-**Barrel Files:** Not used. Imports reference specific module paths directly.
-
-**API client module:** All admin API calls centralized in `frontend/app/admin/lib/adminApi.ts` with a shared `apiFetch<T>` helper. No fetch calls scattered across components.
-
----
-
-*Convention analysis: 2026-03-11*
+*Convention analysis: 2026-05-20*

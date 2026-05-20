@@ -456,3 +456,63 @@ groups gh-runner
 | Admin login redirects back to login on production | `COOKIE_SECURE` not `true`, or `CORS_ORIGIN` mismatch | Check `.env`: `COOKIE_SECURE=true`. Check `CORS_ORIGIN` matches the Vercel frontend URL exactly — no trailing slash, no protocol mismatch (`https://` required). |
 | Push to `main` does not trigger deploy | "production" environment missing, or required reviewers blocking approval | GitHub → Settings → Environments → verify `production` exists. Check the deploy job status in Actions — it may be "Waiting" for environment approval. |
 | `docker compose config` fails with "service frontend" error | Compose version incompatibility with `required: false` in override | Update docker-compose-plugin: `sudo pacman -Syu docker-compose`. Compose v2.20+ supports `required: false` natively. |
+
+---
+
+## 10. Secret Rotation
+
+### When to rotate
+
+- Suspected credential leak
+- Staff offboarding
+- Annual rotation policy
+
+### JWT_SECRET rotation
+
+1. Generate new secret: `openssl rand -hex 32`
+2. Update GitHub Actions secret: repo Settings → Secrets → Actions → `JWT_SECRET`
+3. Update `.env` on the desktop server: `JWT_SECRET=<new-value>`
+4. Restart backend to invalidate current JWTs:
+   `docker compose -f docker-compose.yml -f docker-compose.server.yml restart backend`
+5. All logged-in admins will be immediately logged out — warn GBA team before rotating
+
+### POSTGRES_PASSWORD rotation
+
+1. Update in `.env`: `POSTGRES_PASSWORD=<new-value>`
+2. Update inside the running database:
+   `docker exec -it <db-container> psql -U walkability -c "ALTER USER walkability PASSWORD '<new-value>';"`
+3. Restart backend: `docker compose -f docker-compose.yml -f docker-compose.server.yml restart backend`
+
+### ADMIN_SEED_PASSWORD rotation
+
+The seed password only applies to the initial seeded admin account. The seed only runs if no `admin_users` rows exist; an existing database is unaffected by changing this env var. To reset the password for an existing admin, use the admin dashboard: `PATCH /api/admin/auth/change-password`
+
+---
+
+## 11. Backup and Restore
+
+### Schedule and storage
+
+Backups run weekly via `walkability-backup.timer` (systemd). Backup files land on the separate HDD at:
+
+- `/data/backups/db/walkability_<timestamp>.sql.gz` — full PostgreSQL dump
+- `/data/backups/uploads/uploads_<timestamp>.tar.gz` — uploads volume archive
+
+Files older than 30 days are automatically deleted after each successful backup. If a backup run fails, `walkability-backup-failure.service` writes a tagged journal entry — check with: `journalctl -u walkability-backup-failure`
+
+### Restore PostgreSQL from backup
+
+1. Stop the backend (not the db):
+   `docker compose -f docker-compose.yml -f docker-compose.server.yml stop backend`
+2. Drop and recreate the database:
+   `docker exec -it <db-container> psql -U walkability -c "DROP DATABASE walkability; CREATE DATABASE walkability;"`
+3. Restore from backup:
+   `gunzip -c /data/backups/db/walkability_YYYYMMDD_HHMMSS.sql.gz | docker exec -i <db-container> psql -U walkability walkability`
+4. Restart the backend:
+   `docker compose -f docker-compose.yml -f docker-compose.server.yml start backend`
+5. Verify: `curl https://<tunnel-url>/health`
+
+### Restore uploads volume from backup
+
+1. Clear the volume: `docker run --rm -v uploads:/data alpine sh -c "rm -rf /data/*"`
+2. Restore: `docker run --rm -v uploads:/data -v /data/backups/uploads:/backup alpine tar xzf /backup/uploads_YYYYMMDD_HHMMSS.tar.gz -C /data`

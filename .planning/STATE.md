@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 02.3.2-03-PLAN.md — build/lint verification + human visual sign-off; phase 02.3.2 complete
-last_updated: "2026-05-20T06:04:22.398Z"
-last_activity: 2026-05-20 -- Phase 02.4 execution started
+status: verifying
+stopped_at: Phase 02.4.1 context gathered
+last_updated: "2026-05-20T18:47:56.400Z"
+last_activity: 2026-05-20
 progress:
-  total_phases: 10
-  completed_phases: 7
-  total_plans: 30
-  completed_plans: 24
-  percent: 70
+  total_phases: 11
+  completed_phases: 9
+  total_plans: 33
+  completed_plans: 31
+  percent: 82
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase 02.4 — self-hosted-infrastructure-arch-linux-cloudflare-tunnel
+**Current focus:** Phase 02.4.1 — security-hardening
 
 ## Current Position
 
-Phase: 02.4 (self-hosted-infrastructure-arch-linux-cloudflare-tunnel) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 02.4
-Last activity: 2026-05-20 -- Phase 02.4 execution started
+Phase: 02.4.1 (security-hardening) — COMPLETE
+Plan: 3 of 3
+Status: All plans complete
+Last activity: 2026-05-21
 
-Progress: [█████████░] 92%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -74,6 +74,8 @@ Progress: [█████████░] 92%
 | Phase 02.3.2 P01 | 3min | 2 tasks | 3 files |
 | Phase 02.3.2 P02 | 3min | 2 tasks | 2 files |
 | Phase 02.3.2 P03 | 10min | 2 tasks | 0 files |
+| Phase 02.4.1-security-hardening P02 | 15min | 2 tasks | 2 files |
+| Phase 02.4.1-security-hardening P03 | 2d | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -133,6 +135,10 @@ Progress: [█████████░] 92%
 - categoryFilter passed as undefined (not 'all') when activeFilter === 'all' — keeps ReportsMap filter logic clean: undefined means show all
 - onReportsLoaded added to useCallback dependency array — required by exhaustive-deps; setAllReports identity is stable from useState
 - Local CORS_ORIGIN misconfiguration (port 3002 instead of 3000) caused 'Couldn't load reports' during verification — fixed locally; unrelated to code changes on this branch
+- [Phase 02.4.1-03]: alpine tar czf used for uploads volume backup — alpine base has no rsync; tar produces faithful archive matching §11 restore flow, no information lost vs rsync approach
+- [Phase 02.4.1-03]: docker exec used for pg_dump (not docker run --network) — avoids auto-generated Compose network name ambiguity; established pattern for all future backup tooling
+- [Phase 02.4.1-03]: Persistent=true on walkability-backup.timer — catches missed weekly runs after host reboot without operator intervention
+- [Phase 02.4.1-03]: UptimeRobot free tier chosen for /health monitoring — HTTP/s keyword monitor, 5-min interval, no paid plan required; monitor green on https://api-walkability.nammadaari.com/health
 
 ### Roadmap Evolution
 
@@ -141,6 +147,7 @@ Progress: [█████████░] 92%
 - Phase 02.3 inserted after Phase 02: UAT Bug Fixes — admin category label, iOS camera UX, admin mobile layout, map legend consistency (URGENT) — 5 issues found in 02.2-HUMAN-UAT.md field test; fix before Phase 3 executes
 - Phase 02.3.1 inserted after Phase 02.3: Implement Walkable BLR UI redesign from design file on separate branch (URGENT)
 - Phase 02.4 inserted after Phase 02.3.2: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel: decommission Railway, host backend on desktop via Cloudflare tunnel (URGENT)
+- Phase 02.4.1 inserted after Phase 02.4: Security Hardening (URGENT)
 
 ### Pending Todos
 
@@ -153,8 +160,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-25T13:41:21.957Z
-Stopped at: Completed 02.3.2-03-PLAN.md — build/lint verification + human visual sign-off; phase 02.3.2 complete
+Last session: 2026-05-21T00:00:00Z
+Stopped at: Completed 02.4.1-03-PLAN.md — Phase 02.4.1 security-hardening all plans complete
 Resume file: None
 
 **Planned Phase:** 02.3.1 (implement-walkable-blr-ui-redesign-from-design-file-on-separate-branch) — 4 plans — 2026-04-24T20:47:49.668Z
