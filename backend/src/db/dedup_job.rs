@@ -7,8 +7,8 @@
 // SQL constants are module-level so unit tests can verify correctness
 // without a live database.
 
-use std::sync::Arc;
 use sqlx::PgPool;
+use std::sync::Arc;
 
 // SQL constants exposed for unit testing (verifiable without a DB connection)
 
@@ -27,8 +27,7 @@ pub const FIND_NEARBY_OPEN_REPORT_SQL: &str = r#"
     LIMIT 1
 "#;
 
-pub const LINK_DUPLICATE_SQL: &str =
-    "UPDATE reports SET duplicate_of_id = $2 WHERE id = $1";
+pub const LINK_DUPLICATE_SQL: &str = "UPDATE reports SET duplicate_of_id = $2 WHERE id = $1";
 
 pub const INCREMENT_DUPLICATE_COUNT_SQL: &str = r#"
     UPDATE reports SET
@@ -159,8 +158,7 @@ mod tests {
     #[test]
     fn dedup_update_increments_atomically() {
         assert!(
-            INCREMENT_DUPLICATE_COUNT_SQL
-                .contains("duplicate_count = duplicate_count + 1"),
+            INCREMENT_DUPLICATE_COUNT_SQL.contains("duplicate_count = duplicate_count + 1"),
             "Must use atomic SQL increment, not read-then-write"
         );
     }
@@ -168,8 +166,7 @@ mod tests {
     #[test]
     fn dedup_update_sets_confidence_on_distinct_ips() {
         assert!(
-            INCREMENT_DUPLICATE_COUNT_SQL
-                .contains("COUNT(DISTINCT submitter_ip)"),
+            INCREMENT_DUPLICATE_COUNT_SQL.contains("COUNT(DISTINCT submitter_ip)"),
             "Confidence must be set based on distinct submitter IPs"
         );
         assert!(

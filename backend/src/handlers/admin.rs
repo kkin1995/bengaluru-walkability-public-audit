@@ -174,7 +174,6 @@ pub fn validate_create_user_request(
     }
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // § 2b — Phase 2 pure validation helpers (tested below, no I/O)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -201,7 +200,9 @@ pub fn validate_profile_display_name(display_name: &Option<String>) -> Result<()
     };
     // Delegate to the model-layer pure validator, then map &'static str to AppError.
     crate::models::admin::validate_display_name(name).map_err(|reason| match reason {
-        "whitespace_only" => AppError::BadRequest("COPY.admin.profile.displayNameBlank".to_string()),
+        "whitespace_only" => {
+            AppError::BadRequest("COPY.admin.profile.displayNameBlank".to_string())
+        }
         "too_short" => AppError::BadRequest("COPY.admin.profile.displayNameTooShort".to_string()),
         "too_long" => AppError::BadRequest("COPY.admin.profile.displayNameTooLong".to_string()),
         other => AppError::BadRequest(format!("COPY.admin.profile.{other}")),
@@ -226,12 +227,17 @@ pub fn validate_change_password(
     current_password: &str,
 ) -> Result<(), AppError> {
     // Delegate to the model-layer pure validator, then map &'static str to AppError.
-    crate::models::admin::validate_new_password(new_password, current_password)
-        .map_err(|reason| match reason {
-            "too_short" => AppError::BadRequest("COPY.admin.profile.newPasswordTooShort".to_string()),
-            "same_as_current" => AppError::BadRequest("COPY.admin.profile.newPasswordSameAsCurrent".to_string()),
+    crate::models::admin::validate_new_password(new_password, current_password).map_err(|reason| {
+        match reason {
+            "too_short" => {
+                AppError::BadRequest("COPY.admin.profile.newPasswordTooShort".to_string())
+            }
+            "same_as_current" => {
+                AppError::BadRequest("COPY.admin.profile.newPasswordSameAsCurrent".to_string())
+            }
             other => AppError::BadRequest(format!("COPY.admin.profile.{other}")),
-        })
+        }
+    })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -251,12 +257,10 @@ pub async fn admin_login(
 ) -> Result<impl axum::response::IntoResponse, AppError> {
     // Constant-time dummy hash — used when the user is not found so the
     // Argon2 verify still runs and timing is uniform.
-    const DUMMY_HASH: &str =
-        "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHRzb21lc2FsdA$\
+    const DUMMY_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHRzb21lc2FsdA$\
          Qs2IJDMCCkFMkJ7qGO5fRQ3mJNGwLXFMGADAF5Lpv4";
 
-    let user_opt =
-        admin_queries::get_admin_user_by_email(&state.pool, &payload.email).await?;
+    let user_opt = admin_queries::get_admin_user_by_email(&state.pool, &payload.email).await?;
 
     // Determine which hash to verify against (real or dummy).
     let hash_to_verify = user_opt
@@ -356,8 +360,7 @@ pub async fn admin_me(
     Extension(claims): Extension<AuthJwtClaims>,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| AppError::Unauthorized)?;
+    let user_id = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized)?;
 
     // FINDING-006: Fetch by UUID (the JWT sub claim) — more robust than fetching
     // by email, which could stale-match if the email were ever changed.
@@ -365,7 +368,10 @@ pub async fn admin_me(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    Ok(Json(serde_json::to_value(user.into_response()).map_err(|e| AppError::Internal(e.to_string()))?))
+    Ok(Json(
+        serde_json::to_value(user.into_response())
+            .map_err(|e| AppError::Internal(e.to_string()))?,
+    ))
 }
 
 // ── Admin report handlers ─────────────────────────────────────────────────────
@@ -383,11 +389,8 @@ pub async fn admin_list_reports(
     // ABUSE-06: If duplicate_of_id is present, return only the linked duplicates
     // for the expandable row — bypass the normal paginated list.
     if let Some(original_id) = params.duplicate_of_id {
-        let duplicates = admin_queries::get_duplicate_reports_for_original(
-            &state.pool,
-            original_id,
-        )
-        .await?;
+        let duplicates =
+            admin_queries::get_duplicate_reports_for_original(&state.pool, original_id).await?;
         let count = duplicates.len() as i64;
         return Ok(Json(serde_json::json!({
             "data": duplicates,
@@ -407,8 +410,7 @@ pub async fn admin_list_reports(
     // Fetch the calling admin's org_id from the DB. JwtClaims does not carry
     // org_id (it would require token re-issue on every assignment change), so
     // we look it up per-request using claims.sub.
-    let admin_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| AppError::Unauthorized)?;
+    let admin_id = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized)?;
     let admin_user = admin_queries::get_admin_user_by_id(&state.pool, admin_id)
         .await?
         .ok_or(AppError::Unauthorized)?;
@@ -474,8 +476,7 @@ pub async fn admin_update_report_status(
         return Err(AppError::BadRequest("Invalid status".to_string()));
     }
 
-    let changed_by = Uuid::parse_str(&claims.sub)
-        .map_err(|_| AppError::Unauthorized)?;
+    let changed_by = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized)?;
 
     let found = admin_queries::update_report_status(
         &state.pool,
@@ -577,7 +578,9 @@ pub async fn admin_get_stats(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let stats = admin_queries::get_report_stats(&state.pool).await?;
-    Ok(Json(serde_json::to_value(stats).map_err(|e| AppError::Internal(e.to_string()))?))
+    Ok(Json(
+        serde_json::to_value(stats).map_err(|e| AppError::Internal(e.to_string()))?,
+    ))
 }
 
 // ── Admin user management handlers ───────────────────────────────────────────
@@ -592,7 +595,9 @@ pub async fn admin_list_users(
     let users = admin_queries::list_admin_users(&state.pool).await?;
     let responses: Vec<serde_json::Value> = users
         .into_iter()
-        .map(|u| serde_json::to_value(u.into_response()).map_err(|e| AppError::Internal(e.to_string())))
+        .map(|u| {
+            serde_json::to_value(u.into_response()).map_err(|e| AppError::Internal(e.to_string()))
+        })
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(Json(serde_json::json!(responses)))
@@ -631,7 +636,8 @@ pub async fn admin_create_user(
         "Admin user created"
     );
 
-    let response = serde_json::to_value(user.into_response()).map_err(|e| AppError::Internal(e.to_string()))?;
+    let response = serde_json::to_value(user.into_response())
+        .map_err(|e| AppError::Internal(e.to_string()))?;
     Ok((StatusCode::CREATED, Json(response)))
 }
 
@@ -644,8 +650,7 @@ pub async fn admin_deactivate_user(
 ) -> Result<StatusCode, AppError> {
     crate::middleware::auth::require_role(&claims, "admin")?;
 
-    let caller_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| AppError::Unauthorized)?;
+    let caller_id = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized)?;
 
     if id == caller_id {
         return Err(AppError::BadRequest(
@@ -702,12 +707,8 @@ pub async fn admin_update_profile(
     validate_profile_display_name(&inner)?;
 
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized)?;
-    let updated = admin_queries::update_admin_profile(
-        &state.pool,
-        user_id,
-        inner.as_deref(),
-    )
-    .await?;
+    let updated =
+        admin_queries::update_admin_profile(&state.pool, user_id, inner.as_deref()).await?;
 
     tracing::info!(user_id = %user_id, "Admin profile updated");
     Ok(Json(updated.into_response()))
@@ -774,7 +775,9 @@ pub async fn admin_list_organizations(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<OrganizationResponse>>, AppError> {
     let orgs = admin_queries::list_organizations(&state.pool).await?;
-    Ok(Json(orgs.into_iter().map(OrganizationResponse::from).collect()))
+    Ok(Json(
+        orgs.into_iter().map(OrganizationResponse::from).collect(),
+    ))
 }
 
 /// Request body for PATCH /api/admin/users/:id/org.
@@ -793,8 +796,7 @@ pub async fn admin_assign_user_org(
     Json(body): Json<AssignOrgRequest>,
 ) -> Result<StatusCode, AppError> {
     // Require admin role to manage user org assignments.
-    crate::middleware::auth::require_role(&claims, "admin")
-        .map_err(|_| AppError::Forbidden)?;
+    crate::middleware::auth::require_role(&claims, "admin").map_err(|_| AppError::Forbidden)?;
 
     admin_queries::assign_user_org(&state.pool, user_id, body.org_id).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -827,8 +829,8 @@ pub async fn admin_assign_user_org(
 #[cfg(test)]
 mod tests {
     use super::{
-        validate_change_password, validate_create_user_request,
-        validate_profile_display_name, validate_status,
+        validate_change_password, validate_create_user_request, validate_profile_display_name,
+        validate_status,
     };
     use crate::errors::AppError;
     use crate::middleware::auth::{require_role, JwtClaims};
@@ -1019,11 +1021,8 @@ mod tests {
     /// AC-ADMIN-USERS R-USR-2.3 — "reviewer" is an accepted role value.
     #[test]
     fn test_create_user_reviewer_role() {
-        let result = validate_create_user_request(
-            "reviewer@example.com",
-            "SecurePass12",
-            "reviewer",
-        );
+        let result =
+            validate_create_user_request("reviewer@example.com", "SecurePass12", "reviewer");
         assert!(
             result.is_ok(),
             "validate_create_user_request with role=\"reviewer\" must return Ok(()); \
@@ -1037,11 +1036,7 @@ mod tests {
     #[test]
     fn test_create_user_password_exactly_12() {
         // "Abcdefghijkl" — exactly 12 Unicode scalar values
-        let result = validate_create_user_request(
-            "user@example.com",
-            "Abcdefghijkl",
-            "admin",
-        );
+        let result = validate_create_user_request("user@example.com", "Abcdefghijkl", "admin");
         assert!(
             result.is_ok(),
             "validate_create_user_request with a 12-character password must return Ok(()); \
@@ -1060,11 +1055,7 @@ mod tests {
     #[test]
     fn test_create_user_password_too_short() {
         // "Abcdefghijk" — exactly 11 characters
-        let result = validate_create_user_request(
-            "user@example.com",
-            "Abcdefghijk",
-            "admin",
-        );
+        let result = validate_create_user_request("user@example.com", "Abcdefghijk", "admin");
         assert!(
             result.is_err(),
             "validate_create_user_request with an 11-character password must return Err; \
@@ -1146,11 +1137,7 @@ mod tests {
     /// and must be rejected.
     #[test]
     fn test_create_user_invalid_role() {
-        let result = validate_create_user_request(
-            "user@example.com",
-            "SecurePass12",
-            "superuser",
-        );
+        let result = validate_create_user_request("user@example.com", "SecurePass12", "superuser");
         assert!(
             result.is_err(),
             "validate_create_user_request with role=\"superuser\" must return Err; \

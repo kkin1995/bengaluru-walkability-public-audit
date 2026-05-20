@@ -54,17 +54,29 @@ mod tests {
             ward_name: "Shivajinagar".to_string(),
         };
         let json = serde_json::to_string(&resp).expect("must serialize");
-        assert!(json.contains("ward_number"), "JSON must contain ward_number");
+        assert!(
+            json.contains("ward_number"),
+            "JSON must contain ward_number"
+        );
         assert!(json.contains("ward_name"), "JSON must contain ward_name");
-        assert!(json.contains("84"), "JSON must contain the ward number value");
-        assert!(json.contains("Shivajinagar"), "JSON must contain the ward name value");
+        assert!(
+            json.contains("84"),
+            "JSON must contain the ward number value"
+        );
+        assert!(
+            json.contains("Shivajinagar"),
+            "JSON must contain the ward name value"
+        );
     }
 
     /// WardLookupQuery must parse lat/lng from query string parameters.
     #[test]
     fn ward_lookup_query_fields() {
         // Compile-time check: struct has lat and lng as f64
-        let q = WardLookupQuery { lat: 12.9716, lng: 77.5946 };
+        let q = WardLookupQuery {
+            lat: 12.9716,
+            lng: 77.5946,
+        };
         assert!((q.lat - 12.9716).abs() < 1e-6);
         assert!((q.lng - 77.5946).abs() < 1e-6);
     }

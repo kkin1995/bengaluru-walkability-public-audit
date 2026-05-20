@@ -31,10 +31,7 @@ mod tests {
     fn migration_004_has_369_ward_inserts() {
         let sql = include_str!("../../migrations/004_ward_boundaries.sql");
         let count = sql.matches("INSERT INTO wards").count();
-        assert_eq!(
-            count, 369,
-            "Expected 369 ward inserts, got {count}"
-        );
+        assert_eq!(count, 369, "Expected 369 ward inserts, got {count}");
     }
 
     #[test]

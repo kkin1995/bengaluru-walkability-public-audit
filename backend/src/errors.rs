@@ -54,24 +54,26 @@ impl IntoResponse for AppError {
         let (status, message) = match &self {
             AppError::Database(e) => {
                 tracing::error!("Database error: {e}");
-                (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Database error".to_string(),
+                )
             }
             AppError::NotFound => (StatusCode::NOT_FOUND, "Not found".to_string()),
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::Internal(msg) => {
                 tracing::error!("Internal error: {msg}");
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                )
             }
             AppError::Io(e) => {
                 tracing::error!("IO error: {e}");
                 (StatusCode::INTERNAL_SERVER_ERROR, "IO error".to_string())
             }
-            AppError::Unauthorized => {
-                (StatusCode::UNAUTHORIZED, "Unauthorized".to_string())
-            }
-            AppError::Forbidden => {
-                (StatusCode::FORBIDDEN, "Forbidden".to_string())
-            }
+            AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "Unauthorized".to_string()),
+            AppError::Forbidden => (StatusCode::FORBIDDEN, "Forbidden".to_string()),
             AppError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
             AppError::RateLimited(msg) => (StatusCode::TOO_MANY_REQUESTS, msg.clone()),
         };

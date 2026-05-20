@@ -91,7 +91,13 @@ mod tests {
             created_at: now,
         };
         let json = serde_json::to_string(&resp).expect("WardResponse must serialize to JSON");
-        assert!(json.contains("ward_name"), "JSON must contain ward_name field");
-        assert!(json.contains("corporation"), "JSON must contain corporation field");
+        assert!(
+            json.contains("ward_name"),
+            "JSON must contain ward_name field"
+        );
+        assert!(
+            json.contains("corporation"),
+            "JSON must contain corporation field"
+        );
     }
 }

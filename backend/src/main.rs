@@ -5,11 +5,7 @@ use axum::{
 };
 use sqlx::postgres::PgPoolOptions;
 use std::{net::SocketAddr, sync::Arc};
-use tower_http::{
-    cors::CorsLayer,
-    services::ServeDir,
-    trace::TraceLayer,
-};
+use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 
 mod config;
 mod db;
@@ -79,8 +75,7 @@ async fn main() {
     let config = Config::from_env();
 
     // Ensure uploads directory exists
-    std::fs::create_dir_all(&config.uploads_dir)
-        .expect("Failed to create uploads directory");
+    std::fs::create_dir_all(&config.uploads_dir).expect("Failed to create uploads directory");
 
     // Connect to PostgreSQL
     let pool = PgPoolOptions::new()
@@ -102,15 +97,15 @@ async fn main() {
     // ABUSE-03/ABUSE-04: Spawn proximity deduplication background task.
     // Polls every 5 minutes to find unlinked reports within 50m of same-category
     // open reports and links them atomically via duplicate_of_id.
-    tokio::spawn(crate::db::dedup_job::run_dedup_loop(Arc::clone(
-        &Arc::new(pool.clone()),
-    )));
+    tokio::spawn(crate::db::dedup_job::run_dedup_loop(Arc::clone(&Arc::new(
+        pool.clone(),
+    ))));
     tracing::info!("Dedup background job started (5-minute poll interval)");
 
     let api_base_url = config.public_url.clone();
 
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .expect("JWT_SECRET environment variable must be set");
+    let jwt_secret =
+        std::env::var("JWT_SECRET").expect("JWT_SECRET environment variable must be set");
 
     if jwt_secret.len() < 32 {
         panic!("JWT_SECRET must be at least 32 characters");
@@ -156,7 +151,10 @@ async fn main() {
             axum::http::Method::DELETE,
             axum::http::Method::OPTIONS,
         ])
-        .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::header::AUTHORIZATION])
+        .allow_headers([
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::AUTHORIZATION,
+        ])
         .allow_credentials(true);
 
     use handlers::admin::{
@@ -180,10 +178,16 @@ async fn main() {
         .route("/api/admin/auth/logout", post(admin_logout))
         .route("/api/admin/auth/me", get(admin_me))
         .route("/api/admin/auth/profile", patch(admin_update_profile))
-        .route("/api/admin/auth/change-password", post(admin_change_password))
+        .route(
+            "/api/admin/auth/change-password",
+            post(admin_change_password),
+        )
         .route("/api/admin/reports", get(admin_list_reports))
         .route("/api/admin/reports/:id", get(admin_get_report))
-        .route("/api/admin/reports/:id/status", patch(admin_update_report_status))
+        .route(
+            "/api/admin/reports/:id/status",
+            patch(admin_update_report_status),
+        )
         .route("/api/admin/reports/:id", delete(admin_delete_report))
         .route("/api/admin/stats", get(admin_get_stats))
         .route(
@@ -227,7 +231,10 @@ async fn main() {
         .await
         .expect("Failed to bind");
 
-    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
-        .await
-        .expect("Server error");
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .expect("Server error");
 }

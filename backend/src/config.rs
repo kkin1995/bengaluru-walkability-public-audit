@@ -12,10 +12,8 @@ pub struct Config {
 impl Config {
     pub fn from_env() -> Self {
         Self {
-            database_url: env::var("DATABASE_URL")
-                .expect("DATABASE_URL must be set"),
-            uploads_dir: env::var("UPLOADS_DIR")
-                .unwrap_or_else(|_| "./uploads".to_string()),
+            database_url: env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
+            uploads_dir: env::var("UPLOADS_DIR").unwrap_or_else(|_| "./uploads".to_string()),
             port: env::var("PORT")
                 .unwrap_or_else(|_| "3001".to_string())
                 .parse()
@@ -24,7 +22,11 @@ impl Config {
                 .unwrap_or_else(|_| "http://localhost:3000".to_string()),
             public_url: {
                 let v = env::var("PUBLIC_URL").unwrap_or_default();
-                if v.is_empty() { "http://localhost".to_string() } else { v }
+                if v.is_empty() {
+                    "http://localhost".to_string()
+                } else {
+                    v
+                }
             },
         }
     }
@@ -79,8 +81,7 @@ mod tests {
         // any configuration.
         let result = resolve_public_url(None);
         assert_eq!(
-            result,
-            "http://localhost",
+            result, "http://localhost",
             "resolve_public_url(None) must return 'http://localhost', got '{}'",
             result
         );
@@ -93,8 +94,7 @@ mod tests {
         // malformed base URL.
         let result = resolve_public_url(Some(""));
         assert_eq!(
-            result,
-            "http://localhost",
+            result, "http://localhost",
             "resolve_public_url(Some(\"\")) must return 'http://localhost' \
              (empty is treated as absent), got '{}'",
             result
@@ -109,8 +109,7 @@ mod tests {
         // This is the production case: operator sets PUBLIC_URL=https://walkability.in.
         let result = resolve_public_url(Some("https://walkability.in"));
         assert_eq!(
-            result,
-            "https://walkability.in",
+            result, "https://walkability.in",
             "resolve_public_url(Some(\"https://walkability.in\")) must return \
              'https://walkability.in' verbatim, got '{}'",
             result
@@ -124,8 +123,7 @@ mod tests {
         // but reached via the non-empty branch).
         let result = resolve_public_url(Some("http://localhost"));
         assert_eq!(
-            result,
-            "http://localhost",
+            result, "http://localhost",
             "resolve_public_url(Some(\"http://localhost\")) must return \
              'http://localhost', got '{}'",
             result

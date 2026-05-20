@@ -124,8 +124,12 @@ pub struct ListReportsQuery {
     pub status: Option<String>,
 }
 
-fn default_page() -> i64 { 1 }
-fn default_limit() -> i64 { 20 }
+fn default_page() -> i64 {
+    1
+}
+fn default_limit() -> i64 {
+    20
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Unit tests
@@ -176,8 +180,7 @@ mod tests {
         let report = make_report(12.9716, 77.5946);
         let response = report.into_response("http://localhost:3001");
         assert_eq!(
-            response.image_url,
-            "http://localhost:3001/uploads/test.jpg",
+            response.image_url, "http://localhost:3001/uploads/test.jpg",
             "image_url must be api_base + '/uploads/' + image_path"
         );
     }
@@ -286,7 +289,7 @@ mod tests {
     #[test]
     fn test_lat_lng_rounding_many_decimal_places() {
         // AC5.2 — a value with many decimals is clamped to 3.
-        let report = make_report(12.971600012345678, 77.594600098765432);
+        let report = make_report(12.971600012345678, 77.594_600_098_765_43);
         let response = report.into_response("http://localhost:3001");
         assert_eq!(
             response.latitude, 12.972,
@@ -315,12 +318,24 @@ mod tests {
         let response = report.into_response("http://localhost:3001");
 
         // DB-side values were exact
-        assert_eq!(lat_before, original_lat, "DB struct latitude must be unmodified");
-        assert_eq!(lng_before, original_lng, "DB struct longitude must be unmodified");
+        assert_eq!(
+            lat_before, original_lat,
+            "DB struct latitude must be unmodified"
+        );
+        assert_eq!(
+            lng_before, original_lng,
+            "DB struct longitude must be unmodified"
+        );
 
         // Response-side values are rounded
-        assert_eq!(response.latitude, 12.972, "Response latitude must be rounded to 3dp");
-        assert_eq!(response.longitude, 77.595, "Response longitude must be rounded to 3dp");
+        assert_eq!(
+            response.latitude, 12.972,
+            "Response latitude must be rounded to 3dp"
+        );
+        assert_eq!(
+            response.longitude, 77.595,
+            "Response longitude must be rounded to 3dp"
+        );
     }
 
     // ── P-D: PUBLIC_URL / image_url correctness ──────────────────────────────
@@ -356,7 +371,9 @@ mod tests {
         let report = make_report(12.9716, 77.5946);
         let response = report.into_response("https://example.com");
         assert!(
-            response.image_url.starts_with("https://example.com/uploads/"),
+            response
+                .image_url
+                .starts_with("https://example.com/uploads/"),
             "image_url must start with 'https://example.com/uploads/' when api_base is \
              'https://example.com', but got: {}",
             response.image_url

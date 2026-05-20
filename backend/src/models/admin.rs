@@ -195,7 +195,10 @@ impl UpdateStatusRequest {
     /// TODO: implement
     /// matches!(self.status.as_str(), "submitted" | "under_review" | "resolved")
     pub fn is_valid_status(&self) -> bool {
-        matches!(self.status.as_str(), "submitted" | "under_review" | "resolved")
+        matches!(
+            self.status.as_str(),
+            "submitted" | "under_review" | "resolved"
+        )
     }
 }
 
@@ -578,7 +581,15 @@ mod tests {
             .expect("AdminUserResponse must serialize without error");
 
         // Each of these fields must be present in the serialized output.
-        for field in &["id", "email", "role", "display_name", "is_active", "created_at", "last_login_at"] {
+        for field in &[
+            "id",
+            "email",
+            "role",
+            "display_name",
+            "is_active",
+            "created_at",
+            "last_login_at",
+        ] {
             assert!(
                 json.contains(field),
                 "expected field '{}' to be present in AdminUserResponse JSON, but got: {}",
@@ -982,8 +993,8 @@ mod tests {
             exp: 9_999_999_999, // far-future Unix timestamp for determinism
         };
 
-        let json = serde_json::to_string(&original)
-            .expect("JwtClaims must serialize without error");
+        let json =
+            serde_json::to_string(&original).expect("JwtClaims must serialize without error");
         let decoded: JwtClaims = serde_json::from_str(&json)
             .expect("JwtClaims must deserialize from its own serialized form without error");
 
@@ -1019,8 +1030,7 @@ mod tests {
             exp: 1_800_000_000,
         };
 
-        let json = serde_json::to_string(&claims)
-            .expect("JwtClaims must serialize without error");
+        let json = serde_json::to_string(&claims).expect("JwtClaims must serialize without error");
 
         assert!(
             json.contains("\"exp\""),
@@ -1044,8 +1054,7 @@ mod tests {
             exp: 9_999_999_999,
         };
 
-        let json = serde_json::to_string(&claims)
-            .expect("JwtClaims must serialize without error");
+        let json = serde_json::to_string(&claims).expect("JwtClaims must serialize without error");
 
         assert!(
             json.contains("\"sub\""),
@@ -1074,8 +1083,8 @@ mod tests {
             by_severity: HashMap::new(),
         };
 
-        let json = serde_json::to_string(&stats)
-            .expect("StatsResponse must serialize without error");
+        let json =
+            serde_json::to_string(&stats).expect("StatsResponse must serialize without error");
 
         assert!(
             json.contains("\"total_reports\":42"),
@@ -1099,8 +1108,8 @@ mod tests {
             by_severity: HashMap::new(),
         };
 
-        let json = serde_json::to_string(&stats)
-            .expect("StatsResponse must serialize without error");
+        let json =
+            serde_json::to_string(&stats).expect("StatsResponse must serialize without error");
 
         // Each key-value pair must be present.
         assert!(
@@ -1140,8 +1149,8 @@ mod tests {
             by_severity: HashMap::new(),
         };
 
-        let json = serde_json::to_string(&stats)
-            .expect("StatsResponse must serialize without error");
+        let json =
+            serde_json::to_string(&stats).expect("StatsResponse must serialize without error");
 
         assert!(
             json.contains("\"no_footpath\":0"),
