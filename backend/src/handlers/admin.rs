@@ -336,10 +336,17 @@ pub async fn admin_logout(jar: CookieJar) -> impl axum::response::IntoResponse {
     let mut removal = axum_extra::extract::cookie::Cookie::build(("admin_token", ""))
         .path("/")
         .http_only(true)
+        .max_age(time::Duration::ZERO)
         .same_site(axum_extra::extract::cookie::SameSite::None)
         .build();
     if cookie_secure {
+        // SameSite=None requires Secure=true; set it in production (HTTPS).
         removal.set_secure(true);
+    } else {
+        // In HTTP-only dev environments, fall back to SameSite=Lax so the
+        // removal cookie is accepted by the browser. Browsers reject
+        // SameSite=None cookies that lack Secure=true (RFC 6265bis).
+        removal.set_same_site(axum_extra::extract::cookie::SameSite::Lax);
     }
 
     tracing::info!("Admin logout");
