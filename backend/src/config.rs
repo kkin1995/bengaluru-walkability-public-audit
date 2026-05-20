@@ -39,32 +39,19 @@ impl Config {
 //   PD-R3 — PUBLIC_URL env var defaults to "http://localhost" when absent or empty
 //   PD-R4 — PUBLIC_URL env var is used verbatim when present and non-empty
 //
-// `resolve_public_url` is a PURE TEST HELPER that mirrors the logic
-// Config::from_env() must implement for the `public_url` field.
-// It is intentionally placed in the test module (not in production code) so
-// the logic contract is testable without a live environment.
-//
-// The function body is `todo!()` — a red-phase stub.  The implementer must:
-//   1. Replace the `todo!()` body with the correct logic.
-//   2. Add `public_url: String` to the Config struct.
-//   3. Populate it in from_env() using the same logic.
-//   4. Update main.rs line 64 to use `config.public_url.clone()` instead of
-//      `format!("http://0.0.0.0:{}", config.port)`.
+// `resolve_public_url` mirrors the logic Config::from_env() uses for the
+// `public_url` field. Kept in the test module so the contract is testable
+// without a live environment.
 // ─────────────────────────────────────────────────────────────────────────────
 #[cfg(test)]
 mod tests {
-    // `resolve_public_url` mirrors the logic that Config::from_env() must use
-    // for the new `public_url` field.
+    // `resolve_public_url` mirrors the logic Config::from_env() uses for the
+    // `public_url` field.
     //
     // CONTRACT:
     //   - None        → "http://localhost"   (env var absent)
     //   - Some("")    → "http://localhost"   (env var present but empty = treated as absent)
     //   - Some(s) where s is non-empty → s (env var used verbatim)
-    //
-    // This function carries no behavioral side effects on production code.
-    // It exists solely so the four PD-R3/PD-R4 tests below can compile and run
-    // without a live environment.  The `todo!()` body makes every test panic
-    // (red phase) until the implementer fills in the logic.
     fn resolve_public_url(env_val: Option<&str>) -> String {
         match env_val {
             None | Some("") => "http://localhost".to_string(),
