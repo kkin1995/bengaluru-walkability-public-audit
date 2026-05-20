@@ -405,3 +405,37 @@ docker compose logs -f
 docker compose logs -f backend
 docker compose logs -f nginx
 ```
+
+---
+
+## GitHub Actions Secrets
+
+The following secrets must be configured in the GitHub repository (Settings → Secrets and variables → Actions) for the CI and deploy workflows to function correctly.
+
+### Required for deploy workflow (`deploy.yml`)
+
+| Secret | Description |
+|--------|-------------|
+| `JWT_SECRET` | 64-char hex string used to sign admin session tokens. Generate with `openssl rand -hex 64`. |
+| `COOKIE_SECURE` | Set to `true` for HTTPS deployments. Used when building the Docker image via the deploy workflow. |
+| `ADMIN_SEED_EMAIL` | Email address for the initial super-admin account seeded on first boot. |
+| `ADMIN_SEED_PASSWORD` | Password for the initial super-admin account (minimum 12 characters). Remove after first login. |
+
+These four secrets are passed as environment variables to the Docker Compose build step inside the deploy workflow. They are not used by the CI checks job (`ci.yml`) — that job passes dummy values for `POSTGRES_PASSWORD` and `JWT_SECRET` solely to satisfy the `docker compose build` validation step.
+
+### Required for smoke tests (`deploy.yml`)
+
+| Secret | Description |
+|--------|-------------|
+| `RAILWAY_BACKEND_URL` | Public HTTPS URL of the Railway backend service (e.g., `https://<project>.railway.app`). If not set, the post-deploy smoke test step is skipped with a workflow notice — CI and the Docker build still pass. <!-- VERIFY: actual Railway service URL --> |
+
+### Hardcoded workflow values
+
+The Vercel staging URL used by the smoke test is hardcoded as a job-level environment variable in `.github/workflows/deploy.yml` rather than a secret, because it is not sensitive:
+
+```yaml
+env:
+  VERCEL_STAGING_URL: https://staging-walkability.kinariwala.com
+```
+
+If the Vercel project URL changes, update this value directly in `deploy.yml`.

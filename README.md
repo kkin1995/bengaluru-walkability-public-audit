@@ -583,3 +583,9 @@ GROUP BY cell;
 ## License
 
 GNU Affero General Public License v3.0 (AGPL-3.0) — see `LICENSE.md`.
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on development setup, coding standards, the TDD contribution workflow, branch conventions, and how to submit pull requests.

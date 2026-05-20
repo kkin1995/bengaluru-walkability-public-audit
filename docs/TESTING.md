@@ -155,6 +155,7 @@ The `middleware` project runs under `node` because `next/server` requires the na
 | `__mocks__/nextDynamic.js` | `next/dynamic` | Renders dynamically-imported components synchronously so map components are testable without SSR |
 | `__mocks__/styleMock.js` | `*.css`, `*.scss` | Returns `{}` — CSS modules are irrelevant to unit tests |
 | `__mocks__/next/font/google.js` | `next/font/google` | Font loading is build-time only; returns objects with `.variable`, `.className`, and `.style` matching the real API shape |
+| `__mocks__/next/navigation.js` | `next/navigation` | Stubs App Router hooks (`useRouter`, `usePathname`, `useSearchParams`, `useParams`, `redirect`, `notFound`) so components that import from `next/navigation` render in jsdom without the Next.js router invariant |
 
 ### Test File Conventions
 
