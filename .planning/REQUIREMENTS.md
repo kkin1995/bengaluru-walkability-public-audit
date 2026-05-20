@@ -34,6 +34,14 @@ Requirements for MVP — scoped for soft launch with Walkaluru / GBA.
 - [x] **STAGING-04**: Complete `STAGING-SETUP.md` with step-by-step provisioning for Railway, Vercel, DNS, and GitHub Actions secrets
 - [x] **STAGING-05**: All `cargo test` and `npm run build` pass with cross-domain auth changes in place
 
+### Self-Hosted Infrastructure (Phase 02.4)
+
+- [ ] **INFRA-01**: The Rust/Axum backend and PostGIS database run via `docker compose` on the Arch Linux desktop using `docker-compose.yml` + a new `docker-compose.server.yml` override that removes the `frontend` container dependency from `nginx`
+- [ ] **INFRA-02**: A Cloudflare tunnel (`cloudflared` systemd service) routes public HTTPS traffic to the desktop `nginx:80`, and `curl https://<tunnel-url>/health` returns `{"status":"ok"}` from the internet
+- [ ] **INFRA-03**: A GitHub Actions self-hosted runner on the desktop executes the deploy job on every push to `main` — building and restarting services via `docker compose` — with zero manual SSH steps
+- [ ] **INFRA-04**: The Vercel-hosted Next.js frontend successfully calls the backend through the Cloudflare tunnel URL (`NEXT_PUBLIC_API_URL` updated, Vercel redeploy triggered)
+- [ ] **INFRA-05**: The full admin login + report submission flow works end-to-end across the Vercel frontend ↔ Cloudflare tunnel ↔ desktop backend boundary (cookies, CORS, HTTPS all verified)
+
 ### UAT Bug Fixes (Phase 02.3)
 
 - [x] **BUG-01**: Admin reports table Category column shows human-readable labels (e.g. "Damaged Footpath") via `getCategoryLabel()` from `translations.ts`
@@ -161,6 +169,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ABUSE-04 | Phase 2 | Complete |
 | ABUSE-05 | Phase 2 | Complete |
 | ABUSE-06 | Phase 2 | Complete |
+| INFRA-01 | Phase 02.4 | Pending |
+| INFRA-02 | Phase 02.4 | Pending |
+| INFRA-03 | Phase 02.4 | Pending |
+| INFRA-04 | Phase 02.4 | Pending |
+| INFRA-05 | Phase 02.4 | Pending |
 | WFLOW-01 | Phase 3 | Pending |
 | WFLOW-02 | Phase 3 | Pending |
 | WFLOW-03 | Phase 3 | Pending |
@@ -179,12 +192,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ANALYTICS-05 | Phase 4 | Pending |
 
 **Coverage:**
-- Total requirements: 43 (26 v1 feature + 17 hardening/staging/UAT from inserted phases)
-- Mapped to phases: 43
+- Total requirements: 48 (26 v1 feature + 17 hardening/staging/UAT + 5 infra from inserted phases)
+- Mapped to phases: 48
 - Unmapped: 0
-- Complete: 27 | Pending: 16
+- Complete: 27 | Pending: 21
 
 ---
 
 *Requirements defined: 2026-03-11*
-*Last updated: 2026-04-25 — Added SEC-01..07 (Phase 02.1), STAGING-01..05 (Phase 02.2), BUG-01..02 / UX-01..03 (Phase 02.3); updated traceability and coverage counts*
+*Last updated: 2026-05-20 — Added INFRA-01..05 (Phase 02.4 self-hosted infrastructure); updated traceability and coverage counts*

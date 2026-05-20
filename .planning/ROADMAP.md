@@ -14,6 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Ward Foundation** - Import ward boundaries, auto-tag all reports to wards, build flexible organization hierarchy (completed 2026-03-12)
 - [x] **Phase 2: Anti-Abuse and Data Quality** - Per-IP rate limiting, honeypot, proximity duplicate flagging, photo hash dedup (gap closure in progress) (completed 2026-03-13)
+- [ ] **Phase 02.4: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel** - Decommission Railway, host backend + DB on Arch Linux desktop via Docker Compose, expose via Cloudflare tunnel, self-hosted GitHub Actions runner (INSERTED — must complete before Phase 3)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
@@ -85,6 +86,25 @@ Plans:
 - [x] 02.3.2-01-PLAN.md — Branch setup + gallery escape hatch (ReportCTA.tsx) + CategoryGrid 2-col revert + privacy row + live count verification (page.tsx)
 - [x] 02.3.2-02-PLAN.md — ReportsMap.tsx prop extensions (categoryFilter, onReportsLoaded) + map/page.tsx chip strip + filter wiring + per-category counts
 - [x] 02.3.2-03-PLAN.md — Build/lint verification + visual checkpoint + PR readiness confirmation
+
+### Phase 02.4: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel (INSERTED)
+
+**Goal:** Decommission Railway (subscription expired), host the Rust/Axum backend + PostGIS database on the Arch Linux desktop using Docker Compose, expose it publicly via a Cloudflare tunnel (cloudflared), update GitHub Actions deploy workflow to use a self-hosted runner on the desktop, and update the Vercel frontend to point to the new Cloudflare tunnel URL.
+**Depends on:** Phase 02.3.2
+**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, INFRA-05
+**Success Criteria** (what must be TRUE):
+  1. The Rust/Axum backend and PostGIS database run via docker compose on the Arch Linux desktop using docker-compose.yml + docker-compose.server.yml override (which removes the frontend container dependency from nginx)
+  2. A Cloudflare tunnel (cloudflared systemd service) routes public HTTPS traffic to desktop nginx:80, and `curl https://<tunnel-url>/health` returns `{"status":"ok"}` from the internet
+  3. A GitHub Actions self-hosted runner on the desktop executes the deploy job on every push to main — building and restarting services via docker compose — with zero manual SSH steps
+  4. The Vercel-hosted Next.js frontend successfully calls the backend through the Cloudflare tunnel URL (NEXT_PUBLIC_API_URL updated, Vercel redeploy triggered)
+  5. The full admin login + report submission flow works end-to-end across the Vercel frontend ↔ Cloudflare tunnel ↔ desktop backend boundary (cookies, CORS, HTTPS all verified)
+**Plans**: 4 plans
+
+Plans:
+- [ ] 02.4-01-PLAN.md — nginx.server.conf + docker-compose.server.yml (backend-only compose override, stripped nginx config with no frontend upstream)
+- [ ] 02.4-02-PLAN.md — Rewrite deploy.yml (remove Railway, add self-hosted runner deploy job + smoke test against Cloudflare tunnel URL)
+- [ ] 02.4-03-PLAN.md — Desktop setup runbook (cloudflared install, tunnel creation, systemd service, self-hosted runner, first manual deploy)
+- [ ] 02.4-04-PLAN.md — Vercel + GitHub Secrets/Vars update checklist (NEXT_PUBLIC_API_URL, INTERNAL_API_URL, remove RAILWAY_BACKEND_URL, add BACKEND_URL/FRONTEND_URL/CORS_ORIGIN vars)
 
 ### Phase 02.3.1: Implement Walkable BLR UI redesign from design file on separate branch (INSERTED)
 

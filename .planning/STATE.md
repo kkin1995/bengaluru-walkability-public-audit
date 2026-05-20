@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: "Phase 02.3.2 shipped — PR #5"
+status: executing
 stopped_at: Completed 02.3.2-03-PLAN.md — build/lint verification + human visual sign-off; phase 02.3.2 complete
-last_updated: "2026-04-25T14:45:13.324Z"
-last_activity: 2026-04-25
+last_updated: "2026-05-20T06:02:07.121Z"
+last_activity: 2026-05-20 -- Phase 02.4 planning complete
 progress:
-  total_phases: 9
+  total_phases: 10
   completed_phases: 7
-  total_plans: 26
+  total_plans: 30
   completed_plans: 24
-  percent: 92
+  percent: 70
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 Phase: --phase (02.3.1) — EXECUTING
 Plan: 1 of --name
-Status: Phase 02.3.2 shipped — PR #5
-Last activity: 2026-04-25
+Status: Ready to execute
+Last activity: 2026-05-20 -- Phase 02.4 planning complete
 
 Progress: [█████████░] 92%
 
@@ -140,6 +140,7 @@ Progress: [█████████░] 92%
 - Phase 02.2 inserted after Phase 02: Vercel Staging Deployment and Pre-UAT Hardening (URGENT) — traffic police contact may get app adopted by GBA; staging needed for partner UAT before Phase 3
 - Phase 02.3 inserted after Phase 02: UAT Bug Fixes — admin category label, iOS camera UX, admin mobile layout, map legend consistency (URGENT) — 5 issues found in 02.2-HUMAN-UAT.md field test; fix before Phase 3 executes
 - Phase 02.3.1 inserted after Phase 02.3: Implement Walkable BLR UI redesign from design file on separate branch (URGENT)
+- Phase 02.4 inserted after Phase 02.3.2: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel: decommission Railway, host backend on desktop via Cloudflare tunnel (URGENT)
 
 ### Pending Todos
 
