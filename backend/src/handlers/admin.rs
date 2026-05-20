@@ -111,12 +111,6 @@ pub struct JwtClaims {
 /// empty strings.
 ///
 /// No trimming is performed — the caller is responsible for normalising input.
-///
-/// TODO: implement — replace todo!() with:
-///   match status {
-///       "submitted" | "under_review" | "resolved" => Ok(()),
-///       _ => Err(AppError::BadRequest("Invalid status".to_string())),
-///   }
 #[allow(dead_code)] // used only in #[cfg(test)] tests in this file
 pub fn validate_status(status: &str) -> Result<(), AppError> {
     match status {
@@ -141,18 +135,6 @@ pub fn validate_status(status: &str) -> Result<(), AppError> {
 ///
 /// Password length uses `.chars().count()` (Unicode scalar values), NOT bytes,
 /// so multi-byte passphrase characters are not double-penalised.
-///
-/// TODO: implement — replace todo!() with:
-///   if email.is_empty() || !email.contains('@') {
-///       return Err(AppError::BadRequest("Invalid email".to_string()));
-///   }
-///   if password.chars().count() < 12 {
-///       return Err(AppError::BadRequest("Password must be at least 12 characters".to_string()));
-///   }
-///   match role {
-///       "admin" | "reviewer" => Ok(()),
-///       _ => Err(AppError::BadRequest("Invalid role".to_string())),
-///   }
 #[allow(dead_code)] // used only in #[cfg(test)] tests in this file
 pub fn validate_create_user_request(
     email: &str,
@@ -319,7 +301,7 @@ pub async fn admin_login(
     let mut cookie = axum_extra::extract::cookie::Cookie::new("admin_token", token);
     cookie.set_http_only(true);
     cookie.set_path("/");
-    // SameSite=None required for cross-domain Vercel+Railway staging.
+    // SameSite=None required for cross-domain Vercel + Cloudflare tunnel production setup.
     // Requires Secure=true (enforced by COOKIE_SECURE=true in production/staging).
     cookie.set_same_site(axum_extra::extract::cookie::SameSite::None);
     // FINDING-011: Set Max-Age so the browser discards the cookie after the session expires.
@@ -344,12 +326,21 @@ pub async fn admin_login(
 /// `CookieJar::remove` sets Max-Age=0 and an expired date so the browser
 /// immediately discards the cookie.
 pub async fn admin_logout(jar: CookieJar) -> impl axum::response::IntoResponse {
-    // Build a named removal cookie. `jar.remove()` adds the appropriate
-    // expiry / Max-Age=0 directives automatically.
-    let removal = axum_extra::extract::cookie::Cookie::build(("admin_token", ""))
+    // Mirror the login cookie attributes on the removal cookie so the browser
+    // recognises it as clearing the same cookie (D-09: SameSite=None + conditional Secure).
+    // SameSite=None required for cross-domain Vercel + Cloudflare tunnel production setup.
+    let cookie_secure = std::env::var("COOKIE_SECURE")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+
+    let mut removal = axum_extra::extract::cookie::Cookie::build(("admin_token", ""))
         .path("/")
         .http_only(true)
+        .same_site(axum_extra::extract::cookie::SameSite::None)
         .build();
+    if cookie_secure {
+        removal.set_secure(true);
+    }
 
     tracing::info!("Admin logout");
     (StatusCode::OK, jar.remove(removal))

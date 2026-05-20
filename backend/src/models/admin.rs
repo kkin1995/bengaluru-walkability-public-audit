@@ -83,9 +83,6 @@ impl AdminUser {
     /// # Contract (from AC-USR-1-S1, R-USR-1.1, AC-USR-1-F4)
     /// - The returned value must NOT contain `password_hash`.
     /// - All fields listed in AdminUserResponse must be present.
-    ///
-    /// # TDD stub
-    /// TODO: implement — copy each field except password_hash and updated_at.
     pub fn into_response(self) -> AdminUserResponse {
         AdminUserResponse {
             id: self.id,
@@ -190,10 +187,6 @@ impl UpdateStatusRequest {
     /// - "rejected"    → false
     /// - "SUBMITTED"   → false
     /// - ""            → false
-    ///
-    /// # TDD stub
-    /// TODO: implement
-    /// matches!(self.status.as_str(), "submitted" | "under_review" | "resolved")
     pub fn is_valid_status(&self) -> bool {
         matches!(
             self.status.as_str(),
@@ -255,10 +248,6 @@ pub struct StatsResponse {
 /// - len 11 → false
 /// - len 12 → true
 /// - len 20 → true
-///
-/// # TDD stub
-/// TODO: implement
-/// password.chars().count() >= 12
 #[allow(dead_code)] // used only in #[cfg(test)] tests in this file
 pub fn validate_password_length(password: &str) -> bool {
     password.chars().count() >= 12
@@ -277,11 +266,6 @@ pub fn validate_password_length(password: &str) -> bool {
 /// - "user@"             → false   (empty domain)
 /// - "user@nodot"        → false   (domain has no '.')
 /// - "user@@double.com"  → false   (more than one '@')
-///
-/// # TDD stub
-/// TODO: implement
-/// let parts: Vec<&str> = email.splitn(2, '@').collect();
-/// parts.len() == 2 && !parts[0].is_empty() && parts[1].contains('.')
 #[allow(dead_code)] // used only in #[cfg(test)] tests in this file
 pub fn validate_email_format(email: &str) -> bool {
     // Split on '@' allowing at most 2 parts — more than one '@' produces len > 2
@@ -304,10 +288,6 @@ pub fn validate_email_format(email: &str) -> bool {
 /// - "superuser" → false
 /// - "Admin"     → false
 /// - ""          → false
-///
-/// # TDD stub
-/// TODO: implement
-/// matches!(role, "admin" | "reviewer")
 #[allow(dead_code)] // used only in #[cfg(test)] tests in this file
 pub fn validate_role(role: &str) -> bool {
     matches!(role, "admin" | "reviewer")
@@ -368,14 +348,6 @@ pub struct ChangePasswordRequest {
 /// - 80 chars → Ok(())
 /// - 81 chars → Err("too_long")
 /// - "  "    → Err("whitespace_only")
-///
-/// # TDD stub
-/// TODO: implement — replace todo!() with:
-///   if name.trim().is_empty() { return Err("whitespace_only"); }
-///   let len = name.chars().count();
-///   if len < 2 { return Err("too_short"); }
-///   if len > 80 { return Err("too_long"); }
-///   Ok(())
 #[allow(dead_code)]
 pub fn validate_display_name(name: &str) -> Result<(), &'static str> {
     // Whitespace-only check BEFORE length so " " (1 space) returns "whitespace_only"
@@ -407,12 +379,6 @@ pub fn validate_display_name(name: &str) -> Result<(), &'static str> {
 /// # Value boundaries
 /// - 11 chars → Err("too_short")
 /// - 12 chars → Ok(()) (when different from current)
-///
-/// # TDD stub
-/// TODO: implement — replace todo!() with:
-///   if new_password.chars().count() < 12 { return Err("too_short"); }
-///   if new_password == current_password { return Err("same_as_current"); }
-///   Ok(())
 #[allow(dead_code)]
 pub fn validate_new_password(
     new_password: &str,
@@ -436,9 +402,6 @@ pub fn validate_new_password(
 ///   path never sets is_super_admin = true, regardless of request body content.
 /// - The seed path (admin_seed.rs) is the ONLY code path that may set
 ///   is_super_admin = true.
-///
-/// # TDD stub
-/// TODO: implement — replace todo!() with: false
 #[allow(dead_code)]
 pub fn api_create_can_set_super_admin() -> bool {
     // The API-created user path NEVER sets is_super_admin = true.
@@ -454,10 +417,6 @@ pub fn api_create_can_set_super_admin() -> bool {
 ///
 /// This is the FIRST check that must run inside any deactivation path,
 /// before any DB mutation, to prevent TOCTOU races (see SA Security section).
-///
-/// # TDD stub
-/// TODO: implement — replace todo!() with:
-///   if is_super_admin { Err(AppError::Forbidden) } else { Ok(()) }
 #[allow(dead_code)]
 pub fn guard_super_admin_deactivation(is_super_admin: bool) -> Result<(), AppError> {
     // This check MUST run before any DB mutation to prevent TOCTOU races.
