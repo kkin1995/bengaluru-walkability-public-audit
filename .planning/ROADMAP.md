@@ -135,14 +135,14 @@ Plans:
 **Requirements**: ADMIN-UI-01..ADMIN-UI-08 (phase-local; design contract in 02.5-UI-SPEC.md)
 **Success Criteria** (what must be TRUE):
   1. All admin screens (Login, Dashboard, Reports list, Report detail, Map, Users, Organizations, Profile, Empty/Error states) render with the hybrid design system tokens — Direction B palette + Direction A card structure
-  2. A `admin-tokens.css` CSS variable file exists and is the single source of truth for all admin-portal colors, fonts, radii, and shadows — no hardcoded hex/oklch values in component files
+  2. A `admin.css` CSS variable file exists at `frontend/app/admin/admin.css` and is the single source of truth for all admin-portal colors, fonts, radii, and shadows — no hardcoded hex/oklch values in component files
   3. Light mode and dark mode both work, toggled by a `.dark` class on the `<html>` element, with no flash-of-wrong-theme on reload
   4. Severity is never color-only: every severity indicator shows bars (1/2/3 lit) + text label + color; passes WCAG 1.4.1
   5. All interactive elements have ≥ 44px tap target on mobile
   6. The offline/error state shows a pending-changes card with queued action descriptions and a reassurance copy string that does not use technical jargon
   7. Report cards on the reports list show: photo thumbnail, category label (human-readable, not API enum), status badge, ward · time meta line, duplicate badge when present
   8. `npm run build` passes with zero TypeScript errors and zero new ESLint warnings
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
 - [ ] 02.5-01-PLAN.md — Token layer + font setup + primitives (tokens.css → CSS vars, next/font for Inter + JetBrains Mono + Noto Sans Kannada, shared admin components)
