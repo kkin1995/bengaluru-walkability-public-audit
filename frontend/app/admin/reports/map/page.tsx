@@ -19,7 +19,7 @@ import { Btn } from "../../components/Btn";
  * inline HTML injection which does not have access to CSS custom properties.
  * Exported for test verification.
  */
-export function getPinColor(status: string): string {
+function getPinColor(status: string): string {
   switch (status) {
     case "submitted":
       return "#6B7280";
