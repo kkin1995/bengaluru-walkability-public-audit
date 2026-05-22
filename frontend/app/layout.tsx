@@ -13,7 +13,7 @@ const inter = Inter({
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400", "500", "600"],
   variable: "--font-jetbrains-mono",
   display: "swap",
 });
@@ -46,7 +46,7 @@ export default function RootLayout({
 }) {
   const fontVars = `${inter.variable} ${jetbrainsMono.variable} ${notoSansKannada.variable}`;
   return (
-    <html lang="en" className={fontVars}>
+    <html lang="en" className={fontVars} suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="mobile-web-app-capable" content="yes" />

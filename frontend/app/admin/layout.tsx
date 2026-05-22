@@ -2,6 +2,7 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { INTERNAL_API_URL } from '@/app/lib/config';
 import AdminSidebar from './components/AdminSidebar';
+import './admin.css';
 
 export default async function AdminLayout({
   children,
@@ -44,16 +45,22 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex">
+    <>
+      {/* FOTWT blocking script — reads localStorage before React hydrates to prevent flash-of-wrong-theme (D-10) */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `(function(){var d=localStorage.getItem('admin-theme');if(d==='dark')document.documentElement.classList.add('dark');})();`,
+        }}
+      />
+      <div className="admin-portal" style={{ minHeight: '100vh', display: 'flex', background: 'var(--bg)' }}>
         {/* Sidebar — client component handles responsive drawer */}
         <AdminSidebar role={role} />
 
-        {/* Main content — add left padding on mobile for hamburger clearance */}
-        <main className="flex-1 p-8">
+        {/* Main content */}
+        <main style={{ flex: 1 }}>
           {children}
         </main>
       </div>
-    </div>
+    </>
   );
 }
