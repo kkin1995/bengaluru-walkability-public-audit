@@ -13,7 +13,18 @@ export default async function AdminLayout({
 
   // Skip auth check for the login page itself — prevents infinite redirect loop.
   if (pathname.startsWith('/admin/login')) {
-    return <>{children}</>;
+    return (
+      <>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var d=localStorage.getItem('admin-theme');if(d==='dark')document.documentElement.classList.add('dark');})();`,
+          }}
+        />
+        <div className="admin-portal" style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+          {children}
+        </div>
+      </>
+    );
   }
 
   const cookieStore = await cookies();

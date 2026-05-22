@@ -44,10 +44,7 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    // Guard: don't call fetch if email or password is empty
-    if (!email || !password) {
-      return;
-    }
+    if (!email || !password) return;
 
     setIsLoading(true);
     setErrorMessage(null);
@@ -61,26 +58,22 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        // Success — replace /admin/login in history and invalidate the RSC cache
         router.replace("/admin");
         router.refresh();
         return;
       }
 
-      // SEC-06: map HTTP status to locked generic strings — never expose raw server messages
+      // SEC-06: map HTTP status to locked generic strings
       if (res.status === 401) {
         setErrorMessage(ERR_INVALID_CREDENTIALS);
         setPassword("");
-        // email is retained
       } else if (res.status === 429) {
         setErrorMessage(ERR_RATE_LIMITED);
         setRateLimitCountdown(RATE_LIMIT_SECONDS);
       } else {
-        // All other error responses (400, 403, 5xx, etc.) → generic server error
         setErrorMessage(ERR_SERVER_ERROR);
       }
     } catch {
-      // Network error (fetch threw — no HTTP response) — falls back to generic string per plan
       setErrorMessage(ERR_SERVER_ERROR);
     } finally {
       setIsLoading(false);
@@ -93,81 +86,77 @@ export default function LoginPage() {
     <div style={{
       minHeight: "100vh",
       display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "var(--bg)",
-      padding: "16px",
+      flexDirection: "column",
+      padding: "20px",
+      color: "var(--ink)",
     }}>
-      <div style={{
-        width: "100%",
-        maxWidth: 420,
-        display: "flex",
-        flexDirection: "column",
-        gap: 20,
-      }}>
-        {/* Brand */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 36,
-            height: 36,
-            borderRadius: 4,
-            background: "var(--ink)",
-            color: "var(--bg)",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: "var(--font-mono)",
-            fontWeight: 700,
-            fontSize: 14,
-            flexShrink: 0,
-          }}>W</div>
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em" }}>WLK.CONSOLE</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", letterSpacing: "0.04em" }}>BENGALURU · v2.4.1</span>
-          </div>
+      {/* Brand */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 28 }}>
+        <div style={{
+          width: 36,
+          height: 36,
+          borderRadius: 4,
+          background: "var(--ink)",
+          color: "var(--bg)",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "var(--font-mono)",
+          fontWeight: 700,
+          fontSize: 14,
+          flexShrink: 0,
+        }}>W</div>
+        <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600, letterSpacing: "0.02em" }}>WLK.CONSOLE</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", letterSpacing: "0.05em" }}>BENGALURU · v2.4.1</span>
         </div>
+      </div>
 
-        {/* ASCII banner — decorative */}
+      {/* Centered form area */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 20, maxWidth: 420, width: "100%" }}>
+
+        {/* ASCII banner */}
         <pre aria-hidden="true" style={{
           fontFamily: "var(--font-mono)",
           fontSize: 10,
           color: "var(--muted)",
           margin: 0,
-          lineHeight: 1.4,
-          border: "1px solid var(--border)",
-          borderRadius: "var(--r-xs)",
-          padding: "10px 12px",
-          overflow: "hidden",
-        }}>{`┌──────────────────────────────┐
-│  WLK.CONSOLE v2.4.1          │
-│  BENGALURU WALKABILITY AUDIT │
-│  STATUS: OPERATIONAL         │
-│  UPTIME: 99.9%  REPORTS: OK  │
-└──────────────────────────────┘`}</pre>
+          lineHeight: 1.5,
+          letterSpacing: 0,
+        }}>{`╭──────────────────────────────────╮
+│  WALKABILITY · ADMIN · CONSOLE   │
+│  GBA · Bengaluru Public Audit    │
+╰──────────────────────────────────╯`}</pre>
 
         {/* Headline */}
-        <div>
-          <div style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 14,
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <h1 style={{
+            margin: 0,
+            fontSize: 26,
             fontWeight: 600,
-            letterSpacing: "-0.01em",
-            color: "var(--ink)",
-            marginBottom: 6,
-          }}>$ login</div>
-          <div style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 14,
-            fontWeight: 400,
+            letterSpacing: "-0.01em",
+            lineHeight: 1.15,
+          }}>$ login</h1>
+          <p style={{
+            margin: 0,
+            fontSize: 13,
             color: "var(--muted)",
-          }}>// authenticate to the triage queue</div>
+            fontFamily: "var(--font-mono)",
+            letterSpacing: "0.02em",
+          }}>// authenticate to the triage queue</p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} noValidate style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Email */}
-          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600, letterSpacing: "0.10em", textTransform: "uppercase", color: "var(--muted)" }}>USER_EMAIL</span>
+        <form onSubmit={handleSubmit} noValidate style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Email — div wrapper avoids nested <label> (Input renders its own <label>) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label
+              htmlFor="email"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600, letterSpacing: "0.10em", textTransform: "uppercase", color: "var(--muted)" }}
+            >
+              USER_EMAIL
+            </label>
             <Input
               id="email"
               type="email"
@@ -176,14 +165,19 @@ export default function LoginPage() {
               disabled={isLoading}
               autoComplete="email"
               icon="mail"
-              aria-label="Email"
-              placeholder="admin@example.com"
+              placeholder="you@gba.gov.in"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
             />
-          </label>
+          </div>
 
           {/* Password */}
-          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600, letterSpacing: "0.10em", textTransform: "uppercase", color: "var(--muted)" }}>PASSWORD</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label
+              htmlFor="password"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600, letterSpacing: "0.10em", textTransform: "uppercase", color: "var(--muted)" }}
+            >
+              PASSWORD
+            </label>
             <Input
               id="password"
               type="password"
@@ -192,9 +186,9 @@ export default function LoginPage() {
               disabled={isLoading}
               autoComplete="current-password"
               icon="lock"
-              aria-label="Password"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
             />
-          </label>
+          </div>
 
           {/* Error message — SEC-06 compliant, generic strings only */}
           {errorMessage && (
@@ -215,13 +209,13 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Authenticate button */}
           <Btn
             type="submit"
             variant="accent"
             size="lg"
+            iconRight="arrow_right"
             disabled={isSubmitDisabled}
-            style={{ width: "100%", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", minHeight: 48 }}
+            style={{ width: "100%", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", marginTop: 4 }}
           >
             {isLoading
               ? "Signing in..."
@@ -232,17 +226,26 @@ export default function LoginPage() {
         </form>
 
         {/* Security hint */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <Icon name="shield" size={12} aria-hidden={true} style={{ color: "var(--muted)", flexShrink: 0 }} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", letterSpacing: "0.04em" }}>
-            ARGON2ID · 24H_SESSION · IP_RATELIMITED
-          </span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 10, color: "var(--muted)", fontFamily: "var(--font-mono)" }}>
+          <Icon name="shield" size={11} aria-hidden={true} />
+          <span>ARGON2ID · 24H_SESSION · IP_RATELIMITED</span>
         </div>
+      </div>
 
-        {/* Footer */}
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted-2)", letterSpacing: "0.02em" }}>
-          BUILD_HASH: 0000000 · {new Date().getFullYear()} / STATUS: OK
-        </div>
+      {/* Footer */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        fontSize: 10,
+        fontFamily: "var(--font-mono)",
+        color: "var(--muted)",
+        letterSpacing: "0.04em",
+        borderTop: "1px solid var(--border)",
+        paddingTop: 12,
+      }}>
+        <span>BUILD_HASH: 0000000 · {new Date().getFullYear()}</span>
+        <span>STATUS: <span style={{ color: "var(--accent-ink)" }}>● OK</span></span>
       </div>
     </div>
   );
