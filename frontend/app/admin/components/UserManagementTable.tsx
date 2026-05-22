@@ -25,7 +25,9 @@ interface UserManagementTableProps {
 function formatLastLogin(dateStr?: string | null): string {
   if (!dateStr) return "Never";
   const d = new Date(dateStr);
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const now = new Date();
+  const sameYear = d.getFullYear() === now.getFullYear();
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", ...(sameYear ? {} : { year: "2-digit" }) });
 }
 
 export default function UserManagementTable({
@@ -263,7 +265,7 @@ export default function UserManagementTable({
 
                 {/* LAST_LOGIN */}
                 <td style={{ padding: "12px 16px" }}>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
                     {formatLastLogin(user.last_login_at)}
                   </span>
                 </td>
