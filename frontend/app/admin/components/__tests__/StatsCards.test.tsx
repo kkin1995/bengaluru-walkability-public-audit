@@ -134,15 +134,17 @@ describe('R-COMP-3 / AC-DASH-1-S2 — StatsCards: zero values render as "0"', ()
   });
 
   it("does not render a dash '-' character in any card when count is 0", () => {
-    const { container } = render(<StatsCards data={ZERO_DATA} />);
+    render(<StatsCards data={ZERO_DATA} />);
     // A dash is a common "no data" placeholder — the AC forbids it.
-    // We check that no standalone dash text node appears.
-    // This deliberately only checks single-character dashes, not hyphens in words.
-    const textContent = container.textContent ?? "";
-    // Remove all spaces and check that a lone dash is not the only content
-    // in any card's value slot. A strict check: "0" must appear 4 times.
-    const zeroMatches = textContent.match(/\b0\b/g) ?? [];
-    expect(zeroMatches.length).toBeGreaterThanOrEqual(4);
+    // Verify each stat testid shows "0", not a dash or empty string.
+    const total = screen.getByTestId("stat-total");
+    const submitted = screen.getByTestId("stat-submitted");
+    const underReview = screen.getByTestId("stat-under-review");
+    const resolved = screen.getByTestId("stat-resolved");
+    expect(total.textContent).toBe("0");
+    expect(submitted.textContent).toBe("0");
+    expect(underReview.textContent).toBe("0");
+    expect(resolved.textContent).toBe("0");
   });
 });
 
@@ -154,15 +156,9 @@ describe("R-COMP-4 / AC-DASH-1-S3 — StatsCards: skeleton loading state", () =>
   it("renders skeleton placeholder elements when loading=true", () => {
     render(<StatsCards loading={true} />);
     // The AC requires four skeleton elements in place of metric values.
-    // Implementations typically use data-testid="skeleton" or an "animate-pulse" class.
-    // We accept either: a data-testid containing "skeleton", or elements with
-    // an animation class that signals loading (animate-pulse / shimmer / skeleton).
+    // Implementations use data-testid="skeleton" on each skeleton card.
     const byTestId = document.querySelectorAll('[data-testid*="skeleton"]');
-    const byClass = document.querySelectorAll(
-      ".animate-pulse, .skeleton, [class*='skeleton'], [class*='shimmer']"
-    );
-    const skeletonCount = byTestId.length + byClass.length;
-    expect(skeletonCount).toBeGreaterThan(0);
+    expect(byTestId.length).toBeGreaterThan(0);
   });
 
   it("does NOT show any numeric count values when loading=true", () => {
@@ -179,12 +175,12 @@ describe("R-COMP-4 / AC-DASH-1-S3 — StatsCards: skeleton loading state", () =>
     render(<StatsCards loading={true} />);
     // There should be exactly four skeleton placeholders — one per stat card.
     const byTestId = document.querySelectorAll('[data-testid*="skeleton"]');
-    const byClass = document.querySelectorAll(
-      ".animate-pulse, .skeleton, [class*='skeleton'], [class*='shimmer']"
-    );
-    const skeletonCount = byTestId.length || byClass.length;
     // At least 4 skeleton elements: total, submitted, under_review, resolved
-    expect(skeletonCount).toBeGreaterThanOrEqual(4);
+    expect(byTestId.length).toBeGreaterThanOrEqual(4);
+    // Each skeleton has the expected data-testid attribute
+    byTestId.forEach((el) => {
+      expect(el.getAttribute("data-testid")).toBe("skeleton");
+    });
   });
 
   it("renders normal stat values (not skeletons) when loading is false", () => {

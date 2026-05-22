@@ -3,8 +3,16 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_BASE_URL as BASE } from "@/app/lib/config";
+import { Input } from "../components/Input";
+import { Btn } from "../components/Btn";
+import { Icon } from "../components/Icon";
 
 const RATE_LIMIT_SECONDS = 60;
+
+// SEC-06 locked generic error strings — NEVER expose raw server messages
+const ERR_INVALID_CREDENTIALS = "Incorrect email or password.";
+const ERR_RATE_LIMITED = "Too many attempts. Please wait a few minutes before trying again.";
+const ERR_SERVER_ERROR = "Something went wrong. Please try again.";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,9 +21,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(
-    null
-  );
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
 
   // Countdown timer for 429 rate limit lockout
   useEffect(() => {
@@ -56,44 +62,26 @@ export default function LoginPage() {
 
       if (res.ok) {
         // Success — replace /admin/login in history and invalidate the RSC cache
-        // so the admin layout re-runs server-side with the new auth cookie attached.
-        // Without router.refresh(), the cached pre-login layout renders without the
-        // sidebar (no cookie visible to the server component) and middleware on a
-        // subsequent hard refresh redirects back to /admin/login.
         router.replace("/admin");
         router.refresh();
         return;
       }
 
-      // Parse error body
-      let body: { error?: string; message?: string } = {};
-      try {
-        body = await res.json();
-      } catch {
-        // ignore parse errors
-      }
-
+      // SEC-06: map HTTP status to locked generic strings — never expose raw server messages
       if (res.status === 401) {
-        setErrorMessage("Invalid email or password");
+        setErrorMessage(ERR_INVALID_CREDENTIALS);
         setPassword("");
         // email is retained
       } else if (res.status === 429) {
-        setErrorMessage("Too many attempts. Please wait before trying again.");
+        setErrorMessage(ERR_RATE_LIMITED);
         setRateLimitCountdown(RATE_LIMIT_SECONDS);
-      } else if (res.status >= 500) {
-        setErrorMessage(`Server error (HTTP ${res.status}). Please try again later or contact support.`);
-      } else if (res.status === 400) {
-        setErrorMessage("Invalid request. Please check your inputs and try again.");
       } else {
-        // Other 4xx (402–428, 430–499) — surface body.error or body.message
-        // (e.g. "Account suspended" for 403) with a safe fallback.
-        setErrorMessage(
-          body.error ?? body.message ?? "Unexpected error. Please try again."
-        );
+        // All other error responses (400, 403, 5xx, etc.) → generic server error
+        setErrorMessage(ERR_SERVER_ERROR);
       }
     } catch {
-      // Network error (fetch threw — no HTTP response)
-      setErrorMessage("Cannot reach the server. Check your internet connection and try again.");
+      // Network error (fetch threw — no HTTP response) — falls back to generic string per plan
+      setErrorMessage(ERR_SERVER_ERROR);
     } finally {
       setIsLoading(false);
     }
@@ -102,78 +90,159 @@ export default function LoginPage() {
   const isSubmitDisabled = isLoading || isRateLimited;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-sm p-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Admin Sign In</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Bengaluru Walkability Audit
-          </p>
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "var(--bg)",
+      padding: "16px",
+    }}>
+      <div style={{
+        width: "100%",
+        maxWidth: 420,
+        display: "flex",
+        flexDirection: "column",
+        gap: 20,
+      }}>
+        {/* Brand */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 36,
+            height: 36,
+            borderRadius: 4,
+            background: "var(--ink)",
+            color: "var(--bg)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "var(--font-mono)",
+            fontWeight: 700,
+            fontSize: 14,
+            flexShrink: 0,
+          }}>W</div>
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em" }}>WLK.CONSOLE</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", letterSpacing: "0.04em" }}>BENGALURU · v2.4.1</span>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate>
-          {/* Error message */}
-          {errorMessage && (
-            <div
-              role="alert"
-              className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"
-            >
-              {errorMessage}
-            </div>
-          )}
+        {/* ASCII banner — decorative */}
+        <pre aria-hidden="true" style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 10,
+          color: "var(--muted)",
+          margin: 0,
+          lineHeight: 1.4,
+          border: "1px solid var(--border)",
+          borderRadius: "var(--r-xs)",
+          padding: "10px 12px",
+          overflow: "hidden",
+        }}>{`┌──────────────────────────────┐
+│  WLK.CONSOLE v2.4.1          │
+│  BENGALURU WALKABILITY AUDIT │
+│  STATUS: OPERATIONAL         │
+│  UPTIME: 99.9%  REPORTS: OK  │
+└──────────────────────────────┘`}</pre>
 
-          {/* Email field */}
-          <div className="mb-4">
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Email
-            </label>
-            <input
+        {/* Headline */}
+        <div>
+          <div style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: "-0.01em",
+            color: "var(--ink)",
+            marginBottom: 6,
+          }}>$ login</div>
+          <div style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 14,
+            fontWeight: 400,
+            color: "var(--muted)",
+          }}>// authenticate to the triage queue</div>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} noValidate style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Email */}
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600, letterSpacing: "0.10em", textTransform: "uppercase", color: "var(--muted)" }}>USER_EMAIL</span>
+            <Input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isLoading}
               autoComplete="email"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-600 disabled:opacity-50 disabled:bg-gray-100"
+              icon="mail"
+              aria-label="Email"
               placeholder="admin@example.com"
             />
-          </div>
+          </label>
 
-          {/* Password field */}
-          <div className="mb-6">
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Password
-            </label>
-            <input
+          {/* Password */}
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600, letterSpacing: "0.10em", textTransform: "uppercase", color: "var(--muted)" }}>PASSWORD</span>
+            <Input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading}
               autoComplete="current-password"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-600 disabled:opacity-50 disabled:bg-gray-100"
+              icon="lock"
+              aria-label="Password"
             />
-          </div>
+          </label>
 
-          {/* Submit button */}
-          <button
+          {/* Error message — SEC-06 compliant, generic strings only */}
+          {errorMessage && (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                color: "var(--danger-ink)",
+                background: "var(--danger-bg)",
+                border: "1px solid var(--danger-border)",
+                padding: "8px 12px",
+                borderRadius: "var(--r-sm)",
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+              }}
+            >
+              {errorMessage}
+            </div>
+          )}
+
+          {/* Authenticate button */}
+          <Btn
             type="submit"
+            variant="accent"
+            size="lg"
             disabled={isSubmitDisabled}
-            className="w-full py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            style={{ width: "100%", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", minHeight: 48 }}
           >
             {isLoading
               ? "Signing in..."
               : isRateLimited
               ? `Try again in ${rateLimitCountdown}s`
-              : "Sign In"}
-          </button>
+              : "AUTHENTICATE"}
+          </Btn>
         </form>
+
+        {/* Security hint */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="shield" size={12} aria-hidden={true} style={{ color: "var(--muted)", flexShrink: 0 }} />
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", letterSpacing: "0.04em" }}>
+            ARGON2ID · 24H_SESSION · IP_RATELIMITED
+          </span>
+        </div>
+
+        {/* Footer */}
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted-2)", letterSpacing: "0.02em" }}>
+          BUILD_HASH: 0000000 · {new Date().getFullYear()} / STATUS: OK
+        </div>
       </div>
     </div>
   );
