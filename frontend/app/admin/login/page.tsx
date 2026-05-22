@@ -108,7 +108,7 @@ export default function LoginPage() {
         }}>W</div>
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600, letterSpacing: "0.02em" }}>WLK.CONSOLE</span>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", letterSpacing: "0.05em" }}>BENGALURU · v2.4.1</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", letterSpacing: "0.05em" }}>BENGALURU · v0.1.0</span>
         </div>
       </div>
 
