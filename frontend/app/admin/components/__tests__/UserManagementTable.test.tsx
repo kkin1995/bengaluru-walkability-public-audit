@@ -6,10 +6,10 @@
  *                 is_active, last_login_at, and a deactivate button.
  *   R-COMP-9    — Deactivate button must be visually disabled and non-interactive for the
  *                 row corresponding to the currently authenticated user.
- *   R-COMP-10   — Role badge: blue for admin, gray for reviewer.
+ *   R-COMP-10   — Role badge: accent tone for admin, neutral tone for reviewer.
  *
  * AC-UP-2-S1   — Table renders all required columns; self-row deactivate button is disabled.
- * AC-UP-2-S2   — Role badges carry correct colour classes.
+ * AC-UP-2-S2   — Role badges carry correct data-tone attributes (migrated from Tailwind class assertions).
  *
  * Additional requirements from task specification:
  *   - Renders one row per user
@@ -152,11 +152,11 @@ describe("R-UP-2 / R-COMP-10 — UserManagementTable: role badge text", () => {
 });
 
 // ---------------------------------------------------------------------------
-// R-COMP-10 — Role badge colour classes
+// R-COMP-10 — Role badge data-tone attributes (migrated from Tailwind class assertions)
 // ---------------------------------------------------------------------------
 
-describe("R-COMP-10 / AC-UP-2-S2 — UserManagementTable: role badge colour classes", () => {
-  it('admin role badge carries a blue colour class (bg-blue-* or text-blue-*)', () => {
+describe("R-COMP-10 / AC-UP-2-S2 — UserManagementTable: role badge data-tone", () => {
+  it('admin role badge carries data-tone="accent"', () => {
     render(
       <UserManagementTable
         users={[OTHER_ADMIN]}
@@ -165,13 +165,12 @@ describe("R-COMP-10 / AC-UP-2-S2 — UserManagementTable: role badge colour clas
       />
     );
     const adminBadge = screen.getByText(/^admin$/i);
-    const blueClasses = adminBadge.className
-      .split(/\s+/)
-      .filter((c) => c.includes("blue"));
-    expect(blueClasses.length).toBeGreaterThan(0);
+    // Walk up to the [data-component="pill"] wrapper
+    const pill = adminBadge.closest('[data-component="pill"]') ?? adminBadge;
+    expect(pill).toHaveAttribute("data-tone", "accent");
   });
 
-  it('reviewer role badge carries a gray colour class (bg-gray-* or text-gray-*)', () => {
+  it('reviewer role badge carries data-tone="neutral"', () => {
     render(
       <UserManagementTable
         users={[REVIEWER_USER]}
@@ -180,10 +179,8 @@ describe("R-COMP-10 / AC-UP-2-S2 — UserManagementTable: role badge colour clas
       />
     );
     const reviewerBadge = screen.getByText(/^reviewer$/i);
-    const grayClasses = reviewerBadge.className
-      .split(/\s+/)
-      .filter((c) => c.includes("gray"));
-    expect(grayClasses.length).toBeGreaterThan(0);
+    const pill = reviewerBadge.closest('[data-component="pill"]') ?? reviewerBadge;
+    expect(pill).toHaveAttribute("data-tone", "neutral");
   });
 });
 
