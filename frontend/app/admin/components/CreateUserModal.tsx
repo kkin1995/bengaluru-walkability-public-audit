@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { createUser, type AdminUser } from "../lib/adminApi";
+import { Card } from "./Card";
+import { Btn } from "./Btn";
+import { Input } from "./Input";
+import { SectionLabel } from "./SectionLabel";
 
 interface CreateUserModalProps {
   isOpen: boolean;
@@ -67,7 +71,7 @@ export default function CreateUserModal({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("409")) {
-        setErrors({ api: "Email already exists" });
+        setErrors({ api: "An account with this email already exists." });
       } else {
         setErrors({ api: "Something went wrong. Please try again." });
       }
@@ -76,109 +80,212 @@ export default function CreateUserModal({
     }
   }
 
+  function generatePassword() {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let pwd = "";
+    for (let i = 0; i < 16; i++) {
+      pwd += chars[Math.floor(Math.random() * chars.length)];
+    }
+    setPassword(pwd);
+  }
+
   return (
+    /* Backdrop */
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-user-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        background: "rgba(10,10,10,0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+      onClick={onClose}
     >
-      <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-md mx-4">
-        <h2 id="create-user-title" className="text-lg font-semibold text-gray-900 mb-4">
-          Add User
-        </h2>
-
-        {errors.api && (
-          <div
-            role="alert"
-            className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"
-          >
-            {errors.api}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="mb-4">
-            <label htmlFor="cu-email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              id="cu-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            />
-            {errors.email && (
-              <p className="mt-1 text-xs text-red-600">{errors.email}</p>
-            )}
-          </div>
-
-          <div className="mb-4">
-            <label htmlFor="cu-password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              id="cu-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            />
-            {errors.password && (
-              <p className="mt-1 text-xs text-red-600">{errors.password}</p>
-            )}
-          </div>
-
-          <div className="mb-4">
-            <label htmlFor="cu-role" className="block text-sm font-medium text-gray-700 mb-1">
-              Role
-            </label>
-            <select
-              id="cu-role"
-              value={role}
-              onChange={(e) => setRole(e.target.value as "admin" | "reviewer" | "")}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+      {/* Modal card — click inside does not close */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 480,
+        }}
+      >
+        <Card
+          style={{
+            borderRadius: "var(--r-xl)",
+            boxShadow: "var(--shadow-lg)",
+            padding: 24,
+          }}
+        >
+          {/* Header */}
+          <div style={{ marginBottom: 20 }}>
+            <h2
+              id="create-user-title"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "var(--ink)",
+                margin: 0,
+              }}
             >
-              <option value="">Select a role</option>
-              <option value="admin">Admin</option>
-              <option value="reviewer">Reviewer</option>
-            </select>
-            {errors.role && (
-              <p className="mt-1 text-xs text-red-600">{errors.role}</p>
-            )}
+              NEW USER
+            </h2>
           </div>
 
-          <div className="mb-6">
-            <label htmlFor="cu-display-name" className="block text-sm font-medium text-gray-700 mb-1">
-              Display Name (optional)
-            </label>
-            <input
-              id="cu-display-name"
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            />
-          </div>
+          {/* API error */}
+          {errors.api && (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                marginBottom: 16,
+                padding: "10px 14px",
+                background: "var(--danger-bg)",
+                border: "1px solid var(--danger-border)",
+                borderRadius: "var(--r-md)",
+                color: "var(--danger-ink)",
+                fontFamily: "var(--font-sans)",
+                fontSize: 13,
+              }}
+            >
+              {errors.api}
+            </div>
+          )}
 
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+          <form onSubmit={handleSubmit} noValidate>
+            {/* EMAIL field */}
+            <div style={{ marginBottom: 14 }}>
+              <SectionLabel style={{ marginBottom: 6 }}>EMAIL</SectionLabel>
+              <Input
+                icon="mail"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@example.com"
+                aria-label="Email address"
+              />
+              {errors.email && (
+                <p style={{ marginTop: 4, fontSize: 11, color: "var(--danger-ink)", fontFamily: "var(--font-sans)" }}>
+                  {errors.email}
+                </p>
+              )}
+            </div>
+
+            {/* DISPLAY_NAME field */}
+            <div style={{ marginBottom: 14 }}>
+              <SectionLabel style={{ marginBottom: 6 }}>DISPLAY_NAME</SectionLabel>
+              <Input
+                icon="user"
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Full name (optional)"
+                aria-label="Display name"
+              />
+            </div>
+
+            {/* ROLE toggle — two Btn group */}
+            <div style={{ marginBottom: 14 }}>
+              <SectionLabel style={{ marginBottom: 6 }}>ROLE</SectionLabel>
+              <div style={{ display: "flex", gap: 6 }}>
+                <Btn
+                  type="button"
+                  variant={role === "admin" ? "accent" : "ghost"}
+                  size="sm"
+                  onClick={() => setRole("admin")}
+                  style={{ flex: 1 }}
+                >
+                  ADMIN
+                </Btn>
+                <Btn
+                  type="button"
+                  variant={role === "reviewer" ? "accent" : "ghost"}
+                  size="sm"
+                  onClick={() => setRole("reviewer")}
+                  style={{ flex: 1 }}
+                >
+                  REVIEWER
+                </Btn>
+              </div>
+              {errors.role && (
+                <p style={{ marginTop: 4, fontSize: 11, color: "var(--danger-ink)", fontFamily: "var(--font-sans)" }}>
+                  {errors.role}
+                </p>
+              )}
+            </div>
+
+            {/* INITIAL_PASSWORD field with Generate button */}
+            <div style={{ marginBottom: 8 }}>
+              <SectionLabel style={{ marginBottom: 6 }}>INITIAL_PASSWORD</SectionLabel>
+              <Input
+                icon="lock"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Min. 12 characters"
+                aria-label="Initial password"
+                suffix={
+                  <Btn
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={generatePassword}
+                    style={{ padding: "4px 8px", minHeight: 28, fontSize: 11 }}
+                  >
+                    Generate
+                  </Btn>
+                }
+              />
+              {errors.password && (
+                <p style={{ marginTop: 4, fontSize: 11, color: "var(--danger-ink)", fontFamily: "var(--font-sans)" }}>
+                  {errors.password}
+                </p>
+              )}
+            </div>
+
+            {/* Password hint — EXACT UI-SPEC string */}
+            <p
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                color: "var(--muted)",
+                marginBottom: 20,
+                letterSpacing: "0.01em",
+              }}
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-            >
-              {isSubmitting ? "Creating..." : "Create User"}
-            </button>
-          </div>
-        </form>
+              {`// MIN 12 · ARGON2ID · CHANGE_ON_FIRST_LOGIN`}
+            </p>
+
+            {/* Footer: Cancel + CREATE USER */}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <Btn
+                type="button"
+                variant="ghost"
+                size="md"
+                onClick={onClose}
+              >
+                Cancel
+              </Btn>
+              <Btn
+                type="submit"
+                variant="accent"
+                size="md"
+                iconRight="arrow_right"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Creating..." : "CREATE USER"}
+              </Btn>
+            </div>
+          </form>
+        </Card>
       </div>
     </div>
   );
