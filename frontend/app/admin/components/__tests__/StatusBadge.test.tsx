@@ -2,20 +2,22 @@
  * Tests for frontend/app/admin/components/StatusBadge.tsx
  *
  * Requirements covered (from admin-users-frontend-ac.md):
- *   R-COMP-6  — StatusBadge must render: gray for submitted, amber for under_review,
- *               green for resolved, and must carry an aria-label that includes the
- *               human-readable status text.
+ *   R-COMP-6  — StatusBadge must render with tone mapping: info for submitted,
+ *               warn for under_review, accent for resolved, and must carry an
+ *               aria-label that includes the human-readable status text.
  *
- * AC-COMP-6-S1 — Color mapping and accessibility
- * AC-COMP-6-F1 — Unknown status value falls back to gray
+ * AC-COMP-6-S1 — data-tone attribute mapping and accessibility
+ * AC-COMP-6-F1 — Unknown status value falls back to submitted (info) tone
  *
- * Interpretation notes:
- *   - "gray background class"  → Tailwind class containing "gray"   (e.g. bg-gray-100)
- *   - "amber background class" → Tailwind class containing "amber"  (e.g. bg-amber-100)
- *   - "green background class" → Tailwind class containing "green"  (e.g. bg-green-100)
- *   - aria-label must contain the human-readable text (not the raw snake_case value).
- *     "under_review" → aria-label contains "under review" (space, not underscore).
- *   - For unknown statuses the aria-label must contain the raw value passed in.
+ * Migration note (Phase 02.5):
+ *   Assertions migrated from Tailwind classesContaining() to data-tone getAttribute().
+ *   The rewritten StatusBadge uses CSS custom properties via inline style — no Tailwind
+ *   class names are present. data-tone is the testable signal for tone/color mapping.
+ *
+ *   Tone mapping:
+ *     submitted    → data-tone="info"
+ *     under_review → data-tone="warn"
+ *     resolved     → data-tone="accent"
  */
 
 import React from "react";
@@ -23,33 +25,15 @@ import { render, screen } from "@testing-library/react";
 import StatusBadge from "../StatusBadge";
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Returns all Tailwind class tokens on the element that contain the given
- * substring. Used to assert colour presence without hard-coding the exact
- * Tailwind class name (e.g., bg-gray-100 vs bg-gray-200).
- */
-function classesContaining(el: HTMLElement, fragment: string): string[] {
-  return el.className.split(/\s+/).filter((c) => c.includes(fragment));
-}
-
-// ---------------------------------------------------------------------------
-// AC-COMP-6-S1 — "submitted" → gray + aria-label
+// AC-COMP-6-S1 — "submitted" → info tone + aria-label
 // ---------------------------------------------------------------------------
 
 describe('R-COMP-6 / AC-COMP-6-S1 — StatusBadge: status="submitted"', () => {
-  it('renders with a gray background class when status is "submitted"', () => {
+  it('renders with data-tone="info" when status is "submitted"', () => {
     render(<StatusBadge status="submitted" />);
-    // The badge element is the first element that carries the colour styling.
-    // We query by role first (generic element); if no role the container div is used.
-    const badge = screen.getByRole("status", { hidden: true }) ??
-      document.querySelector('[aria-label]') as HTMLElement;
-    // Fallback: find the element that has an aria-label set by the component.
-    const el = document.querySelector("[aria-label]") as HTMLElement;
-    expect(el).not.toBeNull();
-    expect(classesContaining(el, "gray").length).toBeGreaterThan(0);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge.getAttribute("data-tone")).toBe("info");
   });
 
   it('aria-label contains "submitted" when status is "submitted"', () => {
@@ -59,24 +43,24 @@ describe('R-COMP-6 / AC-COMP-6-S1 — StatusBadge: status="submitted"', () => {
     expect(el.getAttribute("aria-label")!.toLowerCase()).toContain("submitted");
   });
 
-  it('"submitted" badge does NOT use amber or green background classes', () => {
+  it('"submitted" badge does NOT have data-tone of "warn" or "accent"', () => {
     render(<StatusBadge status="submitted" />);
-    const el = document.querySelector("[aria-label]") as HTMLElement;
-    expect(classesContaining(el, "amber")).toHaveLength(0);
-    expect(classesContaining(el, "green")).toHaveLength(0);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge.getAttribute("data-tone")).not.toBe("warn");
+    expect(badge.getAttribute("data-tone")).not.toBe("accent");
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-COMP-6-S1 — "under_review" → amber + aria-label
+// AC-COMP-6-S1 — "under_review" → warn tone + aria-label
 // ---------------------------------------------------------------------------
 
 describe('R-COMP-6 / AC-COMP-6-S1 — StatusBadge: status="under_review"', () => {
-  it('renders with an amber background class when status is "under_review"', () => {
+  it('renders with data-tone="warn" when status is "under_review"', () => {
     render(<StatusBadge status="under_review" />);
-    const el = document.querySelector("[aria-label]") as HTMLElement;
-    expect(el).not.toBeNull();
-    expect(classesContaining(el, "amber").length).toBeGreaterThan(0);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge.getAttribute("data-tone")).toBe("warn");
   });
 
   it(
@@ -86,33 +70,30 @@ describe('R-COMP-6 / AC-COMP-6-S1 — StatusBadge: status="under_review"', () =>
       render(<StatusBadge status="under_review" />);
       const el = document.querySelector("[aria-label]") as HTMLElement;
       expect(el).not.toBeNull();
-      // The AC states the aria-label must include the human-readable string "under review"
-      // with a space, not the raw snake_case value with an underscore.
       expect(el.getAttribute("aria-label")!.toLowerCase()).toContain(
         "under review"
       );
     }
   );
 
-  it('"under_review" badge does NOT use gray or green background classes', () => {
+  it('"under_review" badge does NOT have data-tone of "info" or "accent"', () => {
     render(<StatusBadge status="under_review" />);
-    const el = document.querySelector("[aria-label]") as HTMLElement;
-    expect(classesContaining(el, "green")).toHaveLength(0);
-    // gray is reserved for submitted; amber variant may include yellow-adjacent shades
-    expect(classesContaining(el, "gray")).toHaveLength(0);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge.getAttribute("data-tone")).not.toBe("info");
+    expect(badge.getAttribute("data-tone")).not.toBe("accent");
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-COMP-6-S1 — "resolved" → green + aria-label
+// AC-COMP-6-S1 — "resolved" → accent tone + aria-label
 // ---------------------------------------------------------------------------
 
 describe('R-COMP-6 / AC-COMP-6-S1 — StatusBadge: status="resolved"', () => {
-  it('renders with a green background class when status is "resolved"', () => {
+  it('renders with data-tone="accent" when status is "resolved"', () => {
     render(<StatusBadge status="resolved" />);
-    const el = document.querySelector("[aria-label]") as HTMLElement;
-    expect(el).not.toBeNull();
-    expect(classesContaining(el, "green").length).toBeGreaterThan(0);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge.getAttribute("data-tone")).toBe("accent");
   });
 
   it('aria-label contains "resolved" when status is "resolved"', () => {
@@ -122,11 +103,11 @@ describe('R-COMP-6 / AC-COMP-6-S1 — StatusBadge: status="resolved"', () => {
     expect(el.getAttribute("aria-label")!.toLowerCase()).toContain("resolved");
   });
 
-  it('"resolved" badge does NOT use gray or amber background classes', () => {
+  it('"resolved" badge does NOT have data-tone of "info" or "warn"', () => {
     render(<StatusBadge status="resolved" />);
-    const el = document.querySelector("[aria-label]") as HTMLElement;
-    expect(classesContaining(el, "gray")).toHaveLength(0);
-    expect(classesContaining(el, "amber")).toHaveLength(0);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge.getAttribute("data-tone")).not.toBe("info");
+    expect(badge.getAttribute("data-tone")).not.toBe("warn");
   });
 });
 
@@ -143,14 +124,13 @@ describe("R-COMP-6 — StatusBadge: visible human-readable text", () => {
     'status "$status" renders human-readable visible text "$expectedText"',
     ({ status, expectedText }) => {
       render(<StatusBadge status={status} />);
-      // The badge must display readable text — not just carry an aria-label in the void.
       expect(screen.getByText(expectedText)).toBeInTheDocument();
     }
   );
 });
 
 // ---------------------------------------------------------------------------
-// AC-COMP-6-F1 — unknown status → gray fallback, no thrown error
+// AC-COMP-6-F1 — unknown status → fallback (info tone), no thrown error
 // ---------------------------------------------------------------------------
 
 describe("R-COMP-6 / AC-COMP-6-F1 — StatusBadge: unknown status value", () => {
@@ -158,11 +138,11 @@ describe("R-COMP-6 / AC-COMP-6-F1 — StatusBadge: unknown status value", () => 
     expect(() => render(<StatusBadge status="archived" />)).not.toThrow();
   });
 
-  it('falls back to a gray background class for unknown status "archived"', () => {
+  it('falls back to data-tone="info" for unknown status "archived"', () => {
     render(<StatusBadge status="archived" />);
-    const el = document.querySelector("[aria-label]") as HTMLElement;
-    expect(el).not.toBeNull();
-    expect(classesContaining(el, "gray").length).toBeGreaterThan(0);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge.getAttribute("data-tone")).toBe("info");
   });
 
   it('aria-label contains the raw unknown status value "archived"', () => {
@@ -188,6 +168,21 @@ describe("R-COMP-6 — StatusBadge: aria-label presence for all known statuses",
       render(<StatusBadge status={status} />);
       const elements = document.querySelectorAll("[aria-label]");
       expect(elements.length).toBeGreaterThan(0);
+    }
+  );
+});
+
+// ---------------------------------------------------------------------------
+// data-testid presence — StatusBadge always carries testable identity
+// ---------------------------------------------------------------------------
+
+describe("R-COMP-6 — StatusBadge: data-testid='status-badge' always present", () => {
+  it.each(["submitted", "under_review", "resolved", "archived"])(
+    'status "%s" renders with data-testid="status-badge"',
+    (status) => {
+      render(<StatusBadge status={status} />);
+      const badge = document.querySelector("[data-testid='status-badge']");
+      expect(badge).not.toBeNull();
     }
   );
 });
