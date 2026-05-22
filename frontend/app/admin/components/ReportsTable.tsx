@@ -305,8 +305,15 @@ function CardStreamRow({ report, role, onStatusChange, onDelete, onUpdateStatus,
               color: "var(--muted)",
               letterSpacing: "0.04em",
               marginBottom: 4,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
             }}>
-              {report.ward_name ?? "—"}{report.location_source ? ` · ${report.location_source.toUpperCase()}` : ""}
+              {/* "Ward" label (accessible column label for card layout — required by WARD-01) */}
+              <span style={{ color: "var(--muted-2)", fontWeight: 400 }}>Ward</span>
+              {/* Ward value in its own span so tests can getByText(ward_name) */}
+              <span style={{ fontWeight: 600, color: "var(--ink-2)" }}>{report.ward_name ?? "—"}</span>
+              {report.location_source && <span style={{ color: "var(--muted)" }}>· {report.location_source.toUpperCase()}</span>}
             </div>
             {report.description && (
               <div style={{
