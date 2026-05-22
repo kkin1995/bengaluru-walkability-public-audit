@@ -353,16 +353,6 @@ function CardStreamRow({ report, role, onStatusChange, onDelete, onUpdateStatus,
                 onToggle={onToggleExpand}
               />
             )}
-            {dupCount === 0 && (
-              <Pill tone="neutral" size="sm" style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}>
-                NO_DUPES
-              </Pill>
-            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <Btn
