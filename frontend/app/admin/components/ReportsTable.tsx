@@ -458,12 +458,13 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
             display: "flex",
             gap: 6,
             alignItems: "center",
+            overflow: "hidden",
           }}>
-            <span style={{ fontWeight: 600, color: "var(--ink-2)" }}>
+            <span style={{ fontWeight: 600, color: "var(--ink-2)", flexShrink: 0 }}>
               WLK-{report.id.slice(0, 5).toUpperCase()}
             </span>
-            <span>{report.ward_name ?? "—"}</span>
-            <span>{getRelativeTime(report.created_at)}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 1, minWidth: 0 }}>{report.ward_name ?? "—"}</span>
+            <span style={{ flexShrink: 0 }}>{getRelativeTime(report.created_at)}</span>
             {/* ABUSE-06: Duplicate label */}
             {report.duplicate_of_id && (
               <span
