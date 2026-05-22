@@ -147,7 +147,7 @@ Plans:
 Plans:
 - [x] 02.5-01-PLAN.md — Token layer + font setup + primitives (tokens.css → CSS vars, next/font for Inter + JetBrains Mono + Noto Sans Kannada, shared admin components)
 - [x] 02.5-02-PLAN.md — Login + Dashboard screens (mobile + desktop, light + dark)
-- [ ] 02.5-03-PLAN.md — Reports list (card stream + compact rows) + Report detail screen
+- [x] 02.5-03-PLAN.md — Reports list (card stream + compact rows) + Report detail screen
 - [ ] 02.5-04-PLAN.md — Map view + Users management + Organizations + Profile + Empty/Error states
 
 ### Phase 02.3.1: Implement Walkable BLR UI redesign from design file on separate branch (INSERTED)
@@ -253,6 +253,6 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.3.2 Frontend Gap-fill | 3/3 | Complete | 2026-04-25 |
 | 2.4 Self-Hosted Infrastructure | 4/4 | Complete | 2026-05-20 |
 | 2.4.1 Security Hardening | 3/3 | Complete   | 2026-05-20 |
-| 2.5 Admin Portal UI Redesign | 2/4 | In Progress|  |
+| 2.5 Admin Portal UI Redesign | 3/4 | In Progress|  |
 | 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
