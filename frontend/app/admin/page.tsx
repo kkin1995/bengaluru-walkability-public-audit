@@ -251,7 +251,7 @@ export default function AdminDashboard() {
           width: 6,
           height: 6,
           borderRadius: "50%",
-          background: isOnline ? "var(--sev-low)" : "var(--muted)",
+          background: isOnline ? "#22c55e" : "var(--muted)",
           display: "inline-block",
         }}
       />
