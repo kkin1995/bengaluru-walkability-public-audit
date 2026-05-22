@@ -108,11 +108,11 @@ describe("ReportsTable: row rendering", () => {
         onDelete={jest.fn()}
       />
     );
-    expect(screen.getByText("high")).toBeInTheDocument();
+    expect(screen.getByText(/high/i)).toBeInTheDocument();
   });
 
   it("renders status text in each row", () => {
-    render(
+    const { container } = render(
       <ReportsTable
         reports={[REPORT_A]}
         role="admin"
@@ -122,6 +122,14 @@ describe("ReportsTable: row rendering", () => {
     );
     // Status may be rendered via StatusBadge or plain text; either way "submitted" must appear.
     expect(screen.getByText(/submitted/i)).toBeInTheDocument();
+    // Direction B migration: assert by data-testid="status-badge" and data-* attributes
+    // (replaces former Tailwind className assertions)
+    const badge = container.querySelector('[data-testid="status-badge"]');
+    expect(badge).not.toBeNull();
+    // data-tone="info" for submitted status (replaces bg-amber / bg-blue Tailwind assertions)
+    expect(badge!.getAttribute("data-tone")).toBe("info");
+    // data-status carries the raw status value
+    expect(badge!.getAttribute("data-status")).toBe("submitted");
   });
 
   it("renders category, severity, and status for all three reports simultaneously", () => {
@@ -135,13 +143,13 @@ describe("ReportsTable: row rendering", () => {
     );
     // REPORT_A
     expect(screen.getByText("Damaged Footpath")).toBeInTheDocument();
-    expect(screen.getByText("high")).toBeInTheDocument();
+    expect(screen.getByText(/high/i)).toBeInTheDocument();
     // REPORT_B
     expect(screen.getByText("Poor Lighting")).toBeInTheDocument();
-    expect(screen.getByText("low")).toBeInTheDocument();
+    expect(screen.getByText(/low/i)).toBeInTheDocument();
     // REPORT_C
     expect(screen.getByText("Unsafe Crossing")).toBeInTheDocument();
-    expect(screen.getByText("medium")).toBeInTheDocument();
+    expect(screen.getByText(/medium/i)).toBeInTheDocument();
   });
 });
 
@@ -162,6 +170,9 @@ describe("R-RPT-3 / AC-RPT-3-S1 — ReportsTable: delete button visibility per r
     // There must be at least one delete button per report.
     const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
     expect(deleteButtons.length).toBeGreaterThanOrEqual(THREE_REPORTS.length);
+    // Direction B: delete buttons carry data-testid="delete-button" for role-gated assertions
+    const deleteByTestId = document.querySelectorAll('[data-testid="delete-button"]');
+    expect(deleteByTestId.length).toBeGreaterThanOrEqual(THREE_REPORTS.length);
   });
 
   it("reviewer role: delete button is NOT present anywhere in the DOM", () => {
