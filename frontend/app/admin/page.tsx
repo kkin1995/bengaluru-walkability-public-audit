@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { getStats, type AdminStats } from "./lib/adminApi";
 import { useOnlineStatus } from "./lib/useOnlineStatus";
 import { getCategoryLabel } from "@/app/lib/translations";
@@ -28,6 +29,7 @@ const STUB_ACTIVITY: { time: string; action: string; category: string }[] = [
 const STUB_SPARKBARS = [3, 5, 2, 8, 6, 4, 9, 7, 5, 3, 6, 8, 4, 5];
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -302,7 +304,7 @@ export default function AdminDashboard() {
         >
           {statsForCards ? `+${statsForCards.submitted} today` : "—"}
         </div>
-        <Btn variant="accent" size="lg" style={{ width: "100%" }}>
+        <Btn variant="accent" size="lg" style={{ width: "100%" }} onClick={() => router.push("/admin/reports")}>
           Start reviewing
         </Btn>
       </Card>
