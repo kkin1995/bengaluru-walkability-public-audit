@@ -1,63 +1,111 @@
 "use client";
 
-interface StatusBadgeProps {
+import type { CSSProperties } from "react";
+
+export type StatusValue = "submitted" | "under_review" | "resolved";
+
+export interface StatusBadgeProps {
   status: string;
+  monoLabel?: boolean;
+  size?: "sm" | "md";
 }
 
-const STATUS_CONFIG: Record<
-  string,
-  { label: string; className: string; ariaLabel: string }
-> = {
+interface StatusMeta {
+  tone: "info" | "warn" | "accent";
+  dot: string;
+  label: string;
+  ariaLabel: string;
+  toneStyle: CSSProperties;
+}
+
+const STATUS_MAP: Record<string, StatusMeta> = {
   submitted: {
+    tone: "info",
+    dot: "var(--status-submitted)",
     label: "Submitted",
-    className:
-      "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800",
     ariaLabel: "Status: submitted",
+    toneStyle: {
+      background: "var(--info-bg)",
+      color: "var(--info-ink)",
+      border: "1px solid var(--info-border)",
+    },
   },
   under_review: {
+    tone: "warn",
+    dot: "var(--status-review)",
     label: "Under Review",
-    className:
-      "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800",
     ariaLabel: "Status: under review",
+    toneStyle: {
+      background: "var(--warn-bg)",
+      color: "var(--warn-ink)",
+      border: "1px solid var(--warn-border)",
+    },
   },
   resolved: {
+    tone: "accent",
+    dot: "var(--status-resolved)",
     label: "Resolved",
-    className:
-      "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800",
     ariaLabel: "Status: resolved",
+    toneStyle: {
+      background: "var(--accent-bg)",
+      color: "var(--accent-ink)",
+      border: "1px solid var(--accent-border)",
+    },
   },
 };
 
-const FALLBACK_CONFIG = {
-  className:
-    "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800",
+const SIZE_STYLE: Record<"sm" | "md", CSSProperties> = {
+  sm: { padding: "2px 8px",  fontSize: 11, borderRadius: "var(--r-full)" },
+  md: { padding: "4px 10px", fontSize: 12, borderRadius: "var(--r-full)" },
 };
 
-export default function StatusBadge({ status }: StatusBadgeProps) {
-  const config = STATUS_CONFIG[status];
+function StatusBadge({ status, monoLabel = false, size = "md" }: StatusBadgeProps): JSX.Element {
+  const known = STATUS_MAP[status];
+  // For unknown statuses: fall back to info tone but use the raw status value in aria-label
+  const m = known ?? {
+    ...STATUS_MAP.submitted,
+    ariaLabel: `Status: ${status}`,
+    label: status,
+    dot: "var(--status-submitted)",
+  };
 
-  if (config) {
-    return (
-      <span
-        data-testid="status-badge"
-        role="status"
-        className={config.className}
-        aria-label={config.ariaLabel}
-      >
-        {config.label}
-      </span>
-    );
-  }
+  const monoStyle: CSSProperties = monoLabel
+    ? { fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.02em", textTransform: "uppercase" }
+    : {};
 
-  // Unknown status fallback — gray, aria-label contains raw value
   return (
     <span
+      data-component="status-badge"
       data-testid="status-badge"
+      data-tone={m.tone}
+      data-status={status}
       role="status"
-      className={FALLBACK_CONFIG.className}
-      aria-label={`Status: ${status}`}
+      aria-label={m.ariaLabel}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        fontWeight: 500,
+        lineHeight: 1,
+        whiteSpace: "nowrap",
+        ...SIZE_STYLE[size],
+        ...m.toneStyle,
+        ...monoStyle,
+      }}
     >
-      {status}
+      <span
+        aria-hidden="true"
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: 999,
+          background: m.dot,
+          flexShrink: 0,
+        }}
+      />
+      {m.label}
     </span>
   );
 }
+
+export default StatusBadge;
