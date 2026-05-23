@@ -283,7 +283,7 @@ function CardStreamRow({ report, role, onStatusChange, onDelete, onUpdateStatus,
           <PhotoTile
             size={64}
             radius="var(--r-xs)"
-            src={report.image_url}
+            src={report.image_url || (report.image_path ? `/uploads/${report.image_path}` : undefined)}
             alt={`Citizen-submitted photo of ${categoryLabel} at ${report.ward_name ?? "unknown ward"}`}
             style={{ flexShrink: 0 }}
           />
@@ -425,7 +425,7 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
         <PhotoTile
           size={44}
           radius="var(--r-xs)"
-          src={report.image_url}
+          src={report.image_url || (report.image_path ? `/uploads/${report.image_path}` : undefined)}
           alt={`Photo of ${categoryLabel}`}
           style={{ flexShrink: 0 }}
         />
@@ -921,7 +921,7 @@ export default function ReportsTable({
                         <PhotoTile
                           size={32}
                           radius="var(--r-xs)"
-                          src={report.image_url}
+                          src={report.image_url || (report.image_path ? `/uploads/${report.image_path}` : undefined)}
                           alt=""
                         />
                         <span style={{
