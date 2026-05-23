@@ -58,8 +58,7 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        router.replace("/admin");
-        router.refresh();
+        window.location.href = "/admin";
         return;
       }
 
@@ -165,7 +164,7 @@ export default function LoginPage() {
               disabled={isLoading}
               autoComplete="email"
               icon="mail"
-              placeholder="you@gba.gov.in"
+              placeholder="you@nammadaari.com"
               style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
             />
           </div>

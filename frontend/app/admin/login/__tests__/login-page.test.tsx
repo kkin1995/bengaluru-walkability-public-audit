@@ -4,7 +4,7 @@
  * Requirements covered:
  *   R-LGN-1 (AC-LGN-1-S1) — Form renders email input, password input, submit button
  *   R-LGN-1 (AC-LGN-1-S1) — POST /api/admin/auth/login with credentials:'include' and JSON body
- *   R-LGN-1 (AC-LGN-1-S1) — On 200: redirect to /admin via router.replace + router.refresh
+ *   R-LGN-1 (AC-LGN-1-S1) — On 200: redirect to /admin via window.location.href (full nav, Safari cookie fix)
  *   R-LGN-2 (AC-LGN-2-F1) — On 401: SEC-06 generic error "Incorrect email or password.";
  *                             no alert(); password field cleared; email field retained
  *   R-LGN-2 (AC-LGN-2-F2) — On 429: SEC-06 generic error + 60s countdown; button disabled
@@ -248,12 +248,30 @@ describe("T3: fetch call shape", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// T4 — On 200 success: redirects to /admin via router.replace + router.refresh
+// T4 — On 200 success: navigates to /admin via window.location.href
 // Requirement: R-LGN-1 (AC-LGN-1-S1)
+// Safari on iOS processes Set-Cookie headers asynchronously; the RSC fetch
+// triggered by router.replace fires before the cookie is committed, causing a
+// 307 redirect loop. Full browser navigation (window.location.href) guarantees
+// cookie storage completes before the new request fires.
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("T4: 200 success — redirect to /admin", () => {
-  it("calls router.replace('/admin') and router.refresh() after a successful login response", async () => {
+  // jsdom does not implement navigation; replace window.location with a plain
+  // writable stub so href assignments can be asserted without throwing.
+  beforeAll(() => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: { href: "" },
+    });
+  });
+
+  beforeEach(() => {
+    (window.location as { href: string }).href = "";
+  });
+
+  it("sets window.location.href to '/admin' after a successful login response", async () => {
     jest.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -267,11 +285,8 @@ describe("T4: 200 success — redirect to /admin", () => {
     });
 
     await waitFor(() => {
-      // router.replace must be called with '/admin' after successful login
-      expect(mockReplace).toHaveBeenCalledWith("/admin");
+      expect(window.location.href).toBe("/admin");
     });
-    // router.refresh must also be called to invalidate the RSC cache
-    expect(mockRefresh).toHaveBeenCalled();
   });
 
   it("does NOT show any error message after a successful login", async () => {
@@ -288,11 +303,10 @@ describe("T4: 200 success — redirect to /admin", () => {
     });
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/admin");
+      expect(window.location.href).toBe("/admin");
     });
 
     // No error message should appear in the DOM after a success
-    // No error status region must be present after a successful login
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });
