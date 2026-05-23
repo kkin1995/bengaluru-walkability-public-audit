@@ -82,11 +82,9 @@ export default function CreateUserModal({
 
   function generatePassword() {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-    let pwd = "";
-    for (let i = 0; i < 16; i++) {
-      pwd += chars[Math.floor(Math.random() * chars.length)];
-    }
-    setPassword(pwd);
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    setPassword(Array.from(bytes).map((b) => chars[b % chars.length]).join(""));
   }
 
   return (
