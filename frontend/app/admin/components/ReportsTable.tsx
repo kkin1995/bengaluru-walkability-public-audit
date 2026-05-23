@@ -228,15 +228,20 @@ function CardStreamRow({ report, role, onStatusChange, onDelete, onUpdateStatus,
           gap: 8,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              fontWeight: 600,
-              color: "var(--ink-2)",
-              letterSpacing: "-0.01em",
-            }}>
+            <a
+              href={`/admin/reports/${report.id}`}
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                fontWeight: 600,
+                color: "var(--ink-2)",
+                letterSpacing: "-0.01em",
+                textDecoration: "underline",
+                textDecorationColor: "var(--muted)",
+              }}
+            >
               WLK-{report.id.slice(0, 5).toUpperCase()}
-            </span>
+            </a>
             {/* ABUSE-06: Duplicate label for reports that are duplicates */}
             {report.duplicate_of_id && (
               <span
