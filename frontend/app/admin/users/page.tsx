@@ -113,6 +113,7 @@ export default function UsersPage(props: PageProps) {
         maxWidth: 1400,
         marginLeft: "auto",
         marginRight: "auto",
+        paddingBottom: 80,
       }}
     >
       {offlineBanner}

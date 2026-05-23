@@ -140,7 +140,7 @@ export default function UserManagementTable({
                 whiteSpace: "nowrap",
               }}
             >
-              LAST_LOGIN
+              Last login
             </th>
             <th
               scope="col"
