@@ -149,9 +149,10 @@ describe("ReportsTable sub-table: structure", () => {
 
   it("renders a 'Category' column header in the sub-table thead", async () => {
     await renderAndExpand();
-    // 'Category' appears in main thead and sub-table thead
+    // 'Category' appears in sub-table thead. In card-stream mode (default for tests),
+    // the main table is not rendered, so only the sub-table contributes.
     const categoryHeaders = screen.getAllByText("Category");
-    expect(categoryHeaders.length).toBeGreaterThanOrEqual(2);
+    expect(categoryHeaders.length).toBeGreaterThanOrEqual(1);
   });
 });
 

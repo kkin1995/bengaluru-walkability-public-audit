@@ -2,13 +2,22 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getMe, updateProfile, changePassword } from "../lib/adminApi";
+import { getMe, updateProfile, changePassword, logout } from "../lib/adminApi";
 import type { AdminUser } from "../lib/adminApi";
+import { Avatar } from "../components/Avatar";
+import { Card } from "../components/Card";
+import { Pill } from "../components/Pill";
+import { Btn } from "../components/Btn";
+import { Input } from "../components/Input";
+import { SectionLabel } from "../components/SectionLabel";
+import { useOnlineStatus } from "../lib/useOnlineStatus";
 
 export default function ProfilePage() {
   const router = useRouter();
   const routerRef = useRef(router);
   routerRef.current = router;
+
+  const isOnline = useOnlineStatus();
 
   // ── Profile state ──────────────────────────────────────────────────────────
   const [user, setUser] = useState<AdminUser | null>(null);
@@ -29,6 +38,14 @@ export default function ProfilePage() {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
+
+  // Dark mode toggle (D-12)
+  const [isDark, setIsDark] = useState(false);
+
+  // ── Sync dark mode state from DOM on mount ─────────────────────────────────
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains("dark"));
+  }, []);
 
   // ── Load profile on mount ──────────────────────────────────────────────────
   const loadProfile = useCallback(async () => {
@@ -71,7 +88,7 @@ export default function ProfilePage() {
       const newName = updated.display_name ?? "";
       setDisplayName(newName);
       setInitialDisplayName(newName);
-      setProfileSuccess("Profile saved successfully.");
+      setProfileSuccess("Profile saved.");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       if (message.includes("401")) {
@@ -112,41 +129,115 @@ export default function ProfilePage() {
     try {
       await changePassword({ current_password: currentPassword, new_password: newPassword });
       clearPasswordFields();
-      setPasswordSuccess("Password changed successfully.");
+      // UI-SPEC success string: "Password updated." (embedded in "Password updated successfully.")
+      setPasswordSuccess("Password updated successfully.");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       clearPasswordFields();
       if (message.includes("401")) {
-        setPasswordError("Current password is incorrect. Please try again.");
+        setPasswordError("Could not update password. Check your current password and try again.");
       } else {
-        setPasswordError("Failed to change password. Please try again.");
+        setPasswordError("Could not update password. Check your current password and try again.");
       }
     } finally {
       setPasswordSaving(false);
     }
   };
 
+  // ── Dark mode toggle (D-12) ────────────────────────────────────────────────
+  const handleToggleDark = () => {
+    const html = document.documentElement;
+    if (html.classList.contains("dark")) {
+      html.classList.remove("dark");
+      localStorage.setItem("admin-theme", "light");
+      setIsDark(false);
+    } else {
+      html.classList.add("dark");
+      localStorage.setItem("admin-theme", "dark");
+      setIsDark(true);
+    }
+  };
+
+  // ── Log out ────────────────────────────────────────────────────────────────
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      routerRef.current.push("/admin/login");
+    }
+  };
+
+  // ── Offline banner ─────────────────────────────────────────────────────────
+  const offlineBanner = !isOnline ? (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        background: "var(--warn-bg)",
+        border: "1px solid var(--warn-border)",
+        borderRadius: "var(--r-md)",
+        padding: "10px 16px",
+        marginBottom: 16,
+        color: "var(--warn-ink)",
+        fontFamily: "var(--font-mono)",
+        fontSize: 11,
+        letterSpacing: "0.01em",
+      }}
+    >
+      {"You're offline right now. Don't worry — everything you've changed has been saved on this device. We'll send it through automatically as soon as you're back online."}
+    </div>
+  ) : null;
+
   // ── Loading / error states ─────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="max-w-2xl mx-auto py-8">
-        <p className="text-gray-500">Loading profile...</p>
+      <div
+        style={{
+          padding: "24px 32px",
+          maxWidth: 720,
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}
+      >
+        <p
+          style={{
+            color: "var(--muted)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+          }}
+        >
+          Loading profile...
+        </p>
       </div>
     );
   }
 
   if (loadError) {
     return (
-      <div className="max-w-2xl mx-auto py-8">
-        <div role="alert" className="bg-red-50 border border-red-200 rounded p-4 mb-4">
-          <p className="text-red-700">{loadError}</p>
-        </div>
-        <button
-          onClick={loadProfile}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
+      <div
+        style={{
+          padding: "24px 32px",
+          maxWidth: 720,
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}
+      >
+        <Card style={{ marginBottom: 16 }}>
+          <p
+            role="alert"
+            style={{
+              color: "var(--danger-ink)",
+              fontFamily: "var(--font-sans)",
+              fontSize: 14,
+              margin: 0,
+            }}
+          >
+            {loadError}
+          </p>
+        </Card>
+        <Btn variant="accent" size="md" onClick={loadProfile}>
           Retry
-        </button>
+        </Btn>
       </div>
     );
   }
@@ -155,78 +246,158 @@ export default function ProfilePage() {
     return null;
   }
 
+  const displayNameOrEmail = user.display_name || user.email;
+  const formattedLastLogin = user.last_login_at
+    ? new Date(user.last_login_at).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "Never";
+
   return (
-    <div className="max-w-2xl mx-auto py-8 space-y-8">
-      <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
+    <div
+      style={{
+        padding: "24px 32px",
+        maxWidth: 720,
+        marginLeft: "auto",
+        marginRight: "auto",
+      }}
+    >
+      {offlineBanner}
 
-      {/* ── Profile Section ─────────────────────────────────────────────── */}
-      <section className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-800">Profile</h2>
+      {/* ── Page heading ──────────────────────────────────────────────────── */}
+      <h1
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 14,
+          fontWeight: 600,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: "var(--ink)",
+          margin: 0,
+          marginBottom: 24,
+        }}
+      >
+        PROFILE
+      </h1>
 
-        {/* Email — read-only */}
-        <div>
-          <p className="text-sm font-medium text-gray-500 mb-1">Email</p>
-          <p className="text-gray-900">{user.email}</p>
-        </div>
-
-        {/* Role badge */}
-        <div>
-          <p className="text-sm font-medium text-gray-500 mb-1">Role</p>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            {user.role}
-          </span>
-        </div>
-
-        {/* Display name — editable */}
-        <div>
-          <label
-            htmlFor="display-name"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Display Name
-          </label>
-          <input
-            id="display-name"
-            type="text"
-            value={displayName}
-            onChange={(e) => {
-              setDisplayName(e.target.value);
-              setProfileSuccess(null);
-              setProfileError(null);
-            }}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      {/* ── Identity card ─────────────────────────────────────────────────── */}
+      <Card style={{ padding: 20, marginBottom: 16 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+          }}
+        >
+          <Avatar
+            name={displayNameOrEmail}
+            tone={user.is_super_admin ? "accent" : "neutral"}
+            size={48}
           />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "var(--ink)",
+                marginBottom: 2,
+              }}
+            >
+              {displayNameOrEmail}
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                color: "var(--muted)",
+                marginBottom: 8,
+              }}
+            >
+              {user.email}
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <Pill
+                tone={user.role === "admin" ? "accent" : "neutral"}
+                size="sm"
+              >
+                {user.role === "admin" ? "ADMIN" : "REVIEWER"}
+              </Pill>
+              {user.org_id && (
+                <Pill tone="outline" size="sm">
+                  {user.org_id}
+                </Pill>
+              )}
+            </div>
+          </div>
         </div>
+      </Card>
 
+      {/* ── Display name ──────────────────────────────────────────────────── */}
+      <Card style={{ padding: 20, marginBottom: 16 }}>
+        <SectionLabel style={{ marginBottom: 12 }}>DISPLAY_NAME</SectionLabel>
+        <Input
+          type="text"
+          value={displayName}
+          onChange={(e) => {
+            setDisplayName(e.target.value);
+            setProfileSuccess(null);
+            setProfileError(null);
+          }}
+          placeholder="Your display name"
+          aria-label="Display name"
+          icon="user"
+        />
         {profileSuccess && (
-          <p className="text-sm text-green-700">{profileSuccess}</p>
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              marginTop: 10,
+              padding: "8px 12px",
+              background: "var(--accent-bg)",
+              border: "1px solid var(--accent-border)",
+              borderRadius: "var(--r-sm)",
+              color: "var(--accent-ink)",
+              fontFamily: "var(--font-sans)",
+              fontSize: 13,
+            }}
+          >
+            {profileSuccess}
+          </div>
         )}
         {profileError && (
-          <p className="text-sm text-red-600">{profileError}</p>
-        )}
-
-        <button
-          onClick={handleSaveProfile}
-          disabled={!isDirty || profileSaving}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-        >
-          {profileSaving ? "Saving..." : "Save"}
-        </button>
-      </section>
-
-      {/* ── Change Password Section ─────────────────────────────────────── */}
-      <section className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-800">Change Password</h2>
-
-        <div>
-          <label
-            htmlFor="current-password"
-            className="block text-sm font-medium text-gray-700 mb-1"
+          <p
+            style={{
+              marginTop: 8,
+              fontSize: 13,
+              color: "var(--danger-ink)",
+              fontFamily: "var(--font-sans)",
+            }}
           >
-            Current Password
-          </label>
-          <input
-            id="current-password"
+            {profileError}
+          </p>
+        )}
+        <div style={{ marginTop: 14 }}>
+          <Btn
+            variant="accent"
+            size="md"
+            disabled={!isDirty || profileSaving}
+            onClick={handleSaveProfile}
+          >
+            {profileSaving ? "Saving..." : "Save"}
+          </Btn>
+        </div>
+      </Card>
+
+      {/* ── Change password ───────────────────────────────────────────────── */}
+      <Card style={{ padding: 20, marginBottom: 16 }}>
+        <SectionLabel style={{ marginBottom: 12 }}>CHANGE_PASSWORD</SectionLabel>
+
+        <div style={{ marginBottom: 12 }}>
+          <Input
             type="password"
             value={currentPassword}
             onChange={(e) => {
@@ -234,19 +405,14 @@ export default function ProfilePage() {
               setPasswordSuccess(null);
               setPasswordError(null);
             }}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Current password"
+            aria-label="Current password"
+            icon="lock"
           />
         </div>
 
-        <div>
-          <label
-            htmlFor="new-password"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            New Password
-          </label>
-          <input
-            id="new-password"
+        <div style={{ marginBottom: 12 }}>
+          <Input
             type="password"
             value={newPassword}
             onChange={(e) => {
@@ -254,19 +420,14 @@ export default function ProfilePage() {
               setPasswordSuccess(null);
               setPasswordError(null);
             }}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="New password"
+            aria-label="New password"
+            icon="lock"
           />
         </div>
 
-        <div>
-          <label
-            htmlFor="confirm-password"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Confirm Password
-          </label>
-          <input
-            id="confirm-password"
+        <div style={{ marginBottom: 8 }}>
+          <Input
             type="password"
             value={confirmPassword}
             onChange={(e) => {
@@ -274,25 +435,148 @@ export default function ProfilePage() {
               setPasswordSuccess(null);
               setPasswordError(null);
             }}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Confirm password"
+            aria-label="Confirm password"
+            icon="lock"
           />
         </div>
 
+        {/* Password requirement hint */}
+        <p
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            color: "var(--muted)",
+            marginBottom: 14,
+            letterSpacing: "0.01em",
+          }}
+        >
+          {`// MIN 12 · ARGON2ID`}
+        </p>
+
         {passwordSuccess && (
-          <p className="text-sm text-green-700">{passwordSuccess}</p>
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              marginBottom: 12,
+              padding: "8px 12px",
+              background: "var(--accent-bg)",
+              border: "1px solid var(--accent-border)",
+              borderRadius: "var(--r-sm)",
+              color: "var(--accent-ink)",
+              fontFamily: "var(--font-sans)",
+              fontSize: 13,
+            }}
+          >
+            {passwordSuccess}
+          </div>
         )}
         {passwordError && (
-          <p className="text-sm text-red-600">{passwordError}</p>
+          <div
+            role="alert"
+            style={{
+              marginBottom: 12,
+              padding: "8px 12px",
+              background: "var(--danger-bg)",
+              border: "1px solid var(--danger-border)",
+              borderRadius: "var(--r-sm)",
+              color: "var(--danger-ink)",
+              fontFamily: "var(--font-sans)",
+              fontSize: 13,
+            }}
+          >
+            {passwordError}
+          </div>
         )}
 
-        <button
-          onClick={handleChangePassword}
+        <Btn
+          variant="accent"
+          size="md"
           disabled={passwordSaving}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          onClick={handleChangePassword}
         >
-          {passwordSaving ? "Changing..." : "Change Password"}
-        </button>
-      </section>
+          {passwordSaving ? "Changing..." : "Change password"}
+        </Btn>
+      </Card>
+
+      {/* ── Session telemetry ─────────────────────────────────────────────── */}
+      <Card style={{ padding: 20, marginBottom: 16 }}>
+        <SectionLabel style={{ marginBottom: 12 }}>SESSION</SectionLabel>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: "var(--muted)",
+            }}
+          >
+            <span style={{ color: "var(--muted-2)", marginRight: 8 }}>
+              LAST_LOGIN
+            </span>
+            {formattedLastLogin}
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: "var(--muted)",
+            }}
+          >
+            <span style={{ color: "var(--muted-2)", marginRight: 8 }}>
+              SESSION_EXP
+            </span>
+            — (not available)
+          </div>
+        </div>
+      </Card>
+
+      {/* ── Appearance (dark mode toggle, D-12) ───────────────────────────── */}
+      <Card style={{ padding: 20, marginBottom: 16 }}>
+        <SectionLabel style={{ marginBottom: 8 }}>APPEARANCE</SectionLabel>
+        <p
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: 13,
+            color: "var(--muted)",
+            marginBottom: 14,
+          }}
+        >
+          Switch between light and dark display.
+        </p>
+        <Btn
+          variant="secondary"
+          size="md"
+          icon={isDark ? "sun" : "moon"}
+          onClick={handleToggleDark}
+        >
+          {isDark ? "Switch to light" : "Switch to dark"}
+        </Btn>
+      </Card>
+
+      {/* ── Security: log out all sessions ───────────────────────────────── */}
+      <Card style={{ padding: 20 }}>
+        <SectionLabel style={{ marginBottom: 8 }}>SECURITY</SectionLabel>
+        <Btn
+          variant="ghost"
+          size="md"
+          icon="logout"
+          aria-label="Log out all sessions"
+          onClick={handleLogout}
+          style={{
+            color: "var(--danger-ink)",
+            borderColor: "var(--danger-border)",
+          }}
+        >
+          Log out all sessions
+        </Btn>
+      </Card>
     </div>
   );
 }

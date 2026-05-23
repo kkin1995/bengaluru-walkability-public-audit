@@ -1,0 +1,327 @@
+/* =========================================================================
+   Namma Daari · Admin Design System
+   Two directions sharing a token contract:
+   .dir-a → "Daari Ops"          (sibling of citizen, warm + civic green)
+   .dir-b → "Walkability Console" (cooler, mono-forward, slate + teal)
+   .dark suffix on either flips into a dark theme.
+   ========================================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+Kannada:wght@400;500;600&display=swap');
+
+/* ────────────────────────── Direction A — Daari Ops ──────────────────────── */
+.dir-a {
+  /* Neutrals — warm stone */
+  --bg: #fafaf9;
+  --surface: #ffffff;
+  --surface-2: #f5f5f4;
+  --surface-3: #ebeae7;
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+  --ink: #1c1917;
+  --ink-2: #44403c;
+  --muted: #78716c;
+  --muted-2: #a8a29e;
+
+  /* Civic green — same hue as citizen */
+  --accent: oklch(0.62 0.14 145);
+  --accent-ink: oklch(0.42 0.14 145);
+  --accent-bg: oklch(0.96 0.03 145);
+  --accent-border: oklch(0.88 0.06 145);
+  --on-accent: #fafaf9;
+
+  /* Semantic — shared chroma/lightness, only hue varies */
+  --danger: oklch(0.60 0.18 30);
+  --danger-ink: oklch(0.42 0.16 30);
+  --danger-bg: oklch(0.96 0.03 30);
+  --danger-border: oklch(0.86 0.08 30);
+
+  --warn: oklch(0.72 0.14 75);
+  --warn-ink: oklch(0.45 0.14 75);
+  --warn-bg: oklch(0.96 0.04 75);
+  --warn-border: oklch(0.85 0.10 75);
+
+  --info: oklch(0.60 0.13 245);
+  --info-ink: oklch(0.42 0.13 245);
+  --info-bg: oklch(0.96 0.03 245);
+  --info-border: oklch(0.86 0.08 245);
+
+  /* Status hue map — matches API enum */
+  --status-submitted: oklch(0.60 0.13 245);   /* blue */
+  --status-submitted-bg: oklch(0.96 0.03 245);
+  --status-review: oklch(0.72 0.14 75);       /* amber */
+  --status-review-bg: oklch(0.96 0.04 75);
+  --status-resolved: oklch(0.62 0.14 145);    /* green */
+  --status-resolved-bg: oklch(0.96 0.03 145);
+
+  /* Severity */
+  --sev-low: oklch(0.72 0.06 145);
+  --sev-medium: oklch(0.72 0.14 75);
+  --sev-high: oklch(0.60 0.18 30);
+
+  /* Type */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-kn: 'Noto Sans Kannada', var(--font-sans);
+  --font-display: var(--font-sans);
+
+  /* Radii */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-full: 999px;
+
+  /* Shadows — soft, warm */
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.04), 0 1px 3px rgba(28, 25, 23, 0.06);
+  --shadow-md: 0 4px 12px rgba(28, 25, 23, 0.06), 0 2px 6px rgba(28, 25, 23, 0.04);
+  --shadow-lg: 0 12px 32px rgba(28, 25, 23, 0.10), 0 4px 12px rgba(28, 25, 23, 0.06);
+
+  /* Voice marker — used by tokens UI */
+  --voice: "Sibling of citizen · warm + civic green";
+  --grid: 8px;
+}
+
+/* ────────────────────────── Direction A — dark ──────────────────────────── */
+.dir-a.dark,
+.dark .dir-a {
+  --bg: #0c0a09;
+  --surface: #1c1917;
+  --surface-2: #292524;
+  --surface-3: #3a3633;
+  --border: #292524;
+  --border-strong: #44403c;
+  --ink: #fafaf9;
+  --ink-2: #e7e5e4;
+  --muted: #a8a29e;
+  --muted-2: #78716c;
+
+  --accent: oklch(0.70 0.14 145);
+  --accent-ink: oklch(0.82 0.10 145);
+  --accent-bg: oklch(0.30 0.06 145);
+  --accent-border: oklch(0.40 0.08 145);
+  --on-accent: #0c0a09;
+
+  --status-submitted: oklch(0.70 0.13 245);
+  --status-submitted-bg: oklch(0.28 0.06 245);
+  --status-review: oklch(0.78 0.14 75);
+  --status-review-bg: oklch(0.28 0.06 75);
+  --status-resolved: oklch(0.70 0.14 145);
+  --status-resolved-bg: oklch(0.28 0.06 145);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.6);
+}
+
+/* ─────────────────── Direction B — Walkability Console ─────────────────── */
+.dir-b {
+  /* Neutrals — cool, slightly olive-tinted stone */
+  --bg: #f3f3f1;
+  --surface: #ffffff;
+  --surface-2: #eaeae6;
+  --surface-3: #d8d8d4;
+  --border: #d4d4d1;
+  --border-strong: #a8a8a3;
+  --ink: #0a0a0a;
+  --ink-2: #3a3a37;
+  --muted: #6b6b66;
+  --muted-2: #9a9a94;
+
+  /* Accent — teal-cyan (deliberately not green) */
+  --accent: oklch(0.56 0.13 200);
+  --accent-ink: oklch(0.38 0.13 200);
+  --accent-bg: oklch(0.95 0.03 200);
+  --accent-border: oklch(0.86 0.06 200);
+  --on-accent: #ffffff;
+
+  /* Semantic */
+  --danger: oklch(0.56 0.20 25);
+  --danger-ink: oklch(0.40 0.18 25);
+  --danger-bg: oklch(0.95 0.04 25);
+  --danger-border: oklch(0.84 0.10 25);
+
+  --warn: oklch(0.70 0.15 70);
+  --warn-ink: oklch(0.44 0.15 70);
+  --warn-bg: oklch(0.96 0.04 70);
+  --warn-border: oklch(0.84 0.12 70);
+
+  --info: oklch(0.56 0.13 200);
+  --info-ink: oklch(0.38 0.13 200);
+  --info-bg: oklch(0.95 0.03 200);
+  --info-border: oklch(0.86 0.06 200);
+
+  /* Status hue map — pulled toward Console palette */
+  --status-submitted: oklch(0.56 0.13 200);   /* teal — "incoming on the wire" */
+  --status-submitted-bg: oklch(0.95 0.03 200);
+  --status-review: oklch(0.66 0.16 60);       /* orange — "in the queue" */
+  --status-review-bg: oklch(0.96 0.04 60);
+  --status-resolved: oklch(0.58 0.14 145);    /* green — "closed" */
+  --status-resolved-bg: oklch(0.95 0.03 145);
+
+  --sev-low: oklch(0.66 0.06 200);
+  --sev-medium: oklch(0.66 0.16 60);
+  --sev-high: oklch(0.56 0.20 25);
+
+  /* Type — mono dominates ops chrome */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-kn: 'Noto Sans Kannada', var(--font-sans);
+  --font-display: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Radii — sharper */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 14px;
+  --r-full: 999px;
+
+  /* Shadows — almost flat; rely on borders */
+  --shadow-sm: 0 0 0 1px rgba(10,10,10,0.04);
+  --shadow-md: 0 1px 2px rgba(10,10,10,0.04), 0 0 0 1px rgba(10,10,10,0.04);
+  --shadow-lg: 0 8px 24px rgba(10,10,10,0.08), 0 0 0 1px rgba(10,10,10,0.04);
+
+  --voice: "Console / ops · cool stone + teal";
+  --grid: 8px;
+}
+
+/* ────────────────────────── Direction B — dark ──────────────────────────── */
+.dir-b.dark,
+.dark .dir-b {
+  --bg: #0a0a0a;
+  --surface: #131313;
+  --surface-2: #1d1d1c;
+  --surface-3: #2a2a28;
+  --border: #262624;
+  --border-strong: #3a3a36;
+  --ink: #fafaf9;
+  --ink-2: #d4d4d1;
+  --muted: #8a8a85;
+  --muted-2: #595955;
+
+  --accent: oklch(0.72 0.13 200);
+  --accent-ink: oklch(0.84 0.10 200);
+  --accent-bg: oklch(0.26 0.06 200);
+  --accent-border: oklch(0.36 0.08 200);
+  --on-accent: #0a0a0a;
+
+  --status-submitted: oklch(0.72 0.13 200);
+  --status-submitted-bg: oklch(0.26 0.05 200);
+  --status-review: oklch(0.76 0.15 60);
+  --status-review-bg: oklch(0.26 0.05 60);
+  --status-resolved: oklch(0.70 0.14 145);
+  --status-resolved-bg: oklch(0.26 0.05 145);
+}
+
+/* ────────────────────────── Universal resets ────────────────────────────── */
+.dir-a, .dir-b {
+  font-family: var(--font-sans);
+  color: var(--ink);
+  background: var(--bg);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.dir-a *, .dir-b * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+.dir-a button, .dir-b button {
+  font-family: inherit; border: none; background: none; cursor: pointer; color: inherit; padding: 0;
+}
+
+.mono { font-family: var(--font-mono); letter-spacing: -0.01em; }
+.kn   { font-family: var(--font-kn); }
+.muted{ color: var(--muted); }
+.ink-2{ color: var(--ink-2); }
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Direction-B preferred for monospaced micro-labels */
+.label-mono {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Photo placeholder — abstract aerial, not AI-slop street drawing */
+.photo {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 80% at 25% 20%, oklch(0.85 0.04 80) 0%, transparent 55%),
+    radial-gradient(80% 60% at 70% 70%, oklch(0.78 0.06 145) 0%, transparent 55%),
+    repeating-linear-gradient(-38deg, oklch(0.74 0.02 60) 0 14px, oklch(0.70 0.02 60) 14px 22px),
+    #d6d3d1;
+}
+.photo.alt-1 {
+  background:
+    radial-gradient(80% 80% at 70% 30%, oklch(0.80 0.04 50) 0%, transparent 60%),
+    radial-gradient(60% 60% at 30% 70%, oklch(0.66 0.04 200) 0%, transparent 55%),
+    repeating-linear-gradient(110deg, oklch(0.74 0.02 80) 0 18px, oklch(0.68 0.03 80) 18px 30px),
+    #c8c4be;
+}
+.photo.alt-2 {
+  background:
+    radial-gradient(60% 90% at 50% 100%, oklch(0.40 0.05 30) 0%, transparent 70%),
+    radial-gradient(80% 50% at 50% 20%, oklch(0.60 0.06 50) 0%, transparent 60%),
+    repeating-linear-gradient(0deg, oklch(0.46 0.03 40) 0 8px, oklch(0.40 0.03 40) 8px 12px),
+    #58524c;
+}
+.photo.alt-3 {
+  background:
+    radial-gradient(100% 70% at 50% 30%, oklch(0.78 0.06 220) 0%, transparent 60%),
+    radial-gradient(50% 50% at 30% 80%, oklch(0.72 0.04 60) 0%, transparent 60%),
+    repeating-linear-gradient(20deg, oklch(0.66 0.02 220) 0 16px, oklch(0.62 0.02 220) 16px 28px),
+    #9aa0a8;
+}
+.photo.alt-4 {
+  background:
+    radial-gradient(70% 70% at 20% 30%, oklch(0.82 0.10 90) 0%, transparent 55%),
+    radial-gradient(50% 50% at 80% 80%, oklch(0.50 0.08 30) 0%, transparent 60%),
+    repeating-linear-gradient(-15deg, oklch(0.78 0.04 80) 0 12px, oklch(0.72 0.04 80) 12px 20px),
+    #b8a890;
+}
+
+/* Map tile — abstract topographic, shared across both directions */
+.map-tile {
+  background-color: #e8ece6;
+  background-image:
+    linear-gradient(120deg, rgba(120, 113, 108, 0.08) 1px, transparent 1px),
+    linear-gradient(60deg, rgba(120, 113, 108, 0.08) 1px, transparent 1px),
+    radial-gradient(circle at 30% 40%, rgba(134, 164, 134, 0.32) 0%, transparent 40%),
+    radial-gradient(circle at 70% 60%, rgba(180, 165, 140, 0.30) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(150, 170, 200, 0.30) 0%, transparent 35%);
+  background-size: 48px 48px, 48px 48px, 100% 100%, 100% 100%, 100% 100%;
+}
+.dark .map-tile {
+  background-color: #1a1d18;
+  background-image:
+    linear-gradient(120deg, rgba(168, 162, 158, 0.06) 1px, transparent 1px),
+    linear-gradient(60deg, rgba(168, 162, 158, 0.06) 1px, transparent 1px),
+    radial-gradient(circle at 30% 40%, rgba(80, 110, 80, 0.32) 0%, transparent 40%),
+    radial-gradient(circle at 70% 60%, rgba(110, 95, 70, 0.30) 0%, transparent 45%);
+}
+
+/* Pressable interaction */
+.press { transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease; }
+.press:active { transform: scale(0.985); }
+
+/* Custom scrollbar removal where needed */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+/* Reusable pulse for live indicators */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+.pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+/* Diagonal stripe for "needs attention" rows */
+.stripe-warn {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--warn-bg) 0 6px,
+    transparent 6px 12px
+  );
+}

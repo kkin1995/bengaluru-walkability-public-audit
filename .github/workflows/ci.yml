@@ -19,6 +19,8 @@ jobs:
   frontend-checks:
     name: "Frontend — lint + test"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -56,6 +58,8 @@ jobs:
   backend-checks:
     name: "Backend — clippy + test"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -88,6 +92,8 @@ jobs:
   docker-build:
     name: "Docker — compose build"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

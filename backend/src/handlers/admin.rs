@@ -303,11 +303,15 @@ pub async fn admin_login(
     cookie.set_path("/");
     // SameSite=None required for cross-domain Vercel + Cloudflare tunnel production setup.
     // Requires Secure=true (enforced by COOKIE_SECURE=true in production/staging).
-    cookie.set_same_site(axum_extra::extract::cookie::SameSite::None);
     // FINDING-011: Set Max-Age so the browser discards the cookie after the session expires.
     cookie.set_max_age(time::Duration::seconds(jwt_session_hours * 3600));
     if cookie_secure {
+        cookie.set_same_site(axum_extra::extract::cookie::SameSite::None);
         cookie.set_secure(true);
+    } else {
+        // In HTTP-only dev/LAN environments, fall back to SameSite=Lax.
+        // Browsers reject SameSite=None cookies that lack Secure=true (RFC 6265bis).
+        cookie.set_same_site(axum_extra::extract::cookie::SameSite::Lax);
     }
 
     let user_id = user.id;

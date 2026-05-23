@@ -19,11 +19,15 @@ jobs:
   ci:
     name: "Run CI checks"
     uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
   deploy:
     name: "Deploy to Namma Daari LXC"
     needs: ci
     runs-on: [self-hosted, linux, walkability-prod]
     environment: production
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -60,6 +64,7 @@ jobs:
     name: "Smoke test"
     needs: deploy
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: "Health check — Cloudflare tunnel backend (with retry)"
         run: |

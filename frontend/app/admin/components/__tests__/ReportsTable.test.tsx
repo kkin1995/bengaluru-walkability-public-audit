@@ -108,11 +108,13 @@ describe("ReportsTable: row rendering", () => {
         onDelete={jest.fn()}
       />
     );
-    expect(screen.getByText("high")).toBeInTheDocument();
+    // Direction B: filter strip renders "SEV: HIGH" chip alongside the SeverityIndicator label.
+    // Use getAllByText to allow multiple matches from both the chip and the severity indicator.
+    expect(screen.getAllByText(/high/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders status text in each row", () => {
-    render(
+    const { container } = render(
       <ReportsTable
         reports={[REPORT_A]}
         role="admin"
@@ -120,8 +122,18 @@ describe("ReportsTable: row rendering", () => {
         onDelete={jest.fn()}
       />
     );
+    // Direction B: filter strip renders "SUBMITTED" chip alongside the StatusBadge label.
+    // Use getAllByText to allow multiple matches from both the chip and the status badge.
     // Status may be rendered via StatusBadge or plain text; either way "submitted" must appear.
-    expect(screen.getByText(/submitted/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/submitted/i).length).toBeGreaterThanOrEqual(1);
+    // Direction B migration: assert by data-testid="status-badge" and data-* attributes
+    // (replaces former Tailwind className assertions)
+    const badge = container.querySelector('[data-testid="status-badge"]');
+    expect(badge).not.toBeNull();
+    // data-tone="info" for submitted status (replaces bg-amber / bg-blue Tailwind assertions)
+    expect(badge!.getAttribute("data-tone")).toBe("info");
+    // data-status carries the raw status value
+    expect(badge!.getAttribute("data-status")).toBe("submitted");
   });
 
   it("renders category, severity, and status for all three reports simultaneously", () => {
@@ -135,13 +147,14 @@ describe("ReportsTable: row rendering", () => {
     );
     // REPORT_A
     expect(screen.getByText("Damaged Footpath")).toBeInTheDocument();
-    expect(screen.getByText("high")).toBeInTheDocument();
+    // Direction B: filter strip shows "SEV: HIGH" chip alongside SeverityIndicator label
+    expect(screen.getAllByText(/high/i).length).toBeGreaterThanOrEqual(1);
     // REPORT_B
     expect(screen.getByText("Poor Lighting")).toBeInTheDocument();
-    expect(screen.getByText("low")).toBeInTheDocument();
+    expect(screen.getAllByText(/low/i).length).toBeGreaterThanOrEqual(1);
     // REPORT_C
     expect(screen.getByText("Unsafe Crossing")).toBeInTheDocument();
-    expect(screen.getByText("medium")).toBeInTheDocument();
+    expect(screen.getAllByText(/medium/i).length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -162,6 +175,9 @@ describe("R-RPT-3 / AC-RPT-3-S1 — ReportsTable: delete button visibility per r
     // There must be at least one delete button per report.
     const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
     expect(deleteButtons.length).toBeGreaterThanOrEqual(THREE_REPORTS.length);
+    // Direction B: delete buttons carry data-testid="delete-button" for role-gated assertions
+    const deleteByTestId = document.querySelectorAll('[data-testid="delete-button"]');
+    expect(deleteByTestId.length).toBeGreaterThanOrEqual(THREE_REPORTS.length);
   });
 
   it("reviewer role: delete button is NOT present anywhere in the DOM", () => {

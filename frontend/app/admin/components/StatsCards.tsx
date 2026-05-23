@@ -1,5 +1,10 @@
 "use client";
 
+import { Card } from "./Card";
+import { Pill } from "./Pill";
+import { Btn } from "./Btn";
+import { SectionLabel } from "./SectionLabel";
+
 interface StatsData {
   total_reports: number;
   by_status: {
@@ -28,10 +33,31 @@ function SkeletonCard() {
   return (
     <div
       data-testid="skeleton"
-      className="animate-pulse bg-white rounded-2xl shadow-sm p-6"
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--r-lg)",
+        padding: 16,
+        animation: "pulse 1.5s ease-in-out infinite",
+      }}
     >
-      <div className="h-4 bg-gray-200 rounded w-1/2 mb-3" />
-      <div className="h-8 bg-gray-200 rounded w-1/3" />
+      <div
+        style={{
+          height: 10,
+          background: "var(--surface-2)",
+          borderRadius: "var(--r-sm)",
+          width: "50%",
+          marginBottom: 12,
+        }}
+      />
+      <div
+        style={{
+          height: 28,
+          background: "var(--surface-2)",
+          borderRadius: "var(--r-sm)",
+          width: "33%",
+        }}
+      />
     </div>
   );
 }
@@ -51,7 +77,11 @@ export default function StatsCards({
     return (
       <div
         data-testid="stats-cards-loading"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+          gap: 16,
+        }}
       >
         <SkeletonCard />
         <SkeletonCard />
@@ -63,16 +93,24 @@ export default function StatsCards({
 
   if (isError) {
     return (
-      <div data-testid="stats-cards-error" className="text-center py-8">
-        <p className="text-red-600 mb-4">Failed to load statistics.</p>
+      <div
+        data-testid="stats-cards-error"
+        style={{ textAlign: "center", padding: "32px 0" }}
+      >
+        <Pill tone="danger" style={{ marginBottom: 16 }}>
+          Failed to load statistics.
+        </Pill>
         {onRetry && (
-          <button
-            data-testid="stats-retry-button"
-            onClick={onRetry}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            Retry
-          </button>
+          <div style={{ marginTop: 12 }}>
+            <Btn
+              data-testid="stats-retry-button"
+              variant="ghost"
+              size="sm"
+              onClick={onRetry}
+            >
+              Retry
+            </Btn>
+          </div>
         )}
       </div>
     );
@@ -102,54 +140,48 @@ export default function StatsCards({
     resolved = 0;
   }
 
+  const countStyle = {
+    fontFamily: "var(--font-mono)",
+    fontSize: 28,
+    fontWeight: 700,
+    color: "var(--ink)",
+    lineHeight: 1.1,
+    marginTop: 6,
+  };
+
   return (
     <div
       data-testid="stats-cards"
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+        gap: 16,
+      }}
     >
-      <div className="bg-white rounded-2xl shadow-sm p-6">
-        <p className="text-sm text-gray-600 font-medium">Total Reports</p>
-        {" "}
-        <p
-          data-testid="stat-total"
-          className="text-3xl font-bold text-gray-900 mt-1"
-        >
+      <Card>
+        <SectionLabel>Total Reports</SectionLabel>
+        <p data-testid="stat-total" style={countStyle}>
           {total}
         </p>
-      </div>
-      {" "}
-      <div className="bg-white rounded-2xl shadow-sm p-6">
-        <p className="text-sm text-gray-600 font-medium">Submitted</p>
-        {" "}
-        <p
-          data-testid="stat-submitted"
-          className="text-3xl font-bold text-gray-900 mt-1"
-        >
+      </Card>
+      <Card>
+        <SectionLabel>Submitted</SectionLabel>
+        <p data-testid="stat-submitted" style={countStyle}>
           {submitted}
         </p>
-      </div>
-      {" "}
-      <div className="bg-white rounded-2xl shadow-sm p-6">
-        <p className="text-sm text-gray-600 font-medium">Under Review</p>
-        {" "}
-        <p
-          data-testid="stat-under-review"
-          className="text-3xl font-bold text-gray-900 mt-1"
-        >
+      </Card>
+      <Card>
+        <SectionLabel>Under Review</SectionLabel>
+        <p data-testid="stat-under-review" style={countStyle}>
           {underReview}
         </p>
-      </div>
-      {" "}
-      <div className="bg-white rounded-2xl shadow-sm p-6">
-        <p className="text-sm text-gray-600 font-medium">Resolved</p>
-        {" "}
-        <p
-          data-testid="stat-resolved"
-          className="text-3xl font-bold text-gray-900 mt-1"
-        >
+      </Card>
+      <Card>
+        <SectionLabel>Resolved</SectionLabel>
+        <p data-testid="stat-resolved" style={countStyle}>
           {resolved}
         </p>
-      </div>
+      </Card>
     </div>
   );
 }

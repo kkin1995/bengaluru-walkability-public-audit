@@ -16,6 +16,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Anti-Abuse and Data Quality** - Per-IP rate limiting, honeypot, proximity duplicate flagging, photo hash dedup (gap closure in progress) (completed 2026-03-13)
 - [x] **Phase 02.4: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel** - Decommission Railway, host backend + DB on Arch Linux desktop via Docker Compose, expose via Cloudflare tunnel, self-hosted GitHub Actions runner (INSERTED — must complete before Phase 3) (completed 2026-05-20)
 - [x] **Phase 02.4.1: Security Hardening** - JPEG magic-bytes upload validation, logout cookie SameSite fix, nginx Content-Type override, weekly backups (pg_dump + uploads) with systemd timer, secret rotation + restore docs, external uptime monitor (INSERTED — must complete before Phase 3) (completed 2026-05-20)
+- [x] **Phase 02.5: Admin Portal UI Redesign** - Implement the hybrid "B-voice × A-structure" design system for the admin portal at /admin — teal Console palette, JetBrains Mono chrome, A-pattern report cards, light+dark mode, full accessibility pass (INSERTED — visual polish before GBA handoff) (completed 2026-05-22)
+- [ ] **Phase 02.6: Build Metadata & Version Stamping** - Inject `package.json` version into both the citizen-facing UI footer and the admin console brand string at build time via `NEXT_PUBLIC_APP_VERSION`; auto-update on every release (INSERTED — polish before GBA handoff)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
@@ -127,6 +129,28 @@ Plans:
 - [x] 02.4.1-02-PLAN.md — nginx Content-Type override on /uploads/ in both nginx.conf and nginx.server.conf + deployed-tunnel curl -I verification checkpoint
 - [x] 02.4.1-03-PLAN.md — Operational ops + docs: backup/backup.sh + 3 systemd units, DEPLOYMENT.md §10 Secret Rotation + §11 Backup and Restore, external uptime monitor checkpoint on /health
 
+### Phase 02.5: Admin Portal UI Redesign (INSERTED)
+
+**Goal:** Implement the hybrid "Walkability Console × Daari Ops" design system for all admin portal screens at /admin — CSS variable token layer, JetBrains Mono chrome, Direction-B teal palette, Direction-A card structure (photo tile + status badge + meta line), light + dark mode, and a full accessibility pass — as a pixel-faithful translation of the design prototype in design-ref/admin-portal/.
+**Depends on:** Phase 02.4.1
+**Requirements**: ADMIN-UI-01..ADMIN-UI-08 (phase-local; design contract in 02.5-UI-SPEC.md)
+**Success Criteria** (what must be TRUE):
+  1. All admin screens (Login, Dashboard, Reports list, Report detail, Map, Users, Organizations, Profile, Empty/Error states) render with the hybrid design system tokens — Direction B palette + Direction A card structure
+  2. A `admin.css` CSS variable file exists at `frontend/app/admin/admin.css` and is the single source of truth for all admin-portal colors, fonts, radii, and shadows — no hardcoded hex/oklch values in component files
+  3. Light mode and dark mode both work, toggled by a `.dark` class on the `<html>` element, with no flash-of-wrong-theme on reload
+  4. Severity is never color-only: every severity indicator shows bars (1/2/3 lit) + text label + color; passes WCAG 1.4.1
+  5. All interactive elements have ≥ 44px tap target on mobile
+  6. The offline/error state shows a pending-changes card with queued action descriptions and a reassurance copy string that does not use technical jargon
+  7. Report cards on the reports list show: photo thumbnail, category label (human-readable, not API enum), status badge, ward · time meta line, duplicate badge when present
+  8. `npm run build` passes with zero TypeScript errors and zero new ESLint warnings
+**Plans**: 4 plans
+
+Plans:
+- [x] 02.5-01-PLAN.md — Token layer + font setup + primitives (tokens.css → CSS vars, next/font for Inter + JetBrains Mono + Noto Sans Kannada, shared admin components)
+- [x] 02.5-02-PLAN.md — Login + Dashboard screens (mobile + desktop, light + dark)
+- [x] 02.5-03-PLAN.md — Reports list (card stream + compact rows) + Report detail screen
+- [x] 02.5-04-PLAN.md — Map view + Users management + Organizations + Profile + Empty/Error states
+
 ### Phase 02.3.1: Implement Walkable BLR UI redesign from design file on separate branch (INSERTED)
 
 **Goal:** On a dedicated `ui-redesign` branch, implement a pixel-faithful Next.js redesign of the 5 citizen-facing screens (Home, Category step, Confirm step, Success, Public Map) per the Walkable BLR design file — introducing a CSS-variable design system, Google Fonts via next/font, and 5 TSX primitives (Bi, Icon, Btn, Pill, SectionLabel) — without merging to main.
@@ -217,7 +241,7 @@ Plans: *(not yet created — Phase 4 has no plan files on disk; planning begins 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 2.4 → 2.4.1 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 2.4 → 2.4.1 → 2.5 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -230,5 +254,6 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.3.2 Frontend Gap-fill | 3/3 | Complete | 2026-04-25 |
 | 2.4 Self-Hosted Infrastructure | 4/4 | Complete | 2026-05-20 |
 | 2.4.1 Security Hardening | 3/3 | Complete   | 2026-05-20 |
+| 2.5 Admin Portal UI Redesign | 4/4 | Complete   | 2026-05-22 |
 | 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
