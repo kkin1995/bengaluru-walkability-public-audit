@@ -190,7 +190,7 @@ export default async function HomePage() {
             {reportTotal !== null && (
               <Pill tone="glass">
                 <span className="mono">{reportTotal}</span>
-                <span>reports</span>
+                <span>{reportTotal === 1 ? "report" : "reports"}</span>
               </Pill>
             )}
           </div>
