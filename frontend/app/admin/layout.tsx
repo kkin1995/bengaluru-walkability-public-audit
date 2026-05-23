@@ -17,7 +17,7 @@ export default async function AdminLayout({
       <>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var d=localStorage.getItem('admin-theme');if(d==='dark')document.documentElement.classList.add('dark');})();`,
+            __html: `(function(){var d=localStorage.getItem('admin-theme');if(d==='dark')document.documentElement.classList.add('dark');else if(d==='light')document.documentElement.classList.remove('dark');})();`,
           }}
         />
         <div className="admin-portal" style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -60,7 +60,7 @@ export default async function AdminLayout({
       {/* FOTWT blocking script — reads localStorage before React hydrates to prevent flash-of-wrong-theme (D-10) */}
       <script
         dangerouslySetInnerHTML={{
-          __html: `(function(){var d=localStorage.getItem('admin-theme');if(d==='dark')document.documentElement.classList.add('dark');})();`,
+          __html: `(function(){var d=localStorage.getItem('admin-theme');if(d==='dark')document.documentElement.classList.add('dark');else if(d==='light')document.documentElement.classList.remove('dark');})();`,
         }}
       />
       <div className="admin-portal" style={{ minHeight: '100vh', display: 'flex', background: 'var(--bg)' }}>
