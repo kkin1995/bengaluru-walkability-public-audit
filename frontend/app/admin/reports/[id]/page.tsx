@@ -184,10 +184,10 @@ export default function ReportDetailPage({
   // ── Photo section ─────────────────────────────────────────────────────────────
   const photoSection = (
     <div style={{ position: "relative", height: 280, background: "var(--surface-2)", overflow: "hidden" }}>
-      {report.image_url ? (
+      {(report.image_url || report.image_path) ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={report.image_url}
+          src={report.image_url || `/uploads/${report.image_path}`}
           alt={`Citizen-submitted photo of ${categoryLabel} at ${report.ward_name ?? "unknown ward"}`}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
@@ -501,7 +501,7 @@ export default function ReportDetailPage({
   return (
     <div
       data-testid="report-detail"
-      style={{ padding: "24px 32px", maxWidth: 1400, marginLeft: "auto", marginRight: "auto" }}
+      style={{ padding: "24px 32px", maxWidth: 1400, marginLeft: "auto", marginRight: "auto", paddingBottom: 80 }}
     >
       {desktopActionBar}
 
@@ -510,10 +510,10 @@ export default function ReportDetailPage({
         <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 0, minHeight: "calc(100vh - 120px)" }}>
           {/* Left panel: large photo */}
           <div style={{ background: "var(--surface-2)", borderRadius: "var(--r-lg)", overflow: "hidden" }}>
-            {report.image_url ? (
+            {(report.image_url || report.image_path) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={report.image_url}
+                src={report.image_url || `/uploads/${report.image_path}`}
                 alt={`Citizen-submitted photo of ${categoryLabel} at ${report.ward_name ?? "unknown ward"}`}
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
