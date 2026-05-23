@@ -1,9 +1,9 @@
 ---
 slug: uat-iphone-design-gaps-2
-status: investigating
+status: resolved
 trigger: "iPhone 16 Pro Max UAT on staging-walkability.kinariwala.com — 5 gaps vs design document found 2026-04-25"
 created: 2026-04-25
-updated: 2026-04-25
+updated: 2026-05-23
 ---
 
 ## Symptoms
@@ -129,7 +129,10 @@ next_action: "Implement all five fixes on a feature branch and commit"
 
 ## Resolution
 
-root_cause: ""
-fix: ""
-verification: ""
-files_changed: []
+root_cause: "All five bugs confirmed from code review: BUG-1=hardcoded '412' on homepage; BUG-2=missing Retake button in category step; BUG-3=category confirm card showing English-only label + no timestamp; BUG-4=ward display as plain text div, no GBA badge, no Nominatim near-road; BUG-5=SuccessCard not receiving wardLabel or locationLabel props."
+fix: "BUG-1: Dynamic reportTotal fetched server-side from /api/reports; plural logic added (=== 1 ? 'report' : 'reports'). BUG-2: Retake button added at report/page.tsx:696-712, calls resetAll(). BUG-3: <Bi en kn> used at line 865-867; photoTime extracted from EXIF DateTimeOriginal and displayed at 873-882. BUG-4: GBA card component at line 978-1042; nearRoad state added, Nominatim reverse geocode called after GPS confirm; Near {nearRoad} displayed. BUG-5: wardLabel and locationLabel (nearRoad) props passed to SuccessCard at page.tsx:418-419; SuccessCard updated to render both."
+verification: "All fixes confirmed via code inspection 2026-05-23. 764 frontend unit tests pass (npm test — exit 0)."
+files_changed:
+  - frontend/app/page.tsx
+  - frontend/app/report/page.tsx
+  - frontend/app/components/redesign/SuccessCard.tsx
