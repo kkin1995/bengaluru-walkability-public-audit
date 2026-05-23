@@ -13,6 +13,7 @@ import { SectionLabel } from "./components/SectionLabel";
 import { SeverityIndicator } from "./components/SeverityIndicator";
 import { Sparkbars } from "./components/Sparkbars";
 import { Icon } from "./components/Icon";
+import { ThemeToggleButton } from "./components/ThemeToggleButton";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Stub data for activity feed (wired to real data in Plan 03)
@@ -464,19 +465,22 @@ export default function AdminDashboard() {
         marginRight: "auto",
       }}
     >
-      <h1
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 14,
-          fontWeight: 600,
-          color: "var(--ink)",
-          marginBottom: 24,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-        }}
-      >
-        Dashboard
-      </h1>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <h1
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 14,
+            fontWeight: 600,
+            color: "var(--ink)",
+            margin: 0,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+          }}
+        >
+          Dashboard
+        </h1>
+        <ThemeToggleButton />
+      </div>
 
       {offlineBanner}
 

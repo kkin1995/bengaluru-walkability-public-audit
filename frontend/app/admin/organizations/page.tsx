@@ -4,6 +4,7 @@ import { useOnlineStatus } from "../lib/useOnlineStatus";
 import { Pill } from "../components/Pill";
 import { Card } from "../components/Card";
 import { SectionLabel } from "../components/SectionLabel";
+import { ThemeToggleButton } from "../components/ThemeToggleButton";
 
 export default function OrganizationsPage() {
   const isOnline = useOnlineStatus();
@@ -45,30 +46,34 @@ export default function OrganizationsPage() {
         style={{
           display: "flex",
           alignItems: "center",
+          justifyContent: "space-between",
           gap: 10,
           marginBottom: 24,
         }}
       >
-        <h1
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 14,
-            fontWeight: 600,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            color: "var(--ink)",
-            margin: 0,
-          }}
-        >
-          ORGANIZATIONS
-        </h1>
-        <Pill
-          tone="outline"
-          size="sm"
-          style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}
-        >
-          PREVIEW
-        </Pill>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <h1
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 14,
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "var(--ink)",
+              margin: 0,
+            }}
+          >
+            ORGANIZATIONS
+          </h1>
+          <Pill
+            tone="outline"
+            size="sm"
+            style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}
+          >
+            PREVIEW
+          </Pill>
+        </div>
+        <ThemeToggleButton />
       </div>
 
       {/* ── Stub body ─────────────────────────────────────────────────────── */}

@@ -157,3 +157,13 @@
 .pulse-dot {
   animation: pulse-dot 1.6s ease-in-out infinite;
 }
+
+/* Mobile-only utility — hides on desktop where sidebar provides the toggle */
+.admin-mobile-only {
+  display: inline-flex;
+}
+@media (min-width: 768px) {
+  .admin-mobile-only {
+    display: none;
+  }
+}

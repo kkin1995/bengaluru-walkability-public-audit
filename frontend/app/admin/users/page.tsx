@@ -14,6 +14,7 @@ import CreateUserModal from "../components/CreateUserModal";
 import { useOnlineStatus } from "../lib/useOnlineStatus";
 import { Pill } from "../components/Pill";
 import { Btn } from "../components/Btn";
+import { ThemeToggleButton } from "../components/ThemeToggleButton";
 import { Card } from "../components/Card";
 
 /** Resolve org name from id, or "Unassigned" when null */
@@ -149,14 +150,17 @@ export default function UsersPage(props: PageProps) {
             </Pill>
           )}
         </div>
-        <Btn
-          variant="accent"
-          size="md"
-          icon="plus"
-          onClick={() => setIsModalOpen(true)}
-        >
-          Add User
-        </Btn>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <ThemeToggleButton />
+          <Btn
+            variant="accent"
+            size="md"
+            icon="plus"
+            onClick={() => setIsModalOpen(true)}
+          >
+            Add User
+          </Btn>
+        </div>
       </div>
 
       {/* ── Loading state ─────────────────────────────────────────────────── */}
