@@ -26,7 +26,7 @@ jobs:
           - language: actions
             build-mode: none
           - language: rust
-            build-mode: autobuild
+            build-mode: none
 
     steps:
       - name: Checkout repository
@@ -39,10 +39,6 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-
-      - name: Install Rust toolchain
-        if: matrix.language == 'rust'
-        uses: dtolnay/rust-toolchain@stable
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
