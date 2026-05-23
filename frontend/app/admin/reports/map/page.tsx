@@ -421,7 +421,6 @@ export default function ReportsMapPage() {
               let icon: unknown;
               if (typeof window !== "undefined") {
                 try {
-                  // eslint-disable-next-line @typescript-eslint/no-var-requires
                   const L = require("leaflet");
                   if (typeof L.divIcon === "function") {
                     icon = L.divIcon({

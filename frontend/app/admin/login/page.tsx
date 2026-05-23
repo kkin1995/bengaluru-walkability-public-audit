@@ -144,7 +144,7 @@ export default function LoginPage() {
             color: "var(--muted)",
             fontFamily: "var(--font-mono)",
             letterSpacing: "0.02em",
-          }}>// authenticate to the triage queue</p>
+          }}>{'// authenticate to the triage queue'}</p>
         </div>
 
         {/* Form */}
