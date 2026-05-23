@@ -262,6 +262,7 @@ export default function ProfilePage() {
         maxWidth: 720,
         marginLeft: "auto",
         marginRight: "auto",
+        paddingBottom: 80,
       }}
     >
       {offlineBanner}
