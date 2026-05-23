@@ -31,6 +31,7 @@
   --danger-ink: oklch(0.40 0.18 25);
   --danger-bg: oklch(0.95 0.04 25);
   --danger-border: oklch(0.84 0.10 25);
+  --on-danger: #ffffff;
 
   --warn: oklch(0.70 0.15 70);
   --warn-ink: oklch(0.44 0.15 70);
