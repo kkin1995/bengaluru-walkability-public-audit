@@ -233,7 +233,7 @@ export default function ReportDetailPage({
           background: "rgba(10,10,10,0.5)",
           border: "none",
           borderRadius: "var(--r-sm)",
-          color: "#fff",
+          color: "var(--on-danger)",
           padding: "6px 8px",
           cursor: "pointer",
           fontSize: 12,
