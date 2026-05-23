@@ -338,7 +338,7 @@ export default function ProfilePage() {
 
       {/* ── Display name ──────────────────────────────────────────────────── */}
       <Card style={{ padding: 20, marginBottom: 16 }}>
-        <SectionLabel style={{ marginBottom: 12 }}>DISPLAY_NAME</SectionLabel>
+        <SectionLabel style={{ marginBottom: 12 }}>Display Name</SectionLabel>
         <Input
           type="text"
           value={displayName}
