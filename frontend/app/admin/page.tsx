@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { getStats, type AdminStats } from "./lib/adminApi";
 import { useOnlineStatus } from "./lib/useOnlineStatus";
 import { getCategoryLabel } from "@/app/lib/translations";
@@ -12,6 +13,7 @@ import { SectionLabel } from "./components/SectionLabel";
 import { SeverityIndicator } from "./components/SeverityIndicator";
 import { Sparkbars } from "./components/Sparkbars";
 import { Icon } from "./components/Icon";
+import { ThemeToggleButton } from "./components/ThemeToggleButton";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Stub data for activity feed (wired to real data in Plan 03)
@@ -28,6 +30,7 @@ const STUB_ACTIVITY: { time: string; action: string; category: string }[] = [
 const STUB_SPARKBARS = [3, 5, 2, 8, 6, 4, 9, 7, 5, 3, 6, 8, 4, 5];
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -249,7 +252,7 @@ export default function AdminDashboard() {
           width: 6,
           height: 6,
           borderRadius: "50%",
-          background: isOnline ? "var(--sev-low)" : "var(--muted)",
+          background: isOnline ? "#22c55e" : "var(--muted)",
           display: "inline-block",
         }}
       />
@@ -302,7 +305,7 @@ export default function AdminDashboard() {
         >
           {statsForCards ? `+${statsForCards.submitted} today` : "—"}
         </div>
-        <Btn variant="accent" size="lg" style={{ width: "100%" }}>
+        <Btn variant="accent" size="lg" style={{ width: "100%" }} onClick={() => router.push("/admin/reports")}>
           Start reviewing
         </Btn>
       </Card>
@@ -462,19 +465,22 @@ export default function AdminDashboard() {
         marginRight: "auto",
       }}
     >
-      <h1
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 14,
-          fontWeight: 600,
-          color: "var(--ink)",
-          marginBottom: 24,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-        }}
-      >
-        Dashboard
-      </h1>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <h1
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 14,
+            fontWeight: 600,
+            color: "var(--ink)",
+            margin: 0,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+          }}
+        >
+          Dashboard
+        </h1>
+        <ThemeToggleButton />
+      </div>
 
       {offlineBanner}
 

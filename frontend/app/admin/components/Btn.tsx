@@ -27,7 +27,7 @@ const VARIANTS: Record<BtnVariant, CSSProperties> = {
   secondary:    { background: "var(--surface)",     color: "var(--ink)",         fontWeight: 500, boxShadow: "inset 0 0 0 1px var(--border-strong)" },
   ghost:        { background: "transparent",        color: "var(--ink-2)",       fontWeight: 500 },
   soft:         { background: "var(--surface-2)",   color: "var(--ink)",         fontWeight: 500 },
-  danger:       { background: "var(--danger)",      color: "#fff",               fontWeight: 600 },
+  danger:       { background: "var(--danger)",      color: "var(--on-danger)",   fontWeight: 600 },
   "danger-soft": { background: "var(--danger-bg)", color: "var(--danger-ink)",  fontWeight: 600, boxShadow: "inset 0 0 0 1px var(--danger-border)" },
 };
 

@@ -122,3 +122,61 @@ The `reports.location` column (GEOGRAPHY type) is auto-populated from lat/lng vi
 - **Image storage**: Local filesystem behind `ServeDir` (tower-http). Abstraction-ready for S3 swap.
 - **EXIF stripping server-side**: `img-parts` removes GPS metadata before writing to disk (belt-and-suspenders privacy)
 - **SQLx compile-time checks**: Queries are verified against live DB at compile time; run `cargo sqlx prepare` to capture metadata for offline builds
+
+## Git Safety Rules
+
+These rules apply to every audit, UAT, QA, or bug-fix session in this project — regardless of which skill or command is used.
+
+### Branch protection
+
+Never commit code edits directly to `main`, `master`, `release-*`, or `phase-*` branches during audit/UAT/fix work.
+
+Use a dedicated branch instead:
+- `fix/<phase-or-area>-<short-description>` — for audit/UAT/bug fixes
+- `hotfix/<short-description>` — for urgent production issues only
+
+Only bypass this rule if the user explicitly says: **"Commit to this branch."**
+
+### Required git preflight before any edit in a fix/audit/UAT session
+
+Before editing any file, run and print all four commands:
+```bash
+git rev-parse --show-toplevel   # repo root
+git branch --show-current       # current branch
+git status --short              # uncommitted changes
+git log --oneline -5            # recent context
+```
+
+Print a preflight summary:
+- Repo root
+- Current branch
+- Whether the current branch is allowed for this work (not main/master/release-*/phase-*)
+- Any uncommitted changes
+- Base commit hash and message
+
+If the current branch is forbidden: stop, propose `git checkout -b fix/<area>-<description>`, and wait for the user to confirm before editing.
+
+### Classification required before any fix
+
+During any audit, UAT, or QA fix session, classify ALL findings into these categories before touching any code:
+
+| Category | Meaning | Action |
+|---|---|---|
+| `confirmed-bug` | Reproducible, specific file/line, testable | Safe to auto-fix |
+| `pending-uat` | Not yet verified on staging/prod | **Do not fix** — verify first |
+| `manual-only` | Requires design decision or user input | **Do not fix** without explicit direction |
+| `config/env` | Requires environment or config change | Confirm with user |
+| `not-a-bug` | Works as intended | Skip |
+
+**Pending UAT is not a confirmed bug.** Never fix a `pending-uat` item in an automated fix session.
+
+### Pre-commit checklist
+
+Before every commit, show:
+1. Current branch name
+2. Staged files (`git diff --cached --name-only`)
+3. Change summary (`git diff --cached --stat`)
+4. Proposed commit message
+5. Test results — exact command, exit code, pass/fail count
+
+Never claim "tests passed" if test output was truncated or if the test runner reported "No tests found".

@@ -15,6 +15,7 @@ import ReportsTable from "../components/ReportsTable";
 import { Card } from "../components/Card";
 import { Btn } from "../components/Btn";
 import { Pill } from "../components/Pill";
+import { ThemeToggleButton } from "../components/ThemeToggleButton";
 
 type PageProps = {
   params?: Record<string, string | string[]>;
@@ -169,21 +170,24 @@ function ReportsPageContent(props: PageProps) {
       )}
 
       {/* Page heading: mono uppercase "QUEUE" + total count chip */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-        <h1 style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 14,
-          fontWeight: 600,
-          color: "var(--ink)",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          margin: 0,
-        }}>
-          QUEUE
-        </h1>
-        <Pill tone="neutral" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
-          {totalCount}
-        </Pill>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <h1 style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 14,
+            fontWeight: 600,
+            color: "var(--ink)",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            margin: 0,
+          }}>
+            QUEUE
+          </h1>
+          <Pill tone="neutral" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
+            {totalCount}
+          </Pill>
+        </div>
+        <ThemeToggleButton />
       </div>
 
       {/* API error state — EXACT UI-SPEC string, no raw error */}

@@ -14,6 +14,7 @@ import CreateUserModal from "../components/CreateUserModal";
 import { useOnlineStatus } from "../lib/useOnlineStatus";
 import { Pill } from "../components/Pill";
 import { Btn } from "../components/Btn";
+import { ThemeToggleButton } from "../components/ThemeToggleButton";
 import { Card } from "../components/Card";
 
 /** Resolve org name from id, or "Unassigned" when null */
@@ -113,6 +114,7 @@ export default function UsersPage(props: PageProps) {
         maxWidth: 1400,
         marginLeft: "auto",
         marginRight: "auto",
+        paddingBottom: 80,
       }}
     >
       {offlineBanner}
@@ -148,14 +150,17 @@ export default function UsersPage(props: PageProps) {
             </Pill>
           )}
         </div>
-        <Btn
-          variant="accent"
-          size="md"
-          icon="plus"
-          onClick={() => setIsModalOpen(true)}
-        >
-          Add User
-        </Btn>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <ThemeToggleButton />
+          <Btn
+            variant="accent"
+            size="md"
+            icon="plus"
+            onClick={() => setIsModalOpen(true)}
+          >
+            Add User
+          </Btn>
+        </div>
       </div>
 
       {/* ── Loading state ─────────────────────────────────────────────────── */}
@@ -207,7 +212,8 @@ export default function UsersPage(props: PageProps) {
       {!isLoading && !fetchError && users.length > 0 && (
         <div
           aria-label="Organisation assignment"
-          style={{ marginTop: 16 }}
+          aria-hidden={true}
+          style={{ marginTop: 16, display: "none" }}
         >
           {users
             .filter((u) => !u.is_super_admin)

@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 Phase: 03
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-05-22
+Status: Phase 02.5 shipped — PR #9
+Last activity: 2026-05-23
 
 Progress: [█████████░] 94%
 

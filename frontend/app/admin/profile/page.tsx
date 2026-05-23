@@ -262,6 +262,7 @@ export default function ProfilePage() {
         maxWidth: 720,
         marginLeft: "auto",
         marginRight: "auto",
+        paddingBottom: 80,
       }}
     >
       {offlineBanner}
@@ -337,7 +338,7 @@ export default function ProfilePage() {
 
       {/* ── Display name ──────────────────────────────────────────────────── */}
       <Card style={{ padding: 20, marginBottom: 16 }}>
-        <SectionLabel style={{ marginBottom: 12 }}>DISPLAY_NAME</SectionLabel>
+        <SectionLabel style={{ marginBottom: 12 }}>Display Name</SectionLabel>
         <Input
           type="text"
           value={displayName}
@@ -394,7 +395,7 @@ export default function ProfilePage() {
 
       {/* ── Change password ───────────────────────────────────────────────── */}
       <Card style={{ padding: 20, marginBottom: 16 }}>
-        <SectionLabel style={{ marginBottom: 12 }}>CHANGE_PASSWORD</SectionLabel>
+        <SectionLabel style={{ marginBottom: 12 }}>Change Password</SectionLabel>
 
         <div style={{ marginBottom: 12 }}>
           <Input
@@ -451,7 +452,7 @@ export default function ProfilePage() {
             letterSpacing: "0.01em",
           }}
         >
-          {`// MIN 12 · ARGON2ID`}
+          {"Min. 12 characters · Argon2id"}
         </p>
 
         {passwordSuccess && (
@@ -518,7 +519,7 @@ export default function ProfilePage() {
             }}
           >
             <span style={{ color: "var(--muted-2)", marginRight: 8 }}>
-              LAST_LOGIN
+              Last Login
             </span>
             {formattedLastLogin}
           </div>
@@ -530,7 +531,7 @@ export default function ProfilePage() {
             }}
           >
             <span style={{ color: "var(--muted-2)", marginRight: 8 }}>
-              SESSION_EXP
+              Session Expires
             </span>
             — (not available)
           </div>
