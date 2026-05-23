@@ -207,7 +207,8 @@ export default function UsersPage(props: PageProps) {
       {!isLoading && !fetchError && users.length > 0 && (
         <div
           aria-label="Organisation assignment"
-          style={{ marginTop: 16 }}
+          aria-hidden={true}
+          style={{ marginTop: 16, display: "none" }}
         >
           {users
             .filter((u) => !u.is_super_admin)
