@@ -109,7 +109,7 @@ function DesktopDashboardB() {
                     const pct = (v / s.total_reports) * 100;
                     return (
                       <div key={k} style={{ display: "grid", gridTemplateColumns: "180px 1fr 60px", gap: 8, alignItems: "center" }}>
-                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{k.replace("_", "_")}</span>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-2)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{k.replace(/_/g, " ")}</span>
                         <div style={{ height: 6, background: "var(--surface-2)", borderRadius: 1, overflow: "hidden", border: "1px solid var(--border)" }}>
                           <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)" }}/>
                         </div>
