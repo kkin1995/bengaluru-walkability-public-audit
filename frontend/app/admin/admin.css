@@ -167,3 +167,12 @@
     display: none;
   }
 }
+
+/* Users table — hide ORG and LAST LOGIN columns on narrow viewports (STG-06).
+   USER, ROLE, STATUS, ACTIONS remain visible; 4 columns fit without horizontal scroll. */
+@media (max-width: 640px) {
+  .user-table-col-org,
+  .user-table-col-lastlogin {
+    display: none;
+  }
+}
