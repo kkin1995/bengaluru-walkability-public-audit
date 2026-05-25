@@ -1,6 +1,6 @@
 # Phase 3: Government Triage Workflow - Context
 
-**Gathered:** 2026-05-25 (updated; original: 2026-03-14)
+**Gathered:** 2026-05-25 (updated 2x; original: 2026-03-14)
 **Status:** Backend plans 03-01/03-02 need replanning for new scope; frontend plans 03-03/03-04 blocked on design team spec (see D-37 + specifics)
 
 <domain>
@@ -47,18 +47,24 @@ Citizen submission flow, dedup logic, and analytics/export are NOT part of this 
 ### GBA Hierarchy — Data Source
 - **D-19:** All hierarchy data exists in `data/gba_wards_2025.geojson` — already partially loaded into `wards` table (currently: `id`, `ward_number`, `ward_name`, `corporation`, `boundary`)
 - **D-20:** The 5 corporations are already stored as TEXT in `wards.corporation`: Central, North, East, South, West
-- **D-21:** Add hierarchy columns to `wards` table via migration: `zone_name`, `ro_division`, `aro_sub_division`, `assembly_constituency`, `assembly_constituency_no` — backfilled from GeoJSON at migration time
+- **D-21:** Add hierarchy columns to `wards` table via migration: `zone_name`, `ro_division`, `aro_sub_division`, `assembly_constituency`, `assembly_constituency_no`, `parliamentary_constituency` — backfilled from GeoJSON at migration time (parliamentary_constituency derived from `ac_no` via hardcoded Delimitation Commission mapping — see D-41)
 - **D-22:** Corporation tagging on reports: auto-derived at query time via JOIN `reports → wards` on `ward_id`. No denormalized corporation column on reports table.
 
 ### GBA Hierarchy — Display
 - **D-23:** Show both the full bureaucratic AND elected chains per report:
   - Bureaucratic: Ward → ARO Sub Division → RO Division → Zone → Corporation → GBA
-  - Elected: Assembly Constituency (MLA territory) from ward's `ac` field
+  - Elected: Assembly Constituency (MLA territory) from ward's `ac` field + Parliamentary Constituency (MP territory) from ward's `parliamentary_constituency` field
 - **D-24:** Researcher task: find official designation titles at each bureaucratic level (e.g., "Ward Assistant Executive Engineer") — org structure/designations ONLY; do NOT store named individuals
 - **D-25:** Display locations:
-  - Admin report detail page: full hierarchy chain (both chains)
+  - Admin report detail page: full hierarchy chain (both chains — bureaucratic + elected with AC and PC)
   - Public map popup: Corporation name + ward name + status + "Read More →" link
-  - Public single-report page (`/reports/[id]`): full hierarchy + all report details
+  - Public single-report page (`/reports/[id]`): full hierarchy + all report details (both AC/MLA and PC/MP in elected chain)
+
+### Parliamentary Constituency (MP) — New
+- **D-41:** Add `parliamentary_constituency` (TEXT) column to `wards` table in migration 008, backfilled via a hardcoded `ac_no → Lok Sabha constituency` mapping derived from the Delimitation Commission of India order. The mapping is small (Bengaluru GBA wards span ~4–5 Lok Sabha seats: Bangalore North, Central, South, and portions of Bangalore Rural/Tumkur). No new data file needed — mapping lives in the migration SQL.
+- **D-42:** The elected chain display (on both admin detail page and public `/reports/[id]`) shows two levels:
+  - Assembly Constituency: `{ac_no} – {ac_name}` (e.g., "154 – Rajarajeshwarinagar") — MLA territory
+  - Parliamentary Constituency: `{parliamentary_constituency}` (e.g., "Bangalore South") — MP territory
 
 ### Public Single-Report Page (`/reports/[id]`)
 - **D-26:** New citizen-facing page — uses Direction-A design system (`globals.css`)
@@ -148,7 +154,7 @@ Citizen submission flow, dedup logic, and analytics/export are NOT part of this 
 - `status_history` table with `note` column — use for status timeline in public report page
 
 ### Integration Points
-- `backend/migrations/008_workflow.sql` — rename enum values; add `resolution_photo_path`, `resolution_notes`, `assigned_org_id` to `reports`; add `zone_name`, `ro_division`, `aro_sub_division`, `assembly_constituency`, `assembly_constituency_no` to `wards`
+- `backend/migrations/008_workflow.sql` — rename enum values; add `resolution_photo_path`, `resolution_notes`, `assigned_org_id` to `reports`; add `zone_name`, `ro_division`, `aro_sub_division`, `assembly_constituency`, `assembly_constituency_no`, `parliamentary_constituency` to `wards` (last column backfilled from hardcoded AC_no → Lok Sabha seat mapping)
 - `backend/src/handlers/admin.rs` — add POST `/api/admin/reports/:id/resolve` (multipart), POST `/api/admin/reports/:id/assign-org` (JSON)
 - `backend/src/handlers/reports.rs` (public) — extend `GET /api/reports/:id` to include status history + ward hierarchy; or add new endpoint
 - `frontend/app/reports/[id]/page.tsx` — New public page (does not exist yet)
@@ -184,7 +190,7 @@ All admin components use Direction-B: teal Console palette, JetBrains Mono, CSS 
 
 **C. GBA Hierarchy Panel** — Read-only info section for the report's ward:
 - Bureaucratic chain: Ward → ARO Sub Division → RO Division → Zone → Corporation → GBA
-- Elected chain: Assembly Constituency (e.g., "154 – Rajarajeshwarinagar")
+- Elected chain: Assembly Constituency (MLA, e.g., "154 – Rajarajeshwarinagar") + Parliamentary Constituency (MP, e.g., "Bangalore South")
 - Design as structured label/value list or info card
 
 **2. Resolve/Close Modal:**
@@ -227,7 +233,7 @@ All public components use Direction-A (citizen design system, `globals.css`).
 - Status history timeline: e.g., "Open (Jan 12) → Acknowledged (Jan 15) → In Progress (Jan 20)"
 - GBA Responsibility Hierarchy section:
   - Bureaucratic: Ward → ARO Sub Division → RO Division → Zone → Corporation → GBA (each level labeled with official designation)
-  - Elected: Assembly Constituency (MLA territory)
+  - Elected: Assembly Constituency (MLA territory) + Parliamentary Constituency (MP territory)
 - Resolution section (only when resolved/closed): after-photo + resolution notes
 - Back-to-map link
 

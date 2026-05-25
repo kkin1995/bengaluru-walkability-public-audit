@@ -9,6 +9,40 @@
 
 ---
 
+## Update Session 2 — 2026-05-25
+
+**Areas discussed:** Parliamentary Constituency (MP) in elected chain
+
+### Parliamentary Constituency Addition
+
+**User's request (free text):** "I just want to ensure that the MP (Member of Parliament) is also there in the accountability hierarchy. Earlier I saw MLA, but I did not see MP."
+
+**Context check:** The GeoJSON (`data/gba_wards_2025.geojson`) has `ac` and `ac_no` (Assembly Constituency / MLA) but no Parliamentary Constituency (Lok Sabha) field. The chain is: Report → Ward (via GPS+ST_Within) → `wards.ac_no` → `wards.parliamentary_constituency` (new column). No second GPS lookup required.
+
+### Data Source for PC
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Derive at migration time from a lookup | Hardcoded AC_no → Lok Sabha seat mapping in migration SQL (Delimitation Commission order) | ✓ |
+| Add to GeoJSON as new field | Enrich GeoJSON manually then backfill | |
+| Skip MP for now | MLA-only for this phase | |
+
+**User's choice:** Derive at migration time
+
+### PC Display Location
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Same elected chain as MLA | Both AC (MLA) and PC (MP) on admin detail + public /reports/[id] | ✓ |
+| Public page only, not admin | PC visible to citizens but not admins | |
+| Separate "Elected Officials" section | Dedicated section apart from bureaucratic chain | |
+
+**User's choice:** Same elected chain as MLA (Recommended)
+
+### Decisions captured: D-41, D-42; D-21, D-23, D-25 updated
+
+---
+
 ## Context Check
 
 | Option | Description | Selected |
