@@ -44,7 +44,6 @@ export default async function HomePage() {
   return (
     <main
       style={{
-        minHeight: "100dvh",
         maxWidth: 428,
         margin: "0 auto",
         display: "flex",

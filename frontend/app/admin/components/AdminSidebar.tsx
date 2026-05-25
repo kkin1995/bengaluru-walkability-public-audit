@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/admin/lib/adminApi";
 import { Icon } from "./Icon";
@@ -224,11 +225,13 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
         marginTop: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Avatar name="Admin" tone="ink" size={28} />
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, minWidth: 0, flex: 1 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink)" }}>Admin</span>
-            <span style={{ fontSize: 9, color: "var(--muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{role}</span>
-          </div>
+          <Link href="/admin/profile" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, textDecoration: "none", color: "inherit" }}>
+            <Avatar name="Admin" tone="ink" size={28} />
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, minWidth: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink)" }}>Admin</span>
+              <span style={{ fontSize: 9, color: "var(--muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{role}</span>
+            </div>
+          </Link>
           <button
             aria-label="Log out"
             onClick={handleLogout}
