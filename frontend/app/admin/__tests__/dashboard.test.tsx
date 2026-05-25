@@ -140,6 +140,16 @@ const ZERO_STATS_FIXTURE = {
   by_severity: { low: 0, medium: 0, high: 0 },
 };
 
+// Default mock for getAdminReports — returns empty activity list unless overridden.
+// Required because page.tsx now fetches recent reports on mount alongside stats.
+beforeEach(() => {
+  (adminApi.getAdminReports as jest.Mock).mockResolvedValue({ data: [], pagination: { page: 1, limit: 5, total_count: 0, total_pages: 0 } });
+});
+
+afterEach(() => {
+  jest.clearAllMocks();
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // R-DASH-1 / AC-DASH-1-S1 — StatsCards rendered with live data
 // ─────────────────────────────────────────────────────────────────────────────

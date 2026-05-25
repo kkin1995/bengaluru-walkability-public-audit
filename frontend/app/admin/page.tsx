@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getStats, type AdminStats } from "./lib/adminApi";
+import { getStats, getAdminReports, type AdminStats, type AdminReport } from "./lib/adminApi";
 import { useOnlineStatus } from "./lib/useOnlineStatus";
 import { getCategoryLabel } from "@/app/lib/translations";
 import StatsCards from "./components/StatsCards";
@@ -15,16 +15,16 @@ import { Sparkbars } from "./components/Sparkbars";
 import { Icon } from "./components/Icon";
 import { ThemeToggleButton } from "./components/ThemeToggleButton";
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Stub data for activity feed (wired to real data in Plan 03)
-// ──────────────────────────────────────────────────────────────────────────────
+function formatActivityTime(isoString: string): string {
+  const d = new Date(isoString);
+  return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
 
-const STUB_ACTIVITY: { time: string; action: string; category: string }[] = [
-  { time: "09:42", action: "New", category: "broken_footpath" },
-  { time: "09:11", action: "Under review", category: "no_footpath" },
-  { time: "08:55", action: "New", category: "unsafe_crossing" },
-  { time: "08:30", action: "Resolved", category: "poor_lighting" },
-];
+function statusActionLabel(status: string): string {
+  if (status === "resolved") return "Resolved";
+  if (status === "under_review") return "Under review";
+  return "New";
+}
 
 // Stub sparkbars data — 14-day intake
 const STUB_SPARKBARS = [3, 5, 2, 8, 6, 4, 9, 7, 5, 3, 6, 8, 4, 5];
@@ -35,6 +35,7 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [recentReports, setRecentReports] = useState<AdminReport[]>([]);
   const isOnline = useOnlineStatus();
 
   const fetchStats = useCallback(async () => {
@@ -52,6 +53,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     void fetchStats();
+    getAdminReports({ limit: 5, page: 1 })
+      .then((res) => setRecentReports(res.data ?? []))
+      .catch(() => { /* non-critical — activity feed stays empty on error */ });
   }, [fetchStats]);
 
   // Responsive switching: desktop layout at ≥1024px
@@ -193,42 +197,45 @@ export default function AdminDashboard() {
   const activityFeed = (
     <Card>
       <SectionLabel style={{ marginBottom: 14 }}>Recent Activity</SectionLabel>
-      {STUB_ACTIVITY.length === 0 ? (
+      {recentReports.length === 0 ? (
         <p style={{ color: "var(--muted)", fontSize: 13 }}>No recent activity.</p>
       ) : (
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-          {STUB_ACTIVITY.map((item, i) => (
-            <li
-              key={i}
-              style={{ display: "flex", alignItems: "center", gap: 10 }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 10,
-                  color: "var(--muted)",
-                  minWidth: 36,
-                }}
+          {recentReports.map((report) => {
+            const action = statusActionLabel(report.status);
+            return (
+              <li
+                key={report.id}
+                style={{ display: "flex", alignItems: "center", gap: 10 }}
               >
-                {item.time}
-              </span>
-              <Pill
-                tone={
-                  item.action === "Resolved"
-                    ? "accent"
-                    : item.action === "Under review"
-                    ? "info"
-                    : "neutral"
-                }
-                size="sm"
-              >
-                {item.action}
-              </Pill>
-              <span style={{ fontSize: 12, color: "var(--ink-2)" }}>
-                {getCategoryLabel(item.category).en}
-              </span>
-            </li>
-          ))}
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    color: "var(--muted)",
+                    minWidth: 36,
+                  }}
+                >
+                  {formatActivityTime(report.created_at)}
+                </span>
+                <Pill
+                  tone={
+                    action === "Resolved"
+                      ? "accent"
+                      : action === "Under review"
+                      ? "info"
+                      : "neutral"
+                  }
+                  size="sm"
+                >
+                  {action}
+                </Pill>
+                <span style={{ fontSize: 12, color: "var(--ink-2)" }}>
+                  {getCategoryLabel(report.category).en}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Card>
