@@ -21,8 +21,9 @@ const nextConfig = {
   },
   images: {
     remotePatterns: [
-      { protocol: "http", hostname: "**" },
-      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "localhost" },
+      { protocol: "http", hostname: "backend" },
+      { protocol: "https", hostname: "staging.nammadaari.com" },
     ],
   },
 };
