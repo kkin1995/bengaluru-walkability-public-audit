@@ -6,6 +6,7 @@ import { Icon } from "./Icon";
 import { Avatar } from "./Avatar";
 import { Kbd } from "./Kbd";
 import { Btn } from "./Btn";
+import { APP_VERSION } from "@/app/lib/config";
 
 interface AdminSidebarProps {
   role: string;
@@ -114,7 +115,7 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
         }}>W</div>
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, letterSpacing: "0.02em" }}>WLK.CONSOLE</span>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em" }}>BENGALURU · v2.4.1</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em" }}>BENGALURU · v{APP_VERSION}</span>
         </div>
       </div>
 
