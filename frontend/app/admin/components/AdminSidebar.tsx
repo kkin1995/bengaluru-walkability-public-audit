@@ -80,6 +80,10 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
     }
   }
 
+  const visibleMobileTabs = MOBILE_TABS.filter(
+    (tab) => !(tab.roleGated && !isAdminOrSuper)
+  );
+
   // ── Desktop Sidebar ─────────────────────────────────────────────────────────
   const desktopSidebar = (
     <nav
@@ -284,7 +288,7 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
       role="navigation"
       style={{
         display: isDesktop ? "none" : "grid",
-        gridTemplateColumns: "repeat(5, 1fr)",
+        gridTemplateColumns: `repeat(${visibleMobileTabs.length}, 1fr)`,
         gap: 2,
         position: "fixed",
         bottom: 0,
@@ -296,8 +300,7 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
         zIndex: 1000,
       }}
     >
-      {MOBILE_TABS.map((tab) => {
-        if (tab.roleGated && !isAdminOrSuper) return null;
+      {visibleMobileTabs.map((tab) => {
         if (tab.key === "logout") {
           return (
             <button
