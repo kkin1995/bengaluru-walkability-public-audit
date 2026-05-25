@@ -43,6 +43,44 @@
 
 ---
 
+## Update Session 3 — 2026-05-25
+
+**Areas discussed:** Correctness of RO/ARO accountability chain for footpaths; named elected officials (MLA/MP)
+
+### RO/ARO Chain Validity
+
+**User's observation (free text):** "Can you also check if ARO and RO is the correct accountability chain? Another app (Namma Kasa) for reporting garbage spots has Junior Health Inspector → Asst. Executive Engineer → Additional Commissioner → Commissioner → BSWML → Your Ward Central (#25). Revenue officer seems odd for footpaths."
+
+**Finding:** The `RO_Division` and `ARO_Sub_Division` fields in the GeoJSON refer to **Revenue Officer** administrative zones used for property tax and khata records — NOT the Engineering department that is responsible for road/footpath infrastructure. The correct accountability chain for footpaths is the BBMP Engineering Department (AEE → EE → SE → Chief Engineer for Roads → GBA Commissioner).
+
+### Engineering Chain — Research Decision
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Research Engineering chain first, block planning | Get the correct chain before committing to DB schema | ✓ |
+| Show what we can, add engineering chain later | Proceed with Corporation + MLA/MP; add AEE/EE chain in gap-closure | |
+| Research both chains in parallel | Research while planning proceeds with simplified display | |
+
+**User's choice:** Research first — Plan 03-01 replanning is blocked on research findings (D-45)
+
+### Named Elected Officials
+
+**User's request (free text):** "We want Accountability and Transparency but we want names of officers where possible or at least names of MLA and MP."
+
+**Note:** This reverses D-24 ("do NOT store named individuals") for elected officials specifically. Bureaucratic officer names (AEE/EE/SE) remain subject to research — they may change frequently and may not be publicly structured.
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Store in DB, update manually at election cycles | mla_name/mp_name columns on wards table; seeded from ECI/Vidhan Sabha | ✓ |
+| Link out to ECI/Vidhan Sabha website | No DB storage; always current; zero maintenance | |
+| Both — store names + show a link | DB display + verify link | |
+
+**User's choice:** Store in DB, update manually at election cycles
+
+### Decisions captured: D-24 (revised), D-43, D-44, D-45, D-46; D-21, D-23, D-25, D-28 updated
+
+---
+
 ## Context Check
 
 | Option | Description | Selected |
