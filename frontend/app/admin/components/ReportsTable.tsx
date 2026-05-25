@@ -927,7 +927,7 @@ export default function ReportsTable({
                         <PhotoTile
                           size={32}
                           radius="var(--r-xs)"
-                          src={report.image_url || (report.image_path ? `/uploads/${report.image_path}` : undefined)}
+                          src={report.image_path ? `${API_BASE_URL}/uploads/${report.image_path}` : undefined}
                           alt=""
                         />
                         <span style={{
