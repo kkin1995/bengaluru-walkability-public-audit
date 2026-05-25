@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { logout } from "@/app/admin/lib/adminApi";
 import { Icon } from "./Icon";
 import { Avatar } from "./Avatar";
@@ -70,13 +70,11 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
 
   const isAdminOrSuper = role === "admin" || role === "super_admin";
 
-  const router = useRouter();
-
   async function handleLogout() {
     try {
       await logout();
     } finally {
-      router.push("/admin/login");
+      window.location.replace("/admin/login");
     }
   }
 

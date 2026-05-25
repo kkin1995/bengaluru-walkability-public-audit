@@ -60,7 +60,7 @@ export default function RootLayout({
           crossOrigin=""
         />
       </head>
-      <body className="min-h-screen antialiased">{children}<FooterBoundary /></body>
+      <body className="min-h-screen antialiased flex flex-col"><div className="flex-1">{children}</div><FooterBoundary /></body>
     </html>
   );
 }
