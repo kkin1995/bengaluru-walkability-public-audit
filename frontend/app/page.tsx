@@ -44,10 +44,12 @@ export default async function HomePage() {
   return (
     <main
       style={{
+        flex: 1,
         maxWidth: 428,
         margin: "0 auto",
         display: "flex",
         flexDirection: "column",
+        justifyContent: "center",
         background: "var(--bg)",
       }}
     >
