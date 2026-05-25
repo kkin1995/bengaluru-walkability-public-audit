@@ -424,6 +424,7 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
       <div style={{
         display: "flex",
         alignItems: "center",
+        flexWrap: "wrap",
         gap: 10,
         padding: "8px 0",
         borderBottom: "1px solid var(--border)",
