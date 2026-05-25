@@ -89,6 +89,7 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
     <nav
       aria-label="Admin navigation"
       role="navigation"
+      aria-hidden={!isDesktop}
       style={{
         display: isDesktop ? "flex" : "none",
         flexDirection: "column",
@@ -286,6 +287,7 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
     <nav
       aria-label="Admin navigation"
       role="navigation"
+      aria-hidden={isDesktop}
       style={{
         display: isDesktop ? "none" : "grid",
         gridTemplateColumns: `repeat(${visibleMobileTabs.length}, 1fr)`,
