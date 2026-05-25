@@ -188,7 +188,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 02.6-01-PLAN.md — Build-time NEXT_PUBLIC_APP_VERSION injection (next.config.mjs + package.json source) + APP_VERSION export (config.ts) + citizen SiteFooter Server Component + FooterBoundary client wrapper hiding footer on /map + root layout mount
+- [x] 02.6-01-PLAN.md — Build-time NEXT_PUBLIC_APP_VERSION injection (next.config.mjs + package.json source) + APP_VERSION export (config.ts) + citizen SiteFooter Server Component + FooterBoundary client wrapper hiding footer on /map + root layout mount
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -313,7 +313,7 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.4 Self-Hosted Infrastructure | 4/4 | Complete | 2026-05-20 |
 | 2.4.1 Security Hardening | 3/3 | Complete   | 2026-05-20 |
 | 2.5 Admin Portal UI Redesign | 4/4 | Complete   | 2026-05-22 |
-| 2.6 Build Metadata & Version Stamping | 0/2 | Planned | - |
+| 2.6 Build Metadata & Version Stamping | 1/2 | In Progress|  |
 | 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
 
