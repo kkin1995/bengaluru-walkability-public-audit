@@ -214,10 +214,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — DB migrations 008/009 (ENUM rename + add values), Report/ReportResponse struct extension, get_report_stats fix
-- [ ] 03-02-PLAN.md — Backend: expanded validate_status, resolve_report and assign_report_org DB fns, two new handler routes
-- [ ] 03-03-PLAN.md — Admin frontend: StatusBadge expansion, ResolveModal, OrgPicker, detail page wiring
-- [ ] 03-04-PLAN.md — Public map: STATUS_COLORS pin colors, popup status label + after-photo, map legend update
+- [ ] 03-01-PLAN.md — DB migrations 008 (ENUM rename + reports columns, no-transaction) + 009 (wards hierarchy columns + 369-row backfill), Report/ReportResponse struct extension, validate_status + get_report_stats updates, Wave 0 test scaffolds
+- [ ] 03-02-PLAN.md — Backend: resolve_report + assign_report_org DB fns, admin_resolve_report (multipart) + admin_assign_report_org (JSON) handlers, public GET /api/reports/:id extension (history + ward_hierarchy)
+- [ ] 03-03-PLAN.md — Admin frontend (Direction B): StatusBadge 6-value extension, StatusActionPanel + OrgAssignPanel + GbaHierarchyPanel + ResolveModal components, /admin/reports/[id] panel wiring, CORP column on reports list, adminApi extension
+- [ ] 03-04-PLAN.md — Public frontend (Direction A): ReportsMap STATUS_COLORS pin coloring, extended popup (corporation + ward + status + Read More), status-based map legend, NEW public /reports/[id] server component page
 
 ### Phase 4: Export and Public Analytics
 **Goal**: GBA planners can download actionable exports in their preferred format, citizens can see high-level progress statistics, and admins have ward-level analytics to identify where investment is most needed
