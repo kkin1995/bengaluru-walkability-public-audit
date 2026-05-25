@@ -49,8 +49,8 @@ export default async function AdminLayout({
       redirect('/admin/login');
     }
 
-    const user = await res.json() as { role?: string };
-    role = user.role ?? 'reviewer';
+    const user = await res.json() as { role?: string; is_super_admin?: boolean };
+    role = user.is_super_admin ? 'super_admin' : (user.role ?? 'reviewer');
   } catch {
     redirect('/admin/login');
   }
