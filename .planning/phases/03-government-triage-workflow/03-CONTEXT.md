@@ -270,9 +270,46 @@ All public components use Direction-A (citizen design system, `globals.css`).
 - **SMS/WhatsApp notifications to GBA officers** — Deferred to post-launch based on GBA requirements.
 - **Report social sharing** — Share to WhatsApp/Twitter with pre-filled text. Deferred to polish phase.
 
+### Road Network Enrichment — Deferred to Phase 4
+
+Seven KML files exist in the project root. Five are redundant with existing ward/zone data already in PostGIS. Two are strategically new and HIGH VALUE for Phase 4:
+
+**`bengaluru-road-centerline-map.kml`** — BBMP/KGIS road network
+- 101,092 road segments, 14,599 km total
+- Fields: `Road_Class` (07=local 97.6%, 04=arterial 2.9%, others), `Road_Type` (01/02), `Road_Surface` (01/02/03), `KGISWardID` (old 198-ward system — DO NOT use for routing), `SHAPE.STLength()` (segment length in metres)
+- Only 1,043/101,092 segments have a road name — names are NOT reliable for UX
+- **⚠ `KGISWardID` uses old 198-ward BBMP numbering, NOT the 369 GBA wards. Always use PostGIS spatial query against `wards` polygons for current ward attribution.**
+- ChatGPT analysis: `.planning/codex/road-network-kml-findings.md`
+
+**`bengaluru-road-width-map.kml`** — BBMP road ROW vs built width
+- 23,238 segments
+- Fields: `RR_TP_HIER` (MA=Major Arterial 45%, MI=Minor 38%, PU=Public 11%, OR/IR/CR/PR), `RR_WIDTH_P` (planned ROW width in metres), `RR_width_B` (built/carriageway width in metres), `SHAPE.STLength()`
+- Average shortfall (planned − built): 10.9m across ALL segments → avg ~5.5m per side of missing footpath+green strip space
+- **Only 9,472 IDs overlap between centerline and width datasets** — need spatial matching, not just ID joins
+- Field codes need official KGIS codebook verification before public display
+
+**Capabilities confirmed for Phase 4:**
+1. **Nearest-road segment tagging** — snap reports to nearest road at submission time (ST_DWithin ~50m); store `nearest_road_segment_id`, `road_class`, `road_hierarchy` on a `report_road_matches` table
+2. **ROW gap analysis** — `RR_WIDTH_P - RR_width_B` = space that should be footpath per road spec; use to weight report priority on roads with large shortfall
+3. **Corridor-aware clustering** — group reports by road segment, not just 50m radius; "8 reports on this 500m stretch" is more actionable than 8 point duplicates
+4. **Analytics normalized by road length** — reports-per-km by ward/corporation is fairer than raw count; foundation for Priority Walking Network (PWN) scoring
+
+**Redundant KMLs (no action needed):**
+- `53329777...kml` — GBA outer boundary (1 polygon)
+- `632f5209...kml` — 5 Corporation zone polygons
+- `790f6df1...kml` — 5 Corporation polygons (duplicate)
+- `e7ad0eac...kml` — 10 Zone polygons (Corporation + Zone name)
+All duplicated by `data/gba_wards_2025.geojson` already in PostGIS.
+
+**Recommended Phase 4 import path:**
+- `ogr2ogr` to convert KML → GeoJSON, then load via PostGIS migration or Rust importer
+- Tables: `road_segments`, `road_width_segments`, `report_road_matches`
+- GiST index on geometry; precompute road matches for existing reports
+- Avoid embedding raw KML/SQL in Rust migrations (too large)
+
 </deferred>
 
 ---
 
 *Phase: 03-government-triage-workflow*
-*Context gathered: 2026-05-25 (updated from 2026-03-14)*
+*Context gathered: 2026-05-25 (updated 3x; original: 2026-03-14)*

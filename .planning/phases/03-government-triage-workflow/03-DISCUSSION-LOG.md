@@ -81,6 +81,58 @@
 
 ---
 
+## Update Session 4 — 2026-05-25
+
+**Areas discussed:** KML files in project root — what they contain and how to use them
+
+### KML File Inventory
+
+**User's request (free text):** "I have also saved several .kml files into root of this project. Before the researcher agent starts, we can go through those and see what data they contain and how the data can be used or transferred to enable the app to have the most impact."
+
+7 KML files found. 5 are redundant with existing GeoJSON/PostGIS data. 2 are high value:
+
+| File | Content | Action |
+|------|---------|--------|
+| `53329777...kml` | GBA outer boundary (1 polygon) | Redundant |
+| `632f5209...kml` | 5 Corporation polygons | Redundant |
+| `790f6df1...kml` | 5 Corporation polygons (duplicate) | Redundant |
+| `e7ad0eac...kml` | 10 Zone polygons | Redundant |
+| `gba-369-wards...kml` | 369 ward boundaries | Already imported |
+| `bengaluru-road-centerline-map.kml` | 101,092 BBMP road segments, 14,599 km | **Phase 4** |
+| `bengaluru-road-width-map.kml` | 23,238 segments with planned vs built width | **Phase 4** |
+
+ChatGPT analysis already exists at `.planning/codex/road-network-kml-findings.md`
+
+### Road Data Capabilities Selected
+
+| Capability | Selected |
+|-----------|----------|
+| Snap reports to nearest road segment | ✓ |
+| Show ROW vs footpath gap per road | ✓ |
+| Corridor-aware clustering | ✓ |
+| Analytics normalized by road length (PWN foundation) | ✓ |
+
+### Phasing Decision
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Phase 4 — don't touch Phase 3 scope | Road data deferred to Phase 4 analytics/exports | ✓ |
+| New inserted phase between 3 and 4 | Phase 3.5 for road enrichment | |
+| Phase 3 — add it now while replanning | Include in current replanning | |
+
+**User's choice:** Phase 4 — Phase 3 scope unchanged
+
+### Key Technical Cautions (from analysis)
+
+- `KGISWardID` in centerline uses old 198-ward system, NOT 369 GBA wards — use PostGIS spatial query instead
+- Field codes (`Road_Class`, `RR_TP_HIER`, etc.) need codebook verification before public display
+- Only 9,472 road IDs overlap between centerline and width datasets — spatial matching required for rest
+- Road names present on only 1,043/101,092 segments — not reliable for UX
+
+Captured in CONTEXT.md `<deferred>` section for Phase 4 researcher.
+
+---
+
 ## Context Check
 
 | Option | Description | Selected |
