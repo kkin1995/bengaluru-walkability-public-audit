@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { logout } from "@/app/admin/lib/adminApi";
 import { Icon } from "./Icon";
 import { Avatar } from "./Avatar";
 import { Kbd } from "./Kbd";
@@ -68,6 +69,16 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
   }
 
   const isAdminOrSuper = role === "admin" || role === "super_admin";
+
+  const router = useRouter();
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      router.push("/admin/login");
+    }
+  }
 
   // ── Desktop Sidebar ─────────────────────────────────────────────────────────
   const desktopSidebar = (
@@ -215,9 +226,9 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
             <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink)" }}>Admin</span>
             <span style={{ fontSize: 9, color: "var(--muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{role}</span>
           </div>
-          <a
-            href="/api/admin/auth/logout"
+          <button
             aria-label="Log out"
+            onClick={handleLogout}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -234,7 +245,7 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
             }}
           >
             <Icon name="logout" size={14} aria-hidden={true} />
-          </a>
+          </button>
         </div>
 
         {/* Dark mode toggle */}
@@ -287,6 +298,37 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
     >
       {MOBILE_TABS.map((tab) => {
         if (tab.roleGated && !isAdminOrSuper) return null;
+        if (tab.key === "logout") {
+          return (
+            <button
+              key="logout"
+              onClick={handleLogout}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 3,
+                padding: "6px 4px",
+                borderRadius: "var(--r-sm)",
+                background: "transparent",
+                color: "var(--muted)",
+                border: "1px solid transparent",
+                cursor: "pointer",
+                minHeight: 44,
+                boxSizing: "border-box",
+              }}
+            >
+              <Icon name="logout" size={18} aria-hidden={true} />
+              <span style={{
+                fontSize: 9,
+                fontFamily: "var(--font-mono)",
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase" as const,
+              }}>OUT</span>
+            </button>
+          );
+        }
         const active = isActive(tab.href, pathname);
         return (
           <a
