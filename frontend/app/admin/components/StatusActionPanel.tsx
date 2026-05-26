@@ -138,7 +138,6 @@ export function StatusActionPanel({
     case "closed":
       content = (
         <div
-          role="status"
           aria-disabled="true"
           style={{
             color: "var(--muted)",
