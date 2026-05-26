@@ -65,6 +65,10 @@ const FULL_REPORT = {
   duplicate_count: 0,
   duplicate_of_id: null,
   duplicate_confidence: null,
+  // Phase 03 required fields
+  resolution_photo_url: null,
+  resolution_notes: null,
+  assigned_org_id: null,
 };
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
