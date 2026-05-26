@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-05-26T05:32:13.984Z"
+last_updated: "2026-05-26T12:14:25.077Z"
 last_activity: 2026-05-26 -- Phase 03 planning complete
 progress:
-  total_phases: 13
+  total_phases: 14
   completed_phases: 10
   total_plans: 39
-  completed_plans: 36
-  percent: 77
+  completed_plans: 37
+  percent: 71
 ---
 
 # Project State
@@ -154,6 +154,7 @@ Progress: [█████████░] 92%
 - Phase 02.4 inserted after Phase 02.3.2: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel: decommission Railway, host backend on desktop via Cloudflare tunnel (URGENT)
 - Phase 02.4.1 inserted after Phase 02.4: Security Hardening (URGENT)
 - Phase 05 added: Coming Soon Homepage + Branching Workflow Setup — persistent staging branch, GSD branching config, coming soon page for nammadaari.com (design matching citizen portal, @nammadaariblr Instagram CTA), Cloudflare Tunnel deployment for production domain
+- Phase 3.1 inserted after Phase 3: Admin Report Detail — Split Layout (INSERTED) — UAT-identified below-fold discoverability issue (F-07 / ISSUE-07) on /admin/reports/[id]; Option 4 two-column split layout with independent right-rail scroll
 
 ### Pending Todos
 
@@ -166,8 +167,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-26T05:32:13.976Z
-Stopped at: Completed 03-02: backend API handlers plan
-Resume file: None
+Last session: 2026-05-26T12:14:25.071Z
+Stopped at: Phase 3.1 context gathered
+Resume file: .planning/phases/03.1-admin-report-detail-split-layout/03.1-CONTEXT.md
 
 **Planned Phase:** 02.3.1 (implement-walkable-blr-ui-redesign-from-design-file-on-separate-branch) — 4 plans — 2026-04-24T20:47:49.668Z
