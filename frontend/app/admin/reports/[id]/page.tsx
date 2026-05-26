@@ -242,26 +242,24 @@ export default function ReportDetailPage({
         </Pill>
       </div>
 
-      {/* Bottom-right: zoom button */}
-      <button
-        aria-label="Zoom photo"
+      {/* Bottom-right: zoom icon — hidden from a11y until lightbox is implemented */}
+      <div
+        aria-hidden="true"
         style={{
           position: "absolute",
           bottom: 8,
           right: 8,
           background: "rgba(10,10,10,0.5)",
-          border: "none",
           borderRadius: "var(--r-sm)",
           color: "var(--on-danger)",
           padding: "6px 8px",
-          cursor: "pointer",
           fontSize: 12,
           fontFamily: "var(--font-mono)",
           fontWeight: 600,
         }}
       >
         ⌕
-      </button>
+      </div>
     </div>
   );
 
