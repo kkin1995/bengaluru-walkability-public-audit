@@ -76,15 +76,11 @@ export default function ReportDetailPage({
 
 
   useEffect(() => {
-    const promise = getMe();
-    // getMe() may return undefined in test environments (jest.fn() without mockResolvedValue)
-    if (promise && typeof promise.then === "function") {
-      promise
-        .then((user: { role?: string }) => {
-          setRole(user.role === "reviewer" ? "reviewer" : "admin");
-        })
-        .catch(() => {/* keep default admin */});
-    }
+    getMe()
+      .then((user) => {
+        setRole(user.role === "reviewer" ? "reviewer" : "admin");
+      })
+      .catch(() => {/* keep default role */});
   }, []);
 
   useEffect(() => {

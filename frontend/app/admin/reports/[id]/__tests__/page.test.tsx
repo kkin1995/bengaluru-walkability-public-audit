@@ -70,6 +70,10 @@ const FULL_REPORT = {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("ReportDetailPage: data fetching", () => {
+  beforeEach(() => {
+    (adminApiModule.getMe as jest.Mock).mockResolvedValue({ role: "admin" });
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
   });
@@ -113,6 +117,7 @@ describe("ReportDetailPage: data fetching", () => {
 
 describe("ReportDetailPage: content rendering", () => {
   beforeEach(() => {
+    (adminApiModule.getMe as jest.Mock).mockResolvedValue({ role: "admin" });
     (adminApiModule.getAdminReport as jest.Mock).mockResolvedValue(FULL_REPORT);
   });
 
@@ -217,6 +222,7 @@ const PHASE3_REPORT = {
 
 describe("Phase 3.1 / F-07 — Layout: identity strip and action rail", () => {
   beforeEach(() => {
+    (adminApiModule.getMe as jest.Mock).mockResolvedValue({ role: "admin" });
     (adminApiModule.getAdminReport as jest.Mock).mockResolvedValue(PHASE3_REPORT);
   });
 
@@ -247,6 +253,7 @@ describe("Phase 3.1 / F-07 — Layout: identity strip and action rail", () => {
 
 describe("Phase 3.1 / ISSUE-06 — Status timeline dot uses Phase 3 enum tokens", () => {
   beforeEach(() => {
+    (adminApiModule.getMe as jest.Mock).mockResolvedValue({ role: "admin" });
     (adminApiModule.getAdminReport as jest.Mock).mockResolvedValue(PHASE3_REPORT);
   });
 
