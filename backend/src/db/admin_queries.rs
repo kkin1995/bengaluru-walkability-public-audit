@@ -589,8 +589,10 @@ pub async fn get_report_stats(pool: &PgPool) -> Result<StatsResponse, AppError> 
         .await?;
 
     // Seed every expected key with 0 so callers always see a full map (R34).
+    // Phase 03 (D-03, D-04, Pitfall 4): updated from 3-value to 6-value enum.
+    // "submitted" and "under_review" are NOT seeded — they were renamed in migration 008.
     let mut by_status: std::collections::HashMap<String, i64> =
-        ["submitted", "under_review", "resolved"]
+        ["open", "acknowledged", "assigned", "in_progress", "resolved", "closed"]
             .iter()
             .map(|k| (k.to_string(), 0))
             .collect();
