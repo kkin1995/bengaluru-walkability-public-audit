@@ -26,7 +26,7 @@ import ResolveModal from "../../components/ResolveModal";
 
 // ─── Status timeline constants ─────────────────────────────────────────────────
 
-const STATUS_HISTORY = "STATUS_HISTORY · TAIL";
+const STATUS_HISTORY = "Status History";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

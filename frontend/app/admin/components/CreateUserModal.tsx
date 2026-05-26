@@ -259,7 +259,7 @@ export default function CreateUserModal({
                 letterSpacing: "0.01em",
               }}
             >
-              {`// MIN 12 · ARGON2ID · CHANGE_ON_FIRST_LOGIN`}
+              {"Min. 12 characters · Securely hashed · User must change on first login"}
             </p>
 
             {/* Footer: Cancel + CREATE USER */}

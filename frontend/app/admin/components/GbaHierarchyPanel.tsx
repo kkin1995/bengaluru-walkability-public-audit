@@ -86,7 +86,7 @@ export function GbaHierarchyPanel({ hierarchy }: GbaHierarchyPanelProps): JSX.El
   }
 
   // Build ward display value: "{ward_number} · {ward_name}"
-  const wardDisplay = hierarchy.ward_number !== null
+  const wardDisplay = hierarchy.ward_number != null
     ? `${hierarchy.ward_number} · ${hierarchy.ward_name}`
     : hierarchy.ward_name;
 
