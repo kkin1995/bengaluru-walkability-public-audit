@@ -69,8 +69,8 @@ function ChainRowItem({ level, name, title, isFirst }: ChainRow & { isFirst?: bo
 }
 
 export function GbaHierarchyPanel({ hierarchy }: GbaHierarchyPanelProps): JSX.Element {
-  // Nothing-state: no hierarchy or ward_name is null
-  if (!hierarchy || hierarchy.ward_name === null) {
+  // Nothing-state: no hierarchy or ward_name is null/undefined
+  if (!hierarchy || !hierarchy.ward_name) {
     return (
       <Card style={{ marginBottom: 16 }}>
         <div
