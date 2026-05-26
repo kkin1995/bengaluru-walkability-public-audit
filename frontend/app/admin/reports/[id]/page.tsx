@@ -404,20 +404,26 @@ export default function ReportDetailPage({
               {report.latitude?.toFixed(4)}, {report.longitude?.toFixed(4)}
             </span>
           </div>
-          <a
-            href={`https://www.google.com/maps?q=${report.latitude},${report.longitude}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              color: "var(--accent-ink)",
-              textDecoration: "none",
-              fontWeight: 600,
-            }}
-          >
-            Open in Maps ↗
-          </a>
+          {(report.latitude != null && report.longitude != null) ? (
+            <a
+              href={`https://www.google.com/maps?q=${report.latitude},${report.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                color: "var(--accent-ink)",
+                textDecoration: "none",
+                fontWeight: 600,
+              }}
+            >
+              Open in Maps ↗
+            </a>
+          ) : (
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+              No coordinates
+            </span>
+          )}
         </div>
       </Card>
 
