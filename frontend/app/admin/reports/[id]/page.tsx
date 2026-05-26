@@ -525,7 +525,7 @@ export default function ReportDetailPage({
   return (
     <div
       data-testid="report-detail"
-      style={{ padding: "24px 32px", maxWidth: 1400, marginLeft: "auto", marginRight: "auto", paddingBottom: isDesktop ? 0 : 80 }}
+      style={{ padding: "24px 32px", maxWidth: 1400, marginLeft: "auto", marginRight: "auto", paddingBottom: isDesktop ? 0 : 80, ...(isDesktop ? { height: "100%", overflow: "hidden" } : {}) }}
     >
       {desktopActionBar}
 
@@ -568,7 +568,7 @@ export default function ReportDetailPage({
             </div>
 
             {/* Identity strip — D-02: flex-shrink: 0, anchored below photo, never scrolls */}
-            <div style={{ flexShrink: 0, padding: "12px 16px", borderTop: "1px solid var(--border)", overflowY: "auto", maxHeight: "40%" }}>
+            <div style={{ flexShrink: 0, padding: "12px 16px", borderTop: "1px solid var(--border)", overflow: "hidden" }}>
               {identityStripContent}
             </div>
           </div>
