@@ -192,3 +192,92 @@ describe("ReportDetailPage: content rendering", () => {
     expect(screen.queryByText(FULL_REPORT.created_at)).toBeNull();
   });
 });
+
+// ─── Phase 3.1 Fixtures ───────────────────────────────────────────────────────
+
+const PHASE3_REPORT = {
+  ...FULL_REPORT,
+  status: "open",
+  ward_hierarchy: {
+    ward_name: "Shivajinagar",
+    ward_number: 117,
+    corporation: "West",
+    zone_name: "West Zone",
+    ro_division: "West Division",
+    aro_sub_division: "Shivajinagar Sub Division",
+    assembly_constituency: "Shivajinagar",
+    assembly_constituency_no: 155,
+    parliamentary_constituency: "Bangalore Central",
+    mla_name: "Rizwan Arshad",
+    mp_name: "P.C. Mohan",
+  },
+};
+
+// ─── Phase 3.1 / F-07 — Layout tests ─────────────────────────────────────────
+
+describe("Phase 3.1 / F-07 — Layout: identity strip and action rail", () => {
+  beforeEach(() => {
+    (adminApiModule.getAdminReport as jest.Mock).mockResolvedValue(PHASE3_REPORT);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("renders StatusBadge (data-testid=status-badge) somewhere in the page", async () => {
+    render(<ReportDetailPage params={{ id: "test-report-id" }} />);
+    await screen.findByTestId("report-detail");
+    expect(screen.getByTestId("status-badge")).toBeInTheDocument();
+  });
+
+  it("renders the ward_name telemetry text", async () => {
+    render(<ReportDetailPage params={{ id: "test-report-id" }} />);
+    await screen.findByTestId("report-detail");
+    expect(screen.getByText("Ward 27")).toBeInTheDocument();
+  });
+
+  it("renders the CATEGORY telemetry value with raw category slug", async () => {
+    render(<ReportDetailPage params={{ id: "test-report-id" }} />);
+    await screen.findByTestId("report-detail");
+    expect(screen.getByText("broken_footpath")).toBeInTheDocument();
+  });
+});
+
+// ─── Phase 3.1 / ISSUE-06 — Status timeline dot color tests ──────────────────
+
+describe("Phase 3.1 / ISSUE-06 — Status timeline dot uses Phase 3 enum tokens", () => {
+  beforeEach(() => {
+    (adminApiModule.getAdminReport as jest.Mock).mockResolvedValue(PHASE3_REPORT);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("status dot does NOT reference legacy --status-submitted or --status-review tokens", async () => {
+    render(<ReportDetailPage params={{ id: "test-report-id" }} />);
+    await screen.findByTestId("report-detail");
+    const dots = document.querySelectorAll('[aria-hidden="true"]');
+    const dot = Array.from(dots).find(
+      (el) =>
+        el.getAttribute("style")?.includes("border-radius: 999px") ||
+        el.getAttribute("style")?.includes("border-radius:999px")
+    ) as HTMLElement | undefined;
+    const styleStr = dot?.getAttribute("style") ?? "";
+    expect(styleStr).not.toContain("status-submitted");
+    expect(styleStr).not.toContain("status-review");
+  });
+
+  it("status dot uses --status-open token when report.status is 'open'", async () => {
+    render(<ReportDetailPage params={{ id: "test-report-id" }} />);
+    await screen.findByTestId("report-detail");
+    const dots = document.querySelectorAll('[aria-hidden="true"]');
+    const dot = Array.from(dots).find(
+      (el) =>
+        el.getAttribute("style")?.includes("border-radius: 999px") ||
+        el.getAttribute("style")?.includes("border-radius:999px")
+    ) as HTMLElement | undefined;
+    const styleStr = dot?.getAttribute("style") ?? "";
+    expect(styleStr).toContain("status-open");
+  });
+});
