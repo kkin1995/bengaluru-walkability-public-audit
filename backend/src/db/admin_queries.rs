@@ -576,8 +576,6 @@ pub async fn update_report_status(
 /// - Updates `reports.status`, `reports.resolution_photo_path`, `reports.resolution_notes`.
 /// - Inserts a `status_history` row in the same transaction.
 /// - Returns `Ok(true)` if found and updated, `Ok(false)` if report not found (caller returns 404).
-// Called by admin_resolve_report handler (plan 03-02 task 2).
-#[allow(dead_code)]
 pub async fn resolve_report(
     pool: &PgPool,
     report_id: Uuid,
@@ -650,8 +648,6 @@ pub async fn resolve_report(
 /// - Updates `reports.assigned_org_id = org_id` AND `reports.status = 'assigned'`.
 /// - Inserts a `status_history` row in the same transaction.
 /// - Returns `Ok(true)` if found and updated, `Ok(false)` if report not found.
-// Called by admin_assign_report_org handler (plan 03-02 task 2).
-#[allow(dead_code)]
 pub async fn assign_report_org(
     pool: &PgPool,
     report_id: Uuid,

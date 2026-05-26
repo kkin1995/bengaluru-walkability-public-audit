@@ -344,7 +344,10 @@ pub async fn get_report(
 /// Returns an error if parsing fails — the SOI magic-byte check is necessary
 /// but not sufficient; a polyglot file starting with 0xFF 0xD8 but otherwise
 /// malformed would reach disk verbatim with the old fallback (WR-02).
-fn strip_exif(bytes: &[u8]) -> Result<Vec<u8>, crate::errors::AppError> {
+///
+/// Visibility expanded to pub(crate) so admin handlers (admin.rs) can reuse
+/// the same EXIF stripping logic for resolution photos (plan 03-02 WFLOW-05).
+pub(crate) fn strip_exif(bytes: &[u8]) -> Result<Vec<u8>, crate::errors::AppError> {
     use img_parts::{jpeg::Jpeg, ImageEXIF};
     Jpeg::from_bytes(bytes.to_vec().into())
         .map(|mut jpeg| {

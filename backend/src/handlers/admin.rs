@@ -49,7 +49,7 @@ use argon2::{
     Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
 };
 use axum::{
-    extract::{Extension, Path, Query, State},
+    extract::{Extension, Multipart, Path, Query, State},
     http::StatusCode,
     Json,
 };
@@ -62,7 +62,7 @@ use crate::{
     errors::AppError,
     models::admin::{
         AdminReportFilters, AdminUserResponse, ChangePasswordRequest, CreateUserRequest,
-        LoginRequest, UpdateProfileRequest, UpdateStatusRequest,
+        LoginRequest, ReportAssignOrgRequest, UpdateProfileRequest, UpdateStatusRequest,
     },
     AppState,
 };
@@ -590,6 +590,185 @@ pub async fn admin_delete_report(
 
     tracing::info!(report_id = %id, "Report deleted");
     Ok(StatusCode::NO_CONTENT)
+}
+
+// ── Phase 03 — Resolution and org-assignment handlers (WFLOW-03, WFLOW-05) ──
+
+/// POST /api/admin/reports/:id/resolve — resolve or close a report with a mandatory after-photo.
+///
+/// # Contract (D-13, D-14, WFLOW-05)
+/// - Accepts multipart/form-data: `status` (required: "resolved"|"closed"),
+///   `resolution_photo` (required file), `resolution_notes` (optional text).
+/// - Rejects missing photo with HTTP 400 "Resolution photo required".
+/// - Strips EXIF from photo bytes before writing to disk (T-03-02-01).
+/// - Writes photo as UUID.jpg to UPLOADS_DIR; stores only filename in DB (D-18).
+/// - Updates reports.status, resolution_photo_path, resolution_notes atomically.
+/// - Inserts status_history row in the same transaction (WFLOW-02).
+pub async fn admin_resolve_report(
+    Extension(claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<Uuid>,
+    mut multipart: Multipart,
+) -> Result<Json<serde_json::Value>, AppError> {
+    // Collect all multipart fields BEFORE any validation (Pitfall 7: order-dependent consumer).
+    let mut status = String::new();
+    let mut resolution_notes: Option<String> = None;
+    let mut photo_bytes: Vec<u8> = Vec::new();
+
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::BadRequest(e.to_string()))?
+    {
+        let name = field.name().unwrap_or("").to_string();
+        match name.as_str() {
+            "status" => {
+                status = field
+                    .text()
+                    .await
+                    .map_err(|e| AppError::BadRequest(e.to_string()))?;
+            }
+            "resolution_notes" => {
+                let text = field
+                    .text()
+                    .await
+                    .map_err(|e| AppError::BadRequest(e.to_string()))?;
+                if !text.is_empty() {
+                    resolution_notes = Some(text);
+                }
+            }
+            "resolution_photo" => {
+                photo_bytes = field
+                    .bytes()
+                    .await
+                    .map_err(|e| AppError::BadRequest(e.to_string()))?
+                    .to_vec();
+            }
+            _ => {
+                // consume and discard unknown fields
+                let _ = field.bytes().await;
+            }
+        }
+    }
+
+    // Validate AFTER collection (Pitfall 7 pattern).
+    validate_status(&status)?;
+    validate_resolve_request(&status, photo_bytes.len())?;
+
+    // Strip EXIF from photo bytes (T-03-02-01).
+    let clean_bytes = crate::handlers::reports::strip_exif(&photo_bytes)?;
+
+    // Generate UUID-based filename and write EXIF-stripped bytes to disk.
+    // Path-traversal safety: UUID-generated filename is controlled input; we still
+    // apply canonicalize+starts_with check as defense-in-depth (FINDING-013, T-03-02-02).
+    let photo_filename = format!("{}.jpg", Uuid::new_v4());
+
+    let canonical_result =
+        std::fs::canonicalize(&state.uploads_dir).map(|uploads_dir| {
+            let full_path = uploads_dir.join(&photo_filename);
+            (uploads_dir, full_path)
+        });
+
+    let (_, write_path) = match canonical_result {
+        Ok((uploads_dir, full_path)) => {
+            // UUID filename we control — starts_with check is a belt-and-suspenders
+            // defense against any hypothetical path component injection.
+            // full_path is not yet canonicalized (file doesn't exist yet), so we
+            // check the parent directory is inside uploads_dir instead.
+            let parent_ok = full_path
+                .parent()
+                .map(|p| p == uploads_dir)
+                .unwrap_or(false);
+            if !parent_ok {
+                return Err(AppError::Internal(
+                    "Resolution photo path outside uploads dir".to_string(),
+                ));
+            }
+            (uploads_dir, full_path)
+        }
+        Err(e) => {
+            tracing::warn!(
+                uploads_dir = %state.uploads_dir,
+                error = %e,
+                "Could not canonicalize uploads dir for resolution photo"
+            );
+            return Err(AppError::Internal(
+                "Uploads directory not available".to_string(),
+            ));
+        }
+    };
+
+    tokio::fs::write(&write_path, &clean_bytes).await?;
+
+    // Parse changed_by from JWT sub claim.
+    let changed_by = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized)?;
+
+    // Persist to DB atomically (UPDATE reports + INSERT status_history in one transaction).
+    let found = admin_queries::resolve_report(
+        &state.pool,
+        id,
+        &status,
+        &photo_filename,
+        resolution_notes.as_deref(),
+        changed_by,
+    )
+    .await?;
+
+    if !found {
+        // Clean up the written file since the report was not found.
+        let _ = tokio::fs::remove_file(&write_path).await;
+        return Err(AppError::NotFound);
+    }
+
+    // Return the updated report.
+    let report = admin_queries::get_admin_report_by_id(&state.pool, id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+
+    tracing::info!(
+        report_id = %id,
+        new_status = %status,
+        "Report resolved (Phase 03 WFLOW-05)"
+    );
+
+    Ok(Json(report))
+}
+
+/// POST /api/admin/reports/:id/assign-org — assign a report to an organization.
+///
+/// # Contract (D-09, WFLOW-03)
+/// - Accepts JSON: `{"org_id": "<uuid>"}`.
+/// - Atomically sets reports.assigned_org_id = org_id AND status = 'assigned'.
+/// - Inserts status_history row in the same transaction.
+/// - Returns updated report as JSON.
+pub async fn admin_assign_report_org(
+    Extension(claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<ReportAssignOrgRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let changed_by = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized)?;
+
+    let found =
+        admin_queries::assign_report_org(&state.pool, id, payload.org_id, changed_by).await?;
+
+    if !found {
+        return Err(AppError::NotFound);
+    }
+
+    // Return the updated report.
+    let report = admin_queries::get_admin_report_by_id(&state.pool, id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+
+    tracing::info!(
+        report_id = %id,
+        org_id = %payload.org_id,
+        changed_by = %changed_by,
+        "Report assigned to organization (Phase 03 WFLOW-03)"
+    );
+
+    Ok(Json(report))
 }
 
 // ── Admin stats handler ───────────────────────────────────────────────────────
