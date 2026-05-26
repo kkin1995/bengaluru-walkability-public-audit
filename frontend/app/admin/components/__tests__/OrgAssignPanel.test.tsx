@@ -1,49 +1,139 @@
 /**
- * Wave 0 test scaffold for frontend/app/admin/components/OrgAssignPanel.tsx
+ * Tests for frontend/app/admin/components/OrgAssignPanel.tsx
  *
  * Requirements covered:
  *   WFLOW-03  — Org assignment: admin assigns a report to an organization
  *   D-08      — reports.assigned_org_id FK set by assign handler
- *   D-09      — Cascade picker: GBA → Corporation → Ward Office (2-level for Phase 03)
+ *   D-09      — Cascade picker: Corporation → Ward Office
  *   D-10      — OrgAssignPanel disables Save when no corporation is selected
- *   D-11      — Ward-office tier is absent for Phase 03 (GBA not finalized); picker shows corps only
- *
- * This file is a Wave 0 scaffold — all describe blocks use describe.skip.
- * Plan 03-03 executor must:
- *   1. Create frontend/app/admin/components/OrgAssignPanel.tsx
- *   2. Remove describe.skip wrappers and implement the assertions
- *   3. Run `npm test -- --watchAll=false OrgAssignPanel` to confirm green
- *
- * Implementation notes for plan 03-03:
- *   - OrgAssignPanel receives props: reportId, currentOrgId, onSave, orgs (Organization[])
- *   - orgs prop comes from GET /api/admin/organizations — mock via jest.spyOn(global, 'fetch')
- *   - Corporation dropdown populated from orgs.filter(o => o.org_type === 'corporation')
- *   - Ward office tier not rendered in Phase 03 (orgs has no ward_office rows in seed data)
- *   - Save calls adminApi.assignOrg(reportId, orgId)
+ *   D-11      — Ward-office tier filtered by parent corporation
  */
 
 import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { OrgAssignPanel } from "../OrgAssignPanel";
+import type { AdminReport, Organization } from "../../lib/adminApi";
+import * as adminApi from "../../lib/adminApi";
 
-// Component is not yet implemented — import is intentionally commented out.
-// import OrgAssignPanel from "../OrgAssignPanel";
+jest.mock("../../lib/adminApi", () => ({
+  ...jest.requireActual("../../lib/adminApi"),
+  listOrganizations: jest.fn(),
+  assignReportOrg: jest.fn(),
+}));
+
+const mockListOrgs = adminApi.listOrganizations as jest.MockedFunction<typeof adminApi.listOrganizations>;
+const mockAssignOrg = adminApi.assignReportOrg as jest.MockedFunction<typeof adminApi.assignReportOrg>;
+
+function makeReport(overrides: Partial<AdminReport> = {}): AdminReport {
+  return {
+    id: "test-report-001",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    image_path: "test.jpg",
+    image_url: "http://localhost:3001/uploads/test.jpg",
+    latitude: 12.97,
+    longitude: 77.59,
+    category: "damaged_footpath",
+    severity: "high",
+    description: null,
+    submitter_name: null,
+    submitter_contact: null,
+    status: "open",
+    location_source: "manual",
+    ward_name: "Shivajinagar",
+    resolution_photo_url: null,
+    resolution_notes: null,
+    assigned_org_id: null,
+    ...overrides,
+  };
+}
+
+const CORP_A: Organization = {
+  id: "corp-a",
+  name: "Bengaluru West Corporation",
+  org_type: "corporation",
+  parent_id: null,
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+const CORP_B: Organization = {
+  id: "corp-b",
+  name: "Bengaluru East Corporation",
+  org_type: "corporation",
+  parent_id: null,
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+const WARD_OFFICE_A1: Organization = {
+  id: "wo-a1",
+  name: "Shivajinagar Ward Office",
+  org_type: "ward_office",
+  parent_id: "corp-a",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+const WARD_OFFICE_A2: Organization = {
+  id: "wo-a2",
+  name: "Cubbon Park Ward Office",
+  org_type: "ward_office",
+  parent_id: "corp-a",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockListOrgs.mockResolvedValue([CORP_A, CORP_B, WARD_OFFICE_A1, WARD_OFFICE_A2]);
 });
 
 // ---------------------------------------------------------------------------
 // WFLOW-03 / D-09 — Corporation dropdown rendered from org list
 // ---------------------------------------------------------------------------
 
-describe.skip("WFLOW-03 / D-09 — OrgAssignPanel: corporation dropdown rendered", () => {
-  it("renders a select/listbox element populated with corporation names", () => {
-    // TODO (plan 03-03): render <OrgAssignPanel orgs={[...5 corporations...]} ... />
-    // and assert all 5 Bengaluru * Corporation entries appear in the picker
+describe("WFLOW-03 / D-09 — OrgAssignPanel: corporation dropdown rendered", () => {
+  it("renders a select element populated with corporation names after clicking Assign", async () => {
+    render(
+      <OrgAssignPanel
+        report={makeReport()}
+        onAssigned={jest.fn()}
+      />
+    );
+
+    // Should start in view mode with "No organisation assigned"
+    expect(screen.getByTestId("org-status")).toHaveTextContent("No organisation assigned");
+
+    // Click Assign to enter edit mode
+    fireEvent.click(screen.getByText("Assign"));
+
+    // Wait for orgs to load
+    await waitFor(() => {
+      expect(screen.getByTestId("org-corp-select")).toBeInTheDocument();
+    });
+
+    // Corporation names should be in the select
+    expect(screen.getByText("Bengaluru West Corporation")).toBeInTheDocument();
+    expect(screen.getByText("Bengaluru East Corporation")).toBeInTheDocument();
   });
 
-  it("does NOT render ward-office entries when no ward_office orgs are in the list", () => {
-    // TODO (plan 03-03): pass orgs with only corporation entries,
-    // confirm no "Ward Office" label or tier is visible (D-11 — Phase 03 scope)
+  it("does NOT render ward-office select when no corporation is selected", async () => {
+    render(
+      <OrgAssignPanel
+        report={makeReport()}
+        onAssigned={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Assign"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("org-corp-select")).toBeInTheDocument();
+    });
+
+    // Ward office select should not be present when no corp selected
+    expect(screen.queryByTestId("org-ward-office-select")).not.toBeInTheDocument();
   });
 });
 
@@ -51,16 +141,71 @@ describe.skip("WFLOW-03 / D-09 — OrgAssignPanel: corporation dropdown rendered
 // WFLOW-03 / D-09 — Ward office filtered by corporation selection
 // ---------------------------------------------------------------------------
 
-describe.skip("WFLOW-03 / D-09 — OrgAssignPanel: ward office filtered by corporation", () => {
-  it("shows ward-office sub-picker only when corporation is selected and ward offices exist", () => {
-    // TODO (plan 03-03): pass orgs with 1 corporation + 2 ward offices under that corp,
-    // select the corporation from the picker, and assert the ward-office sub-picker appears
-    // with the correct 2 entries filtered by parent_id === corporation.id
+describe("WFLOW-03 / D-09 — OrgAssignPanel: ward office filtered by corporation", () => {
+  it("shows ward-office sub-picker only when corporation is selected and ward offices exist", async () => {
+    render(
+      <OrgAssignPanel
+        report={makeReport()}
+        onAssigned={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Assign"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("org-corp-select")).toBeInTheDocument();
+    });
+
+    // Select Corp A (which has ward offices)
+    fireEvent.change(screen.getByTestId("org-corp-select"), {
+      target: { value: "corp-a" },
+    });
+
+    // Ward office select should appear with the 2 ward offices under corp-a
+    await waitFor(() => {
+      expect(screen.getByTestId("org-ward-office-select")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Shivajinagar Ward Office")).toBeInTheDocument();
+    expect(screen.getByText("Cubbon Park Ward Office")).toBeInTheDocument();
   });
 
-  it("clears ward office selection when corporation changes", () => {
-    // TODO (plan 03-03): select corp A (has ward offices), select a ward office,
-    // then change corporation to corp B — ward office selection must reset to none
+  it("clears ward office selection when corporation changes", async () => {
+    render(
+      <OrgAssignPanel
+        report={makeReport()}
+        onAssigned={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Assign"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("org-corp-select")).toBeInTheDocument();
+    });
+
+    // Select Corp A
+    fireEvent.change(screen.getByTestId("org-corp-select"), {
+      target: { value: "corp-a" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("org-ward-office-select")).toBeInTheDocument();
+    });
+
+    // Select a ward office
+    fireEvent.change(screen.getByTestId("org-ward-office-select"), {
+      target: { value: "wo-a1" },
+    });
+
+    // Now change to Corp B (has no ward offices) — ward office picker should disappear
+    fireEvent.change(screen.getByTestId("org-corp-select"), {
+      target: { value: "corp-b" },
+    });
+
+    // Ward office select should be gone (Corp B has no ward offices in test data)
+    await waitFor(() => {
+      expect(screen.queryByTestId("org-ward-office-select")).not.toBeInTheDocument();
+    });
   });
 });
 
@@ -68,19 +213,72 @@ describe.skip("WFLOW-03 / D-09 — OrgAssignPanel: ward office filtered by corpo
 // WFLOW-03 / D-10 — Save button disabled without corporation selected
 // ---------------------------------------------------------------------------
 
-describe.skip("WFLOW-03 / D-10 — OrgAssignPanel: save button disabled without corporation", () => {
-  it("Save button is disabled when no corporation has been selected", () => {
-    // TODO (plan 03-03): render panel with initial orgId=undefined,
-    // assert getByRole('button', { name: /save/i }).toBeDisabled()
+describe("WFLOW-03 / D-10 — OrgAssignPanel: save button disabled without corporation", () => {
+  it("Save button is disabled when no corporation has been selected", async () => {
+    render(
+      <OrgAssignPanel
+        report={makeReport()}
+        onAssigned={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Assign"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("org-save")).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId("org-save")).toBeDisabled();
   });
 
-  it("Save button becomes enabled after a corporation is selected", () => {
-    // TODO (plan 03-03): select a corporation from the dropdown,
-    // assert Save button is enabled (not disabled)
+  it("Save button becomes enabled after a corporation is selected", async () => {
+    render(
+      <OrgAssignPanel
+        report={makeReport()}
+        onAssigned={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Assign"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("org-corp-select")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByTestId("org-corp-select"), {
+      target: { value: "corp-a" },
+    });
+
+    expect(screen.getByTestId("org-save")).not.toBeDisabled();
   });
 
-  it("calls adminApi.assignOrg with the selected corporation id when Save is clicked", () => {
-    // TODO (plan 03-03): select a corporation, click Save,
-    // assert adminApi.assignOrg was called with (reportId, selectedCorpId)
+  it("calls assignReportOrg with the selected corporation id when Save is clicked", async () => {
+    const onAssigned = jest.fn();
+    const updatedReport = makeReport({ assigned_org_id: "corp-a", status: "assigned" });
+    mockAssignOrg.mockResolvedValue(updatedReport);
+
+    render(
+      <OrgAssignPanel
+        report={makeReport()}
+        onAssigned={onAssigned}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Assign"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("org-corp-select")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByTestId("org-corp-select"), {
+      target: { value: "corp-a" },
+    });
+
+    fireEvent.click(screen.getByTestId("org-save"));
+
+    await waitFor(() => {
+      expect(mockAssignOrg).toHaveBeenCalledWith("test-report-001", "corp-a");
+    });
+    expect(onAssigned).toHaveBeenCalledWith(updatedReport);
   });
 });

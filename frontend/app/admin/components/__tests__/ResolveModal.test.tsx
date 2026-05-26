@@ -1,29 +1,59 @@
 /**
- * Wave 0 test scaffold for frontend/app/admin/components/ResolveModal.tsx
+ * Tests for frontend/app/admin/components/ResolveModal.tsx
  *
  * Requirements covered:
  *   WFLOW-05  — Resolution photo gate: resolved/closed transitions require a photo
  *   D-13      — After-photo mandatory for resolved/closed status changes
  *   D-14      — Submit button disabled until photo attached
  *   D-16      — Optional notes field on Resolve/Close modal
- *
- * This file is a Wave 0 scaffold — all describe blocks use describe.skip.
- * Plan 03-03 executor must:
- *   1. Create frontend/app/admin/components/ResolveModal.tsx
- *   2. Remove describe.skip wrappers and implement the assertions
- *   3. Run `npm test -- --watchAll=false ResolveModal` to confirm green
- *
- * Implementation notes for plan 03-03:
- *   - ResolveModal receives props: reportId, currentStatus, onSuccess, onCancel
- *   - File input accepts image/* only; uses makeFile() helper for tests
- *   - Submit calls adminApi.resolveReport(reportId, { status, photo, notes })
- *   - adminApi should be mocked via jest.mock("@/app/lib/adminApi")
  */
 
 import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { ResolveModal } from "../ResolveModal";
+import type { AdminReport } from "../../lib/adminApi";
+import * as adminApi from "../../lib/adminApi";
 
-// Component is not yet implemented — import is intentionally commented out.
-// import ResolveModal from "../ResolveModal";
+jest.mock("../../lib/adminApi", () => ({
+  ...jest.requireActual("../../lib/adminApi"),
+  resolveReport: jest.fn(),
+}));
+
+const mockResolveReport = adminApi.resolveReport as jest.MockedFunction<typeof adminApi.resolveReport>;
+
+// Mock URL.createObjectURL / revokeObjectURL (not available in jsdom)
+beforeAll(() => {
+  global.URL.createObjectURL = jest.fn(() => "blob:http://localhost/mock-url");
+  global.URL.revokeObjectURL = jest.fn();
+});
+
+function makeReport(overrides: Partial<AdminReport> = {}): AdminReport {
+  return {
+    id: "aaaabbbbccccdddd",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    image_path: "test.jpg",
+    image_url: "http://localhost:3001/uploads/test.jpg",
+    latitude: 12.97,
+    longitude: 77.59,
+    category: "damaged_footpath",
+    severity: "high",
+    description: null,
+    submitter_name: null,
+    submitter_contact: null,
+    status: "in_progress",
+    location_source: "manual",
+    ward_name: "Shivajinagar",
+    resolution_photo_url: null,
+    resolution_notes: null,
+    assigned_org_id: null,
+    ...overrides,
+  };
+}
+
+function makeImageFile(name = "photo.jpg", type = "image/jpeg"): File {
+  return new File(["(binary)"], name, { type });
+}
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -33,20 +63,55 @@ beforeEach(() => {
 // WFLOW-05 / D-13 / D-14 — Photo required for resolved/closed transitions
 // ---------------------------------------------------------------------------
 
-describe.skip("WFLOW-05 / D-13 — ResolveModal: photo required blocks submit", () => {
+describe("WFLOW-05 / D-13 — ResolveModal: photo required blocks submit", () => {
   it("submit button is disabled when no photo has been attached", () => {
-    // TODO (plan 03-03): render <ResolveModal reportId="..." currentStatus="assigned" ... />
-    // and assert getByRole('button', { name: /resolve/i }).toBeDisabled()
+    render(
+      <ResolveModal
+        open={true}
+        mode="resolve"
+        report={makeReport()}
+        onClose={jest.fn()}
+        onResolved={jest.fn()}
+      />
+    );
+
+    const submitBtn = screen.getByTestId("resolve-submit");
+    expect(submitBtn).toBeDisabled();
   });
 
-  it("shows a validation message when submit is attempted without a photo", () => {
-    // TODO (plan 03-03): click submit with no photo attached, expect
-    // screen.getByText(/photo required/i) to be in the document
+  it("shows a REQUIRED tag/alert when no photo is attached", () => {
+    render(
+      <ResolveModal
+        open={true}
+        mode="resolve"
+        report={makeReport()}
+        onClose={jest.fn()}
+        onResolved={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("resolve-required-alert")).toBeInTheDocument();
   });
 
-  it("submit button is disabled until a valid image file is selected", () => {
-    // TODO (plan 03-03): render modal, upload a non-image file (e.g. text/plain),
-    // confirm submit remains disabled; then upload image/jpeg and confirm it enables
+  it("submit button is disabled for non-image file types (photo must be image)", () => {
+    render(
+      <ResolveModal
+        open={true}
+        mode="resolve"
+        report={makeReport()}
+        onClose={jest.fn()}
+        onResolved={jest.fn()}
+      />
+    );
+
+    const fileInput = screen.getByTestId("resolve-photo-input");
+    const nonImageFile = new File(["content"], "document.pdf", { type: "application/pdf" });
+
+    fireEvent.change(fileInput, { target: { files: [nonImageFile] } });
+
+    // Submit should still be disabled since PDF was rejected
+    const submitBtn = screen.getByTestId("resolve-submit");
+    expect(submitBtn).toBeDisabled();
   });
 });
 
@@ -54,15 +119,58 @@ describe.skip("WFLOW-05 / D-13 — ResolveModal: photo required blocks submit", 
 // WFLOW-05 / D-14 — Photo provided enables submit
 // ---------------------------------------------------------------------------
 
-describe.skip("WFLOW-05 / D-14 — ResolveModal: photo provided enables submit", () => {
+describe("WFLOW-05 / D-14 — ResolveModal: photo provided enables submit", () => {
   it("submit button becomes enabled after a valid image is attached", () => {
-    // TODO (plan 03-03): use makeFile('photo.jpg', 'image/jpeg') + fireEvent.change
-    // on the file input, then assert submit button is enabled (not disabled)
+    render(
+      <ResolveModal
+        open={true}
+        mode="resolve"
+        report={makeReport()}
+        onClose={jest.fn()}
+        onResolved={jest.fn()}
+      />
+    );
+
+    const fileInput = screen.getByTestId("resolve-photo-input");
+    fireEvent.change(fileInput, { target: { files: [makeImageFile()] } });
+
+    const submitBtn = screen.getByTestId("resolve-submit");
+    expect(submitBtn).not.toBeDisabled();
   });
 
-  it("calls adminApi.resolveReport with the photo bytes when submitted", () => {
-    // TODO (plan 03-03): mock adminApi.resolveReport, attach photo, click submit,
-    // assert adminApi.resolveReport was called with correct reportId and FormData
+  it("calls resolveReport with the correct args when submitted after photo upload", async () => {
+    const onResolved = jest.fn();
+    const onClose = jest.fn();
+    const updatedReport = makeReport({ status: "resolved" });
+    mockResolveReport.mockResolvedValue(updatedReport);
+
+    render(
+      <ResolveModal
+        open={true}
+        mode="resolve"
+        report={makeReport()}
+        onClose={onClose}
+        onResolved={onResolved}
+      />
+    );
+
+    const file = makeImageFile();
+    fireEvent.change(screen.getByTestId("resolve-photo-input"), {
+      target: { files: [file] },
+    });
+
+    fireEvent.click(screen.getByTestId("resolve-submit"));
+
+    await waitFor(() => {
+      expect(mockResolveReport).toHaveBeenCalledWith(
+        "aaaabbbbccccdddd",
+        "resolved",
+        file,
+        undefined
+      );
+    });
+    expect(onResolved).toHaveBeenCalledWith(updatedReport);
+    expect(onClose).toHaveBeenCalled();
   });
 });
 
@@ -70,19 +178,125 @@ describe.skip("WFLOW-05 / D-14 — ResolveModal: photo provided enables submit",
 // D-16 — Optional notes field
 // ---------------------------------------------------------------------------
 
-describe.skip("D-16 — ResolveModal: optional notes field", () => {
+describe("D-16 — ResolveModal: optional notes field", () => {
   it("renders a textarea for resolution notes", () => {
-    // TODO (plan 03-03): render modal and assert getByRole('textbox', { name: /notes/i })
-    // is present in the document
+    render(
+      <ResolveModal
+        open={true}
+        mode="resolve"
+        report={makeReport()}
+        onClose={jest.fn()}
+        onResolved={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("resolve-notes-input")).toBeInTheDocument();
   });
 
-  it("submits successfully when notes field is left empty", () => {
-    // TODO (plan 03-03): attach photo, leave notes empty, click submit,
-    // confirm no validation error for missing notes
+  it("submits successfully when notes field is left empty", async () => {
+    const onResolved = jest.fn();
+    const updatedReport = makeReport({ status: "resolved" });
+    mockResolveReport.mockResolvedValue(updatedReport);
+
+    render(
+      <ResolveModal
+        open={true}
+        mode="resolve"
+        report={makeReport()}
+        onClose={jest.fn()}
+        onResolved={onResolved}
+      />
+    );
+
+    // Attach photo
+    fireEvent.change(screen.getByTestId("resolve-photo-input"), {
+      target: { files: [makeImageFile()] },
+    });
+
+    // Submit without notes
+    fireEvent.click(screen.getByTestId("resolve-submit"));
+
+    await waitFor(() => {
+      expect(mockResolveReport).toHaveBeenCalledWith(
+        "aaaabbbbccccdddd",
+        "resolved",
+        expect.any(File),
+        undefined
+      );
+    });
+    expect(onResolved).toHaveBeenCalled();
   });
 
-  it("includes notes value in the adminApi.resolveReport payload when provided", () => {
-    // TODO (plan 03-03): fill notes textarea with "Repair completed",
-    // assert adminApi.resolveReport payload includes notes: "Repair completed"
+  it("includes notes value in the resolveReport payload when provided", async () => {
+    const onResolved = jest.fn();
+    const updatedReport = makeReport({ status: "resolved" });
+    mockResolveReport.mockResolvedValue(updatedReport);
+
+    render(
+      <ResolveModal
+        open={true}
+        mode="resolve"
+        report={makeReport()}
+        onClose={jest.fn()}
+        onResolved={onResolved}
+      />
+    );
+
+    // Attach photo
+    fireEvent.change(screen.getByTestId("resolve-photo-input"), {
+      target: { files: [makeImageFile()] },
+    });
+
+    // Fill in notes
+    fireEvent.change(screen.getByTestId("resolve-notes-input"), {
+      target: { value: "Repair completed" },
+    });
+
+    // Submit
+    fireEvent.click(screen.getByTestId("resolve-submit"));
+
+    await waitFor(() => {
+      expect(mockResolveReport).toHaveBeenCalledWith(
+        "aaaabbbbccccdddd",
+        "resolved",
+        expect.any(File),
+        "Repair completed"
+      );
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UI-SPEC §D — Close variant warning
+// ---------------------------------------------------------------------------
+
+describe("UI-SPEC §D — ResolveModal: close variant amber warning", () => {
+  it("renders the permanent-closure warning when mode is 'close'", () => {
+    render(
+      <ResolveModal
+        open={true}
+        mode="close"
+        report={makeReport()}
+        onClose={jest.fn()}
+        onResolved={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("close-warning")).toBeInTheDocument();
+    expect(screen.getByText(/Closing is permanent/i)).toBeInTheDocument();
+  });
+
+  it("does NOT render the close warning when mode is 'resolve'", () => {
+    render(
+      <ResolveModal
+        open={true}
+        mode="resolve"
+        report={makeReport()}
+        onClose={jest.fn()}
+        onResolved={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByTestId("close-warning")).not.toBeInTheDocument();
   });
 });

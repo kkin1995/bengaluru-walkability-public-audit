@@ -1,37 +1,41 @@
 /**
- * Wave 0 test scaffold for frontend/app/admin/components/StatusActionPanel.tsx
+ * Tests for frontend/app/admin/components/StatusActionPanel.tsx
  *
  * Requirements covered:
  *   WFLOW-01  — 6-value status lifecycle action button bar
  *   D-37      — Status-conditional action panel: buttons shown depend on current status
  *   D-38      — "Closed" panel shows locked/read-only state (no further actions)
- *
- * This file is a Wave 0 scaffold — all describe blocks use describe.skip.
- * Plan 03-03 executor must:
- *   1. Create frontend/app/admin/components/StatusActionPanel.tsx
- *   2. Remove describe.skip wrappers and implement the assertions
- *   3. Run `npm test -- --watchAll=false StatusActionPanel` to confirm green
- *
- * Implementation notes for plan 03-03:
- *   - StatusActionPanel receives props: reportId, currentStatus, onStatusChange
- *   - onStatusChange is called with the new status string when a button is clicked
- *   - Button labels must match 03-UI-SPEC.md §copywriting contract exactly
- *   - adminApi calls should be mocked via jest.mock("@/app/lib/adminApi")
- *   - Resolved/Closed transitions open the ResolveModal before calling adminApi
- *
- * Button contract per 03-UI-SPEC.md:
- *   open        → "Acknowledge" (→ acknowledged)
- *   acknowledged → "Assign" (→ assigned), "Mark In Progress" (→ in_progress)
- *   assigned    → "Mark In Progress" (→ in_progress), "Resolve" (opens modal → resolved)
- *   in_progress → "Resolve" (opens modal → resolved)
- *   resolved    → "Close" (opens modal → closed)
- *   closed      → locked panel, no action buttons
  */
 
 import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { StatusActionPanel } from "../StatusActionPanel";
+import type { AdminReport } from "../../lib/adminApi";
 
-// Component is not yet implemented — import is intentionally commented out.
-// import StatusActionPanel from "../StatusActionPanel";
+function makeReport(status: string): AdminReport {
+  return {
+    id: "test-report-id-001",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    image_path: "test.jpg",
+    image_url: "http://localhost:3001/uploads/test.jpg",
+    latitude: 12.97,
+    longitude: 77.59,
+    category: "damaged_footpath",
+    severity: "high",
+    description: "Test description",
+    submitter_name: null,
+    submitter_contact: null,
+    status,
+    location_source: "manual",
+    ward_name: "Shivajinagar",
+    resolution_photo_url: null,
+    resolution_notes: null,
+    assigned_org_id: null,
+  };
+}
+
+const noop = jest.fn().mockResolvedValue(undefined);
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -41,20 +45,48 @@ beforeEach(() => {
 // WFLOW-01 / D-37 — open → acknowledge button
 // ---------------------------------------------------------------------------
 
-describe.skip('WFLOW-01 / D-37 — StatusActionPanel: status="open" shows Acknowledge button', () => {
+describe('WFLOW-01 / D-37 — StatusActionPanel: status="open" shows Acknowledge button', () => {
   it('renders an "Acknowledge" button when status is "open"', () => {
-    // TODO (plan 03-03): render <StatusActionPanel reportId="..." currentStatus="open" ... />
-    // and assert getByRole('button', { name: /acknowledge/i }) is in the document
+    render(
+      <StatusActionPanel
+        report={makeReport("open")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    expect(screen.getByTestId("action-acknowledge")).toBeInTheDocument();
+    expect(screen.getByText("Acknowledge")).toBeInTheDocument();
   });
 
   it('clicking Acknowledge calls onStatusChange with "acknowledged"', () => {
-    // TODO (plan 03-03): click the Acknowledge button,
-    // assert onStatusChange was called with "acknowledged"
+    const onStatusChange = jest.fn().mockResolvedValue(undefined);
+    render(
+      <StatusActionPanel
+        report={makeReport("open")}
+        onStatusChange={onStatusChange}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    fireEvent.click(screen.getByTestId("action-acknowledge"));
+    expect(onStatusChange).toHaveBeenCalledWith("acknowledged");
   });
 
   it('does NOT render a Resolve or Close button when status is "open"', () => {
-    // TODO (plan 03-03): assert queryByRole('button', { name: /resolve/i }) is null
-    // and queryByRole('button', { name: /close/i }) is null
+    render(
+      <StatusActionPanel
+        report={makeReport("open")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    expect(screen.queryByTestId("action-resolve")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("action-close")).not.toBeInTheDocument();
   });
 });
 
@@ -62,18 +94,48 @@ describe.skip('WFLOW-01 / D-37 — StatusActionPanel: status="open" shows Acknow
 // WFLOW-01 / D-37 — acknowledged → assign + mark in progress buttons
 // ---------------------------------------------------------------------------
 
-describe.skip('WFLOW-01 / D-37 — StatusActionPanel: status="acknowledged" shows Assign + Mark In Progress', () => {
-  it('renders an "Assign" button when status is "acknowledged"', () => {
-    // TODO (plan 03-03): render with currentStatus="acknowledged",
-    // assert getByRole('button', { name: /assign/i }) is in the document
+describe('WFLOW-01 / D-37 — StatusActionPanel: status="acknowledged" shows Assign + Mark In Progress', () => {
+  it('renders an "Assign to organisation" button when status is "acknowledged"', () => {
+    render(
+      <StatusActionPanel
+        report={makeReport("acknowledged")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    expect(screen.getByTestId("action-assign")).toBeInTheDocument();
+    expect(screen.getByText("Assign to organisation")).toBeInTheDocument();
   });
 
-  it('renders a "Mark In Progress" button when status is "acknowledged"', () => {
-    // TODO (plan 03-03): assert getByRole('button', { name: /mark in progress/i }) is present
+  it('renders a "Mark as in progress" button when status is "acknowledged"', () => {
+    render(
+      <StatusActionPanel
+        report={makeReport("acknowledged")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    expect(screen.getByTestId("action-mark-in-progress")).toBeInTheDocument();
+    expect(screen.getByText("Mark as in progress")).toBeInTheDocument();
   });
 
-  it('clicking Assign transitions status to "assigned"', () => {
-    // TODO (plan 03-03): click Assign button, assert onStatusChange("assigned")
+  it('clicking "Assign to organisation" calls onAssignClick', () => {
+    const onAssignClick = jest.fn();
+    render(
+      <StatusActionPanel
+        report={makeReport("acknowledged")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={onAssignClick}
+        onCloseClick={noop}
+      />
+    );
+    fireEvent.click(screen.getByTestId("action-assign"));
+    expect(onAssignClick).toHaveBeenCalled();
   });
 });
 
@@ -81,19 +143,49 @@ describe.skip('WFLOW-01 / D-37 — StatusActionPanel: status="acknowledged" show
 // WFLOW-01 / D-37 — assigned → mark in progress + resolve buttons
 // ---------------------------------------------------------------------------
 
-describe.skip('WFLOW-01 / D-37 — StatusActionPanel: status="assigned" shows Mark In Progress + Resolve', () => {
-  it('renders a "Mark In Progress" button when status is "assigned"', () => {
-    // TODO (plan 03-03): render with currentStatus="assigned",
-    // assert getByRole('button', { name: /mark in progress/i }) is in the document
+describe('WFLOW-01 / D-37 — StatusActionPanel: status="assigned" shows Mark In Progress + Resolve', () => {
+  it('renders a "Mark as in progress" button when status is "assigned"', () => {
+    render(
+      <StatusActionPanel
+        report={makeReport("assigned")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    expect(screen.getByTestId("action-mark-in-progress")).toBeInTheDocument();
   });
 
   it('renders a "Resolve" button when status is "assigned"', () => {
-    // TODO (plan 03-03): assert getByRole('button', { name: /resolve/i }) is present
+    render(
+      <StatusActionPanel
+        report={makeReport("assigned")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    expect(screen.getByTestId("action-resolve")).toBeInTheDocument();
+    expect(screen.getByText("Resolve")).toBeInTheDocument();
   });
 
-  it('clicking Resolve opens the ResolveModal (does not call adminApi directly)', () => {
-    // TODO (plan 03-03): click Resolve, assert ResolveModal is visible
-    // (e.g. getByRole('dialog') or getByText(/resolution photo/i) appears)
+  it('clicking Resolve calls onResolveClick (does not call onStatusChange directly)', () => {
+    const onResolveClick = jest.fn();
+    const onStatusChange = jest.fn().mockResolvedValue(undefined);
+    render(
+      <StatusActionPanel
+        report={makeReport("assigned")}
+        onStatusChange={onStatusChange}
+        onResolveClick={onResolveClick}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    fireEvent.click(screen.getByTestId("action-resolve"));
+    expect(onResolveClick).toHaveBeenCalled();
+    expect(onStatusChange).not.toHaveBeenCalled();
   });
 });
 
@@ -101,14 +193,32 @@ describe.skip('WFLOW-01 / D-37 — StatusActionPanel: status="assigned" shows Ma
 // WFLOW-01 / D-37 — in_progress → resolve button
 // ---------------------------------------------------------------------------
 
-describe.skip('WFLOW-01 / D-37 — StatusActionPanel: status="in_progress" shows Resolve', () => {
+describe('WFLOW-01 / D-37 — StatusActionPanel: status="in_progress" shows Resolve', () => {
   it('renders a "Resolve" button when status is "in_progress"', () => {
-    // TODO (plan 03-03): render with currentStatus="in_progress",
-    // assert getByRole('button', { name: /resolve/i }) is in the document
+    render(
+      <StatusActionPanel
+        report={makeReport("in_progress")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    expect(screen.getByTestId("action-resolve")).toBeInTheDocument();
   });
 
   it('does NOT render an "Acknowledge" or "Assign" button when status is "in_progress"', () => {
-    // TODO (plan 03-03): assert acknowledge and assign buttons are absent
+    render(
+      <StatusActionPanel
+        report={makeReport("in_progress")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    expect(screen.queryByTestId("action-acknowledge")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("action-assign")).not.toBeInTheDocument();
   });
 });
 
@@ -116,18 +226,49 @@ describe.skip('WFLOW-01 / D-37 — StatusActionPanel: status="in_progress" shows
 // WFLOW-01 / D-37 — resolved → close button
 // ---------------------------------------------------------------------------
 
-describe.skip('WFLOW-01 / D-37 — StatusActionPanel: status="resolved" shows Close', () => {
-  it('renders a "Close" button when status is "resolved"', () => {
-    // TODO (plan 03-03): render with currentStatus="resolved",
-    // assert getByRole('button', { name: /close/i }) is in the document
+describe('WFLOW-01 / D-37 — StatusActionPanel: status="resolved" shows Close', () => {
+  it('renders a "Close report" button when status is "resolved"', () => {
+    render(
+      <StatusActionPanel
+        report={makeReport("resolved")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    expect(screen.getByTestId("action-close")).toBeInTheDocument();
+    expect(screen.getByText("Close report")).toBeInTheDocument();
   });
 
-  it('clicking Close opens the ResolveModal for the closing photo + notes', () => {
-    // TODO (plan 03-03): click Close, assert ResolveModal becomes visible
+  it('clicking Close report calls onCloseClick', () => {
+    const onCloseClick = jest.fn();
+    render(
+      <StatusActionPanel
+        report={makeReport("resolved")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={onCloseClick}
+      />
+    );
+    fireEvent.click(screen.getByTestId("action-close"));
+    expect(onCloseClick).toHaveBeenCalled();
   });
 
   it('does NOT render Acknowledge, Assign, or Mark In Progress when resolved', () => {
-    // TODO (plan 03-03): assert these three buttons are all absent
+    render(
+      <StatusActionPanel
+        report={makeReport("resolved")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    expect(screen.queryByTestId("action-acknowledge")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("action-assign")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("action-mark-in-progress")).not.toBeInTheDocument();
   });
 });
 
@@ -135,20 +276,47 @@ describe.skip('WFLOW-01 / D-37 — StatusActionPanel: status="resolved" shows Cl
 // WFLOW-01 / D-38 — closed → locked panel (no action buttons)
 // ---------------------------------------------------------------------------
 
-describe.skip('WFLOW-01 / D-38 — StatusActionPanel: status="closed" shows locked panel', () => {
+describe('WFLOW-01 / D-38 — StatusActionPanel: status="closed" shows locked panel', () => {
   it('renders a read-only locked panel when status is "closed"', () => {
-    // TODO (plan 03-03): render with currentStatus="closed",
-    // assert a locked/completed indicator (e.g. getByText(/closed/i) or getByTestId('locked-panel'))
-    // is in the document and no action buttons are present
+    render(
+      <StatusActionPanel
+        report={makeReport("closed")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    expect(screen.getByText("This report is closed.")).toBeInTheDocument();
   });
 
   it('does NOT render any action buttons when status is "closed"', () => {
-    // TODO (plan 03-03): assert queryByRole('button', { name: /acknowledge|assign|resolve|close/i })
-    // returns null (no actionable buttons in closed state)
+    render(
+      <StatusActionPanel
+        report={makeReport("closed")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    expect(screen.queryByTestId("action-acknowledge")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("action-assign")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("action-resolve")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("action-close")).not.toBeInTheDocument();
   });
 
   it('locked panel is accessible — has appropriate aria attribute for read-only state', () => {
-    // TODO (plan 03-03): assert the locked panel element carries aria-disabled="true"
-    // or aria-label containing "closed" / "no further actions"
+    render(
+      <StatusActionPanel
+        report={makeReport("closed")}
+        onStatusChange={noop}
+        onResolveClick={noop}
+        onAssignClick={noop}
+        onCloseClick={noop}
+      />
+    );
+    const lockedPanel = screen.getByText("This report is closed.").closest("[aria-disabled]");
+    expect(lockedPanel).toHaveAttribute("aria-disabled", "true");
   });
 });
