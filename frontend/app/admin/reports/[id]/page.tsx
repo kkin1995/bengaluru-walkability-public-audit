@@ -15,7 +15,6 @@ import { SeverityIndicator } from "../../components/SeverityIndicator";
 import { Card } from "../../components/Card";
 import { Btn } from "../../components/Btn";
 import { Pill } from "../../components/Pill";
-import { PhotoTile } from "../../components/PhotoTile";
 import { SectionLabel } from "../../components/SectionLabel";
 import { ConfidencePill } from "../../components/ConfidencePill";
 // Phase 03 (WFLOW-01, WFLOW-03, WFLOW-04, WFLOW-05): New admin lifecycle components
@@ -37,6 +36,92 @@ function getSevLevel(severity: string): "high" | "medium" | "low" {
 
 function formatDate(isoString: string): string {
   return new Date(isoString).toLocaleDateString();
+}
+
+// ─── PhotoHero ────────────────────────────────────────────────────────────────
+// Shared photo/fallback rendering used in both mobile and desktop layouts.
+// `showOverlays` controls the overlay chips (SHA, EXIF, zoom icon) — shown on
+// mobile, hidden on desktop where the left column uses a full-height flex layout.
+
+interface PhotoHeroProps {
+  report: AdminReport;
+  categoryLabel: string;
+  showOverlays?: boolean;
+}
+
+function PhotoHero({ report, categoryLabel, showOverlays = false }: PhotoHeroProps) {
+  return (
+    <>
+      {(report.image_url || report.image_path) ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={report.image_url || `/uploads/${report.image_path}`}
+          alt={`Citizen-submitted photo of ${categoryLabel} at ${report.ward_name ?? "unknown ward"}`}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      ) : (
+        <div style={{
+          width: "100%",
+          height: "100%",
+          background: "linear-gradient(135deg, var(--surface-2), var(--surface-3))",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: showOverlays ? undefined : 400,
+        }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", textTransform: "uppercase" }}>
+            NO PHOTO
+          </span>
+        </div>
+      )}
+
+      {showOverlays && (
+        <>
+          {/* Top-left: photo count chip */}
+          <div style={{ position: "absolute", top: 8, left: 8 }}>
+            <Pill tone="outline" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
+              1 PHOTO
+            </Pill>
+          </div>
+
+          {/* Top-right: EXIF chip */}
+          <div style={{ position: "absolute", top: 8, right: 8 }}>
+            {report.location_source === "exif" && (
+              <Pill tone="accent" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
+                EXIF_OK
+              </Pill>
+            )}
+          </div>
+
+          {/* Bottom-left: SHA chip */}
+          <div style={{ position: "absolute", bottom: 8, left: 8 }}>
+            <Pill tone="neutral" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
+              SHA: {report.id.slice(0, 5).toUpperCase()}…
+            </Pill>
+          </div>
+
+          {/* Bottom-right: zoom icon — hidden from a11y until lightbox is implemented */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              bottom: 8,
+              right: 8,
+              background: "rgba(10,10,10,0.5)",
+              borderRadius: "var(--r-sm)",
+              color: "var(--on-danger)",
+              padding: "6px 8px",
+              fontSize: 12,
+              fontFamily: "var(--font-mono)",
+              fontWeight: 600,
+            }}
+          >
+            ⌕
+          </div>
+        </>
+      )}
+    </>
+  );
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
@@ -196,66 +281,10 @@ export default function ReportDetailPage({
   const sevValue = getSevLevel(report.severity);
   const dupCount = report.duplicate_count ?? 0;
 
-  // ── Photo section ─────────────────────────────────────────────────────────────
+  // ── Photo section (mobile) ────────────────────────────────────────────────────
   const photoSection = (
     <div style={{ position: "relative", height: 280, background: "var(--surface-2)", overflow: "hidden" }}>
-      {(report.image_url || report.image_path) ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={report.image_url || `/uploads/${report.image_path}`}
-          alt={`Citizen-submitted photo of ${categoryLabel} at ${report.ward_name ?? "unknown ward"}`}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-      ) : (
-        <PhotoTile
-          size={undefined as unknown as number}
-          style={{ width: "100%", height: "100%", display: "block", borderRadius: 0 }}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Overlays — positioned over the photo */}
-      {/* Top-left: photo count chip */}
-      <div style={{ position: "absolute", top: 8, left: 8 }}>
-        <Pill tone="outline" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
-          1 PHOTO
-        </Pill>
-      </div>
-
-      {/* Top-right: EXIF chip */}
-      <div style={{ position: "absolute", top: 8, right: 8 }}>
-        {report.location_source === "exif" && (
-          <Pill tone="accent" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
-            EXIF_OK
-          </Pill>
-        )}
-      </div>
-
-      {/* Bottom-left: SHA chip */}
-      <div style={{ position: "absolute", bottom: 8, left: 8 }}>
-        <Pill tone="neutral" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
-          SHA: {report.id.slice(0, 5).toUpperCase()}…
-        </Pill>
-      </div>
-
-      {/* Bottom-right: zoom icon — hidden from a11y until lightbox is implemented */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          bottom: 8,
-          right: 8,
-          background: "rgba(10,10,10,0.5)",
-          borderRadius: "var(--r-sm)",
-          color: "var(--on-danger)",
-          padding: "6px 8px",
-          fontSize: 12,
-          fontFamily: "var(--font-mono)",
-          fontWeight: 600,
-        }}
-      >
-        ⌕
-      </div>
+      <PhotoHero report={report} categoryLabel={categoryLabel} showOverlays />
     </div>
   );
 
@@ -546,28 +575,7 @@ export default function ReportDetailPage({
           }}>
             {/* Photo hero — flex: 1 so it fills remaining height */}
             <div style={{ flex: 1, overflow: "hidden", minHeight: 200 }}>
-              {(report.image_url || report.image_path) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={report.image_url || `/uploads/${report.image_path}`}
-                  alt={`Citizen-submitted photo of ${categoryLabel} at ${report.ward_name ?? "unknown ward"}`}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                />
-              ) : (
-                <div style={{
-                  width: "100%",
-                  height: "100%",
-                  background: "linear-gradient(135deg, var(--surface-2), var(--surface-3))",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minHeight: 400,
-                }}>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", textTransform: "uppercase" }}>
-                    NO PHOTO
-                  </span>
-                </div>
-              )}
+              <PhotoHero report={report} categoryLabel={categoryLabel} />
             </div>
 
             {/* Identity strip — D-02: flex-shrink: 0, anchored below photo, never scrolls */}
