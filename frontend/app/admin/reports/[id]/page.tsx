@@ -73,6 +73,12 @@ export default function ReportDetailPage({
     }
   }, []);
 
+  // Lock page body scroll on desktop — only the right rail scrolls (F-07).
+  useEffect(() => {
+    document.body.style.overflow = isDesktop ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [isDesktop]);
+
   useEffect(() => {
     const promise = getMe();
     // getMe() may return undefined in test environments (jest.fn() without mockResolvedValue)
