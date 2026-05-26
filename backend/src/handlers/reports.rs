@@ -335,9 +335,9 @@ pub async fn list_reports(
 pub async fn get_report(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<ReportResponse>, AppError> {
-    let report = queries::get_report_by_id(&state.pool, id).await?;
-    Ok(Json(report.into_response(&state.api_base_url)))
+) -> Result<Json<serde_json::Value>, AppError> {
+    let v = queries::get_report_with_detail(&state.pool, id, &state.api_base_url).await?;
+    Ok(Json(v))
 }
 
 /// Strip all EXIF metadata from JPEG bytes using img-parts.
