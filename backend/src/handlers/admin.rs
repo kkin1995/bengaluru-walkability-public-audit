@@ -103,19 +103,40 @@ pub struct JwtClaims {
 
 /// Validate a report status transition value.
 ///
-/// # Contract (AC-ADMIN-RPT R15)
-/// Returns `Ok(())` when `status` is one of exactly three lowercase strings:
-///   "submitted" | "under_review" | "resolved"
+/// # Contract (D-03, AC-ADMIN-RPT R15)
+/// Returns `Ok(())` when `status` is one of exactly six lowercase strings
+/// (Phase 03 6-value enum — D-03):
+///   "open" | "acknowledged" | "assigned" | "in_progress" | "resolved" | "closed"
+///
 /// Returns `Err(AppError::BadRequest("Invalid status".to_string()))` for any
-/// other value, including uppercase variants, whitespace-padded strings, and
-/// empty strings.
+/// other value — including the renamed pre-Phase-03 values "submitted" and
+/// "under_review", uppercase variants, whitespace-padded strings, and empty strings.
 ///
 /// No trimming is performed — the caller is responsible for normalising input.
-#[allow(dead_code)] // used only in #[cfg(test)] tests in this file
+#[allow(dead_code)] // used in handlers and tests
 pub fn validate_status(status: &str) -> Result<(), AppError> {
     match status {
-        "submitted" | "under_review" | "resolved" => Ok(()),
+        "open" | "acknowledged" | "assigned" | "in_progress" | "resolved" | "closed" => Ok(()),
         _ => Err(AppError::BadRequest("Invalid status".to_string())),
+    }
+}
+
+/// Validate that a resolve/close status transition is accompanied by a resolution photo.
+///
+/// # Contract (D-13, D-14, WFLOW-05)
+/// - When `new_status` is "resolved" or "closed" AND `photo_bytes_len == 0`,
+///   returns `Err(AppError::BadRequest("Resolution photo required"))`.
+/// - For all other status values (or when photo is present), returns `Ok(())`.
+///
+/// This is a pure function — no I/O. Called by the resolve handler (plan 03-02)
+/// AFTER collecting all multipart fields, per Pattern 3 / Pitfall 7.
+#[allow(dead_code)] // used by resolve handler (plan 03-02)
+pub fn validate_resolve_request(new_status: &str, photo_bytes_len: usize) -> Result<(), AppError> {
+    match new_status {
+        "resolved" | "closed" if photo_bytes_len == 0 => {
+            Err(AppError::BadRequest("Resolution photo required".to_string()))
+        }
+        _ => Ok(()),
     }
 }
 
@@ -832,7 +853,7 @@ pub async fn admin_assign_user_org(
 mod tests {
     use super::{
         validate_change_password, validate_create_user_request, validate_profile_display_name,
-        validate_status,
+        validate_resolve_request, validate_status,
     };
     use crate::errors::AppError;
     use crate::middleware::auth::{require_role, JwtClaims};
@@ -879,60 +900,126 @@ mod tests {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // validate_status — happy paths (3 tests)
+    // validate_status — Phase 03 happy paths (6 valid values — D-03)
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// AC-ADMIN-RPT R15 — "submitted" is a valid status value.
+    /// D-03 — "open" is the first Phase 03 status value.
     #[test]
-    fn test_validate_status_submitted() {
-        let result = validate_status("submitted");
+    fn test_validate_status_accepts_open() {
+        let result = validate_status("open");
         assert!(
             result.is_ok(),
-            "validate_status(\"submitted\") must return Ok(()); \
-             \"submitted\" is one of the three valid MVP status values; got {:?}",
+            "validate_status(\"open\") must return Ok(()); \
+             \"open\" is the first Phase 03 status value (D-03); got {:?}",
             result
         );
     }
 
-    /// AC-ADMIN-RPT R15 — "under_review" is a valid status value.
+    /// D-03 — "acknowledged" is the second Phase 03 status value.
     #[test]
-    fn test_validate_status_under_review() {
-        let result = validate_status("under_review");
+    fn test_validate_status_accepts_acknowledged() {
+        let result = validate_status("acknowledged");
         assert!(
             result.is_ok(),
-            "validate_status(\"under_review\") must return Ok(()); \
-             \"under_review\" is one of the three valid MVP status values; got {:?}",
+            "validate_status(\"acknowledged\") must return Ok(()); \
+             \"acknowledged\" is the second Phase 03 status value (D-03); got {:?}",
             result
         );
     }
 
-    /// AC-ADMIN-RPT R15 — "resolved" is a valid status value.
+    /// D-03 — "assigned" is the third Phase 03 status value.
     #[test]
-    fn test_validate_status_resolved() {
+    fn test_validate_status_accepts_assigned() {
+        let result = validate_status("assigned");
+        assert!(
+            result.is_ok(),
+            "validate_status(\"assigned\") must return Ok(()); got {:?}",
+            result
+        );
+    }
+
+    /// D-03 — "in_progress" is the fourth Phase 03 status value.
+    #[test]
+    fn test_validate_status_accepts_in_progress() {
+        let result = validate_status("in_progress");
+        assert!(
+            result.is_ok(),
+            "validate_status(\"in_progress\") must return Ok(()); got {:?}",
+            result
+        );
+    }
+
+    /// D-03 — "resolved" is retained from Phase 01 (D-04).
+    #[test]
+    fn test_validate_status_accepts_resolved() {
         let result = validate_status("resolved");
         assert!(
             result.is_ok(),
-            "validate_status(\"resolved\") must return Ok(()); \
-             \"resolved\" is one of the three valid MVP status values; got {:?}",
+            "validate_status(\"resolved\") must return Ok(()); got {:?}",
+            result
+        );
+    }
+
+    /// D-03 — "closed" is the sixth (final) Phase 03 status value.
+    #[test]
+    fn test_validate_status_accepts_closed() {
+        let result = validate_status("closed");
+        assert!(
+            result.is_ok(),
+            "validate_status(\"closed\") must return Ok(()); got {:?}",
             result
         );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // validate_status — rejection paths (4 tests)
+    // validate_status — rejection: renamed values + other invalid values
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// AC-ADMIN-RPT R15 — "rejected" is NOT in the three-value MVP enum.
-    /// The AC lists exactly "submitted", "under_review", "resolved"; "rejected"
-    /// is absent and must produce a 400 error.
+    /// D-04 — "submitted" was renamed to "open" in migration 008; must be rejected.
+    #[test]
+    fn test_validate_status_rejects_renamed_submitted() {
+        let result = validate_status("submitted");
+        assert!(
+            result.is_err(),
+            "validate_status(\"submitted\") must return Err after Phase 03 rename (D-04); \
+             use 'open' instead; got {:?}",
+            result
+        );
+        let err = result.unwrap_err();
+        assert!(
+            is_bad_request(&err),
+            "validate_status(\"submitted\") must return AppError::BadRequest; got {:?}",
+            err
+        );
+    }
+
+    /// D-04 — "under_review" was renamed to "acknowledged" in migration 008; must be rejected.
+    #[test]
+    fn test_validate_status_rejects_renamed_under_review() {
+        let result = validate_status("under_review");
+        assert!(
+            result.is_err(),
+            "validate_status(\"under_review\") must return Err after Phase 03 rename (D-04); \
+             use 'acknowledged' instead; got {:?}",
+            result
+        );
+        let err = result.unwrap_err();
+        assert!(
+            is_bad_request(&err),
+            "validate_status(\"under_review\") must return AppError::BadRequest; got {:?}",
+            err
+        );
+    }
+
+    /// AC-ADMIN-RPT R15 — "rejected" is not in the Phase 03 enum.
     #[test]
     fn test_validate_status_rejected() {
         let result = validate_status("rejected");
         assert!(
             result.is_err(),
             "validate_status(\"rejected\") must return Err; \
-             \"rejected\" is not a valid MVP status value \
-             (valid: submitted, under_review, resolved)"
+             \"rejected\" is not a valid Phase 03 status value \
+             (valid: open, acknowledged, assigned, in_progress, resolved, closed)"
         );
         let err = result.unwrap_err();
         assert!(
@@ -943,20 +1030,19 @@ mod tests {
         );
     }
 
-    /// AC-ADMIN-RPT R15 — uppercase "SUBMITTED" must be rejected; the
-    /// validation is case-sensitive and performs no normalisation.
+    /// AC-ADMIN-RPT R15 — uppercase "OPEN" must be rejected; case-sensitive.
     #[test]
     fn test_validate_status_uppercase() {
-        let result = validate_status("SUBMITTED");
+        let result = validate_status("OPEN");
         assert!(
             result.is_err(),
-            "validate_status(\"SUBMITTED\") must return Err; \
-             status matching is case-sensitive — \"SUBMITTED\" != \"submitted\""
+            "validate_status(\"OPEN\") must return Err; \
+             status matching is case-sensitive — \"OPEN\" != \"open\""
         );
         let err = result.unwrap_err();
         assert!(
             is_bad_request(&err),
-            "validate_status(\"SUBMITTED\") must return AppError::BadRequest; \
+            "validate_status(\"OPEN\") must return AppError::BadRequest; \
              got {:?}",
             err
         );
@@ -980,23 +1066,79 @@ mod tests {
         );
     }
 
-    /// AC-ADMIN-RPT R15 — whitespace-padded " submitted" must be rejected.
+    /// AC-ADMIN-RPT R15 — whitespace-padded " open" must be rejected.
     /// No silent trimming is performed; the caller owns normalisation.
     #[test]
     fn test_validate_status_whitespace() {
-        let result = validate_status(" submitted");
+        let result = validate_status(" open");
         assert!(
             result.is_err(),
-            "validate_status(\" submitted\") must return Err; \
-             leading whitespace is not stripped — \" submitted\" != \"submitted\""
+            "validate_status(\" open\") must return Err; \
+             leading whitespace is not stripped — \" open\" != \"open\""
         );
         let err = result.unwrap_err();
         assert!(
             is_bad_request(&err),
-            "validate_status(\" submitted\") must return AppError::BadRequest; \
+            "validate_status(\" open\") must return AppError::BadRequest; \
              got {:?}",
             err
         );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // validate_resolve_request — Phase 03 WFLOW-05 gate (D-13, D-14)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// D-13: Transitioning to "resolved" without a photo must return BadRequest.
+    #[test]
+    fn test_validate_resolve_requires_photo_for_resolved() {
+        let result = validate_resolve_request("resolved", 0);
+        assert!(
+            result.is_err(),
+            "validate_resolve_request(\"resolved\", 0) must return Err; \
+             photo is mandatory when status is 'resolved' (D-13); got {:?}",
+            result
+        );
+        let err = result.unwrap_err();
+        assert!(
+            is_bad_request(&err),
+            "validate_resolve_request error must be AppError::BadRequest; got {:?}",
+            err
+        );
+    }
+
+    /// D-14: Transitioning to "closed" without a photo must also return BadRequest.
+    #[test]
+    fn test_validate_resolve_requires_photo_for_closed() {
+        let result = validate_resolve_request("closed", 0);
+        assert!(
+            result.is_err(),
+            "validate_resolve_request(\"closed\", 0) must return Err; \
+             photo is mandatory when status is 'closed' (D-14); got {:?}",
+            result
+        );
+        let err = result.unwrap_err();
+        assert!(
+            is_bad_request(&err),
+            "validate_resolve_request error must be AppError::BadRequest; got {:?}",
+            err
+        );
+    }
+
+    /// D-13/D-14: Non-terminal status transitions do NOT require a photo.
+    #[test]
+    fn test_validate_resolve_allows_non_terminal_without_photo() {
+        // "open", "acknowledged", "assigned", "in_progress" do not require a photo.
+        for status in &["open", "acknowledged", "assigned", "in_progress"] {
+            let result = validate_resolve_request(status, 0);
+            assert!(
+                result.is_ok(),
+                "validate_resolve_request(\"{}\", 0) must return Ok(()); \
+                 photo is only required for 'resolved'/'closed' (D-13, D-14); got {:?}",
+                status,
+                result
+            );
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

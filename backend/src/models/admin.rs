@@ -165,8 +165,13 @@ pub struct AdminReportFilters {
 }
 
 /// Body for PATCH /api/admin/reports/:id/status.
-/// `status` must be one of: "submitted", "under_review", "resolved"  (R15, AC-RPT-29).
+/// `status` must be one of the 6 Phase 03 values (D-03):
+///   "open" | "acknowledged" | "assigned" | "in_progress" | "resolved" | "closed"
 /// `note` is optional (R14).
+///
+/// NOTE: The pre-Phase-03 values "submitted" and "under_review" are NO LONGER
+/// valid — they were renamed in migration 008 (D-04). Requests using those
+/// values will be rejected by is_valid_status().
 #[derive(Debug, Deserialize)]
 pub struct UpdateStatusRequest {
     pub status: String,
@@ -174,23 +179,29 @@ pub struct UpdateStatusRequest {
 }
 
 impl UpdateStatusRequest {
-    /// Returns true iff `self.status` is one of the three permitted values
+    /// Returns true iff `self.status` is one of the 6 Phase 03 permitted values
     /// (case-sensitive, lowercase only):
-    ///   "submitted" | "under_review" | "resolved"
+    ///   "open" | "acknowledged" | "assigned" | "in_progress" | "resolved" | "closed"
     ///
-    /// Any other value — including uppercase variants or unknown strings — returns false.
+    /// Any other value — including the renamed "submitted"/"under_review", uppercase
+    /// variants, whitespace-padded strings, and empty strings — returns false.
     ///
-    /// # Contract (R15, AC-RPT-29, AC-RPT-30)
-    /// - "submitted"   → true
-    /// - "under_review" → true
-    /// - "resolved"    → true
-    /// - "rejected"    → false
-    /// - "SUBMITTED"   → false
-    /// - ""            → false
+    /// # Contract (D-03, R15, AC-RPT-29, AC-RPT-30)
+    /// - "open"         → true
+    /// - "acknowledged" → true
+    /// - "assigned"     → true
+    /// - "in_progress"  → true
+    /// - "resolved"     → true
+    /// - "closed"       → true
+    /// - "submitted"    → false  (renamed to "open" in migration 008)
+    /// - "under_review" → false  (renamed to "acknowledged" in migration 008)
+    /// - "rejected"     → false
+    /// - "SUBMITTED"    → false
+    /// - ""             → false
     pub fn is_valid_status(&self) -> bool {
         matches!(
             self.status.as_str(),
-            "submitted" | "under_review" | "resolved"
+            "open" | "acknowledged" | "assigned" | "in_progress" | "resolved" | "closed"
         )
     }
 }
@@ -230,7 +241,8 @@ pub struct JwtClaims {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StatsResponse {
     pub total_reports: i64,
-    /// Keys: "submitted", "under_review", "resolved"
+    /// Keys: "open", "acknowledged", "assigned", "in_progress", "resolved", "closed"
+    /// (Phase 03 6-value enum — D-03, D-04)
     pub by_status: HashMap<String, i64>,
     /// Keys: all values of the issue_category enum
     pub by_category: HashMap<String, i64>,
@@ -1054,14 +1066,18 @@ mod tests {
 
     #[test]
     fn test_stats_response_by_status_serializes_correctly() {
-        // R33, AC-RPT-43: by_status must be an object with string keys and integer values.
+        // D-03, R33, AC-RPT-43: by_status must reflect the 6-value Phase 03 enum.
+        // All 6 keys: open, acknowledged, assigned, in_progress, resolved, closed.
         let mut by_status = HashMap::new();
-        by_status.insert("submitted".to_string(), 3_i64);
-        by_status.insert("under_review".to_string(), 2_i64);
+        by_status.insert("open".to_string(), 3_i64);
+        by_status.insert("acknowledged".to_string(), 2_i64);
+        by_status.insert("assigned".to_string(), 1_i64);
+        by_status.insert("in_progress".to_string(), 0_i64);
         by_status.insert("resolved".to_string(), 1_i64);
+        by_status.insert("closed".to_string(), 0_i64);
 
         let stats = StatsResponse {
-            total_reports: 6,
+            total_reports: 7,
             by_status,
             by_category: HashMap::new(),
             by_severity: HashMap::new(),
@@ -1070,20 +1086,35 @@ mod tests {
         let json =
             serde_json::to_string(&stats).expect("StatsResponse must serialize without error");
 
-        // Each key-value pair must be present.
+        // All 6 Phase 03 keys must be present.
         assert!(
-            json.contains("\"submitted\":3"),
-            "by_status must contain 'submitted':3, but got: {}",
+            json.contains("\"open\":3"),
+            "by_status must contain 'open':3, but got: {}",
             json
         );
         assert!(
-            json.contains("\"under_review\":2"),
-            "by_status must contain 'under_review':2, but got: {}",
+            json.contains("\"acknowledged\":2"),
+            "by_status must contain 'acknowledged':2, but got: {}",
+            json
+        );
+        assert!(
+            json.contains("\"assigned\":1"),
+            "by_status must contain 'assigned':1, but got: {}",
+            json
+        );
+        assert!(
+            json.contains("\"in_progress\":0"),
+            "by_status must contain 'in_progress':0, but got: {}",
             json
         );
         assert!(
             json.contains("\"resolved\":1"),
             "by_status must contain 'resolved':1, but got: {}",
+            json
+        );
+        assert!(
+            json.contains("\"closed\":0"),
+            "by_status must contain 'closed':0, but got: {}",
             json
         );
         assert!(
@@ -1124,39 +1155,68 @@ mod tests {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Suite 7 — UpdateStatusRequest validation
-    // Requirements: R15, AC-RPT-29, AC-RPT-30
+    // Suite 7 — UpdateStatusRequest validation (Phase 03 6-value enum — D-03)
+    // Requirements: D-03, R15, AC-RPT-29, AC-RPT-30
     // ─────────────────────────────────────────────────────────────────────────
 
+    // ── Phase 03 happy paths (6 valid values) ────────────────────────────────
+
     #[test]
-    fn test_update_status_submitted_is_valid() {
-        // R15: "submitted" is one of the three permitted status values.
+    fn test_update_status_open_is_valid() {
+        // D-03: "open" is the first of the 6 Phase 03 status values.
         let req = UpdateStatusRequest {
-            status: "submitted".to_string(),
+            status: "open".to_string(),
             note: None,
         };
         assert!(
             req.is_valid_status(),
-            "status 'submitted' must be valid; is_valid_status() returned false"
+            "status 'open' must be valid (Phase 03 6-value enum, D-03); \
+             is_valid_status() returned false"
         );
     }
 
     #[test]
-    fn test_update_status_under_review_is_valid() {
-        // R15: "under_review" is one of the three permitted status values.
+    fn test_update_status_acknowledged_is_valid() {
+        // D-03: "acknowledged" is the second Phase 03 status value.
         let req = UpdateStatusRequest {
-            status: "under_review".to_string(),
+            status: "acknowledged".to_string(),
             note: None,
         };
         assert!(
             req.is_valid_status(),
-            "status 'under_review' must be valid; is_valid_status() returned false"
+            "status 'acknowledged' must be valid; is_valid_status() returned false"
+        );
+    }
+
+    #[test]
+    fn test_update_status_assigned_is_valid() {
+        // D-03: "assigned" is the third Phase 03 status value.
+        let req = UpdateStatusRequest {
+            status: "assigned".to_string(),
+            note: None,
+        };
+        assert!(
+            req.is_valid_status(),
+            "status 'assigned' must be valid; is_valid_status() returned false"
+        );
+    }
+
+    #[test]
+    fn test_update_status_in_progress_is_valid() {
+        // D-03: "in_progress" is the fourth Phase 03 status value.
+        let req = UpdateStatusRequest {
+            status: "in_progress".to_string(),
+            note: None,
+        };
+        assert!(
+            req.is_valid_status(),
+            "status 'in_progress' must be valid; is_valid_status() returned false"
         );
     }
 
     #[test]
     fn test_update_status_resolved_is_valid() {
-        // R15: "resolved" is one of the three permitted status values.
+        // D-03: "resolved" is retained from Phase 01 (D-04) and is the fifth Phase 03 value.
         let req = UpdateStatusRequest {
             status: "resolved".to_string(),
             note: Some("fixed on site".to_string()),
@@ -1168,9 +1228,52 @@ mod tests {
     }
 
     #[test]
+    fn test_update_status_closed_is_valid() {
+        // D-03: "closed" is the sixth (final) Phase 03 status value.
+        let req = UpdateStatusRequest {
+            status: "closed".to_string(),
+            note: None,
+        };
+        assert!(
+            req.is_valid_status(),
+            "status 'closed' must be valid; is_valid_status() returned false"
+        );
+    }
+
+    // ── Rejection: renamed values MUST be rejected (D-04) ───────────────────
+
+    #[test]
+    fn test_update_status_rejects_renamed_submitted() {
+        // D-04: "submitted" was renamed to "open" in migration 008. Requests
+        // using the old name must now be rejected.
+        let req = UpdateStatusRequest {
+            status: "submitted".to_string(),
+            note: None,
+        };
+        assert!(
+            !req.is_valid_status(),
+            "status 'submitted' must be INVALID after Phase 03 rename (D-04); \
+             use 'open' instead; is_valid_status() returned true"
+        );
+    }
+
+    #[test]
+    fn test_update_status_rejects_renamed_under_review() {
+        // D-04: "under_review" was renamed to "acknowledged" in migration 008.
+        let req = UpdateStatusRequest {
+            status: "under_review".to_string(),
+            note: None,
+        };
+        assert!(
+            !req.is_valid_status(),
+            "status 'under_review' must be INVALID after Phase 03 rename (D-04); \
+             use 'acknowledged' instead; is_valid_status() returned true"
+        );
+    }
+
+    #[test]
     fn test_update_status_rejected_is_invalid() {
-        // R15: "rejected" is NOT one of the three permitted values (AC-RPT-29 uses
-        // "flagged" as the example; "rejected" is equally invalid).
+        // R15: "rejected" is not in the 6-value Phase 03 enum.
         let req = UpdateStatusRequest {
             status: "rejected".to_string(),
             note: None,
@@ -1183,14 +1286,14 @@ mod tests {
 
     #[test]
     fn test_update_status_uppercase_is_invalid() {
-        // R15: validation is case-sensitive. "SUBMITTED" is not "submitted".
+        // R15: validation is case-sensitive. "OPEN" is not "open".
         let req = UpdateStatusRequest {
-            status: "SUBMITTED".to_string(),
+            status: "OPEN".to_string(),
             note: None,
         };
         assert!(
             !req.is_valid_status(),
-            "status 'SUBMITTED' (uppercase) must be invalid (case-sensitive match required); \
+            "status 'OPEN' (uppercase) must be invalid (case-sensitive match required); \
              is_valid_status() returned true"
         );
     }

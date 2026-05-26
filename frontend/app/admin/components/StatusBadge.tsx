@@ -2,7 +2,20 @@
 
 import type { CSSProperties } from "react";
 
-export type StatusValue = "submitted" | "under_review" | "resolved";
+// Phase 03 (D-03..D-05): status lifecycle expanded from 3 to 6 values.
+// Legacy values (submitted, under_review) kept in STATUS_MAP for backward compat with
+// any existing admin_users session tokens that still carry the old string, until
+// the DB migration 008 atomically renames them on next deploy.
+export type StatusValue =
+  | "open"
+  | "acknowledged"
+  | "assigned"
+  | "in_progress"
+  | "resolved"
+  | "closed"
+  // Legacy values kept for backward compatibility until migration 008 applies
+  | "submitted"
+  | "under_review";
 
 export interface StatusBadgeProps {
   status: string;
@@ -11,7 +24,7 @@ export interface StatusBadgeProps {
 }
 
 interface StatusMeta {
-  tone: "info" | "warn" | "accent";
+  tone: "info" | "warn" | "accent" | "muted";
   dot: string;
   label: string;
   ariaLabel: string;
@@ -19,6 +32,75 @@ interface StatusMeta {
 }
 
 const STATUS_MAP: Record<string, StatusMeta> = {
+  // ── Phase 03 (D-03..D-05): 6-value lifecycle ────────────────────────────────
+  // Ref: 03-UI-SPEC.md §"Status Color System — 6-State Admin StatusBadge"
+  open: {
+    tone: "info",
+    dot: "var(--status-open-bg, var(--status-submitted))",
+    label: "Open",
+    ariaLabel: "Status: open",
+    toneStyle: {
+      background: "var(--status-open-bg, var(--info-bg))",
+      color: "var(--info-ink)",
+      border: "1px solid oklch(0.86 0.06 200)",
+    },
+  },
+  acknowledged: {
+    tone: "info",
+    dot: "transparent",
+    label: "Acknowledged",
+    ariaLabel: "Status: acknowledged",
+    toneStyle: {
+      background: "var(--status-acknowledged-bg, var(--info-bg))",
+      color: "var(--info-ink)",
+      border: "1px solid oklch(0.86 0.06 200)",
+    },
+  },
+  assigned: {
+    tone: "warn",
+    dot: "var(--status-assigned-bg, var(--status-review))",
+    label: "Assigned",
+    ariaLabel: "Status: assigned",
+    toneStyle: {
+      background: "var(--status-assigned-bg, var(--warn-bg))",
+      color: "var(--warn-ink)",
+      border: "1px solid oklch(0.84 0.12 60)",
+    },
+  },
+  in_progress: {
+    tone: "warn",
+    dot: "var(--status-in-progress-bg, var(--status-review))",
+    label: "In Progress",
+    ariaLabel: "Status: in progress",
+    toneStyle: {
+      background: "var(--status-in-progress-bg, var(--warn-bg))",
+      color: "var(--warn-ink)",
+      border: "1px solid oklch(0.84 0.12 60)",
+    },
+  },
+  resolved: {
+    tone: "accent",
+    dot: "var(--status-resolved)",
+    label: "Resolved",
+    ariaLabel: "Status: resolved",
+    toneStyle: {
+      background: "var(--status-resolved-bg, var(--accent-bg))",
+      color: "var(--accent-ink)",
+      border: "1px solid var(--accent-border)",
+    },
+  },
+  closed: {
+    tone: "muted",
+    dot: "#d4d4d1",
+    label: "Closed",
+    ariaLabel: "Status: closed",
+    toneStyle: {
+      background: "#eaeae6",
+      color: "var(--muted)",
+      border: "1px solid #d4d4d1",
+    },
+  },
+  // ── Legacy values (pre-migration-008) — kept for soft rollout ───────────────
   submitted: {
     tone: "info",
     dot: "var(--status-submitted)",
@@ -39,17 +121,6 @@ const STATUS_MAP: Record<string, StatusMeta> = {
       background: "var(--warn-bg)",
       color: "var(--warn-ink)",
       border: "1px solid var(--warn-border)",
-    },
-  },
-  resolved: {
-    tone: "accent",
-    dot: "var(--status-resolved)",
-    label: "Resolved",
-    ariaLabel: "Status: resolved",
-    toneStyle: {
-      background: "var(--accent-bg)",
-      color: "var(--accent-ink)",
-      border: "1px solid var(--accent-border)",
     },
   },
 };

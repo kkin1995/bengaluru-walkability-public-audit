@@ -106,7 +106,10 @@ pub async fn insert_report(
             duplicate_of_id,
             duplicate_count,
             duplicate_confidence,
-            submitter_ip
+            submitter_ip,
+            resolution_photo_path,
+            resolution_notes,
+            assigned_org_id
         "#,
     )
     .bind(image_path)
@@ -163,7 +166,10 @@ pub async fn list_reports(
             duplicate_of_id,
             duplicate_count,
             duplicate_confidence,
-            submitter_ip
+            submitter_ip,
+            resolution_photo_path,
+            resolution_notes,
+            assigned_org_id
         FROM reports
         WHERE
             ($1::TEXT IS NULL OR category::TEXT = $1)
@@ -199,7 +205,10 @@ pub async fn get_report_by_id(pool: &PgPool, id: Uuid) -> Result<Report, AppErro
             duplicate_of_id,
             duplicate_count,
             duplicate_confidence,
-            submitter_ip
+            submitter_ip,
+            resolution_photo_path,
+            resolution_notes,
+            assigned_org_id
         FROM reports
         WHERE id = $1
         "#,

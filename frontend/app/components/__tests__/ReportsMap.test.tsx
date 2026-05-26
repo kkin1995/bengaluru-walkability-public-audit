@@ -409,3 +409,58 @@ describe("R5 / AC5.5 — Empty state when there are no reports", () => {
     });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 03 Wave 0 scaffolds — MAP-01 + MAP-03
+// Ref: 03-UI-SPEC.md §"3-State Public Status Colors"; D-30, D-31
+//
+// These describe blocks use describe.skip — plan 03-04 executor must:
+//   1. Add STATUS_COLORS constant to ReportsMap.tsx (D-30 3-state color map)
+//   2. Wire fillColor on CircleMarker from report.status via STATUS_COLORS
+//   3. Add a StatusBadge or status text element inside the Popup
+//   4. Remove describe.skip and implement the assertions below
+//   5. Run `npm test -- --watchAll=false ReportsMap` to confirm green
+//
+// Color contract per 03-UI-SPEC.md §"3-State Public Status Colors":
+//   open, acknowledged, assigned → var(--danger) / oklch(0.62 0.14 30)
+//   in_progress                  → var(--warn)   / oklch(0.72 0.14 75)
+//   resolved, closed             → var(--accent) / oklch(0.62 0.14 145)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// MAP-01 / D-30 — Status colors applied to CircleMarker fillColor
+describe.skip("Phase 03 / MAP-01 — ReportsMap: status colors applied to CircleMarker", () => {
+  it('CircleMarker fillColor reflects the danger color for status="open"', async () => {
+    // TODO (plan 03-04): render with report.status="open",
+    // assert circle-marker has data-fill-color matching STATUS_COLORS.open
+    // (danger token / oklch(0.62 0.14 30) or equivalent CSS variable)
+  });
+
+  it('CircleMarker fillColor reflects the danger color for status="in_progress"', async () => {
+    // TODO (plan 03-04): render with report.status="in_progress",
+    // assert circle-marker data-fill-color matches STATUS_COLORS.in_progress (warn token)
+  });
+
+  it('CircleMarker fillColor reflects the accent color for status="resolved"', async () => {
+    // TODO (plan 03-04): render with report.status="resolved",
+    // assert circle-marker data-fill-color matches STATUS_COLORS.resolved (accent token)
+  });
+
+  it('CircleMarker fillColor reflects the accent color for status="closed"', async () => {
+    // TODO (plan 03-04): render with report.status="closed",
+    // assert circle-marker data-fill-color matches STATUS_COLORS.closed (accent token, same as resolved)
+  });
+});
+
+// MAP-03 / D-31 — Popup status label rendered
+describe.skip("Phase 03 / MAP-03 — ReportsMap: popup shows status label", () => {
+  it('popup renders a human-readable status label for status="open"', async () => {
+    // TODO (plan 03-04): render with report.status="open",
+    // wait for popup to render, assert getByText(/open/i) or StatusBadge with "Open" label
+    // is present inside the popup element
+  });
+
+  it('popup renders the status label for status="in_progress"', async () => {
+    // TODO (plan 03-04): render with report.status="in_progress",
+    // assert popup contains "In Progress" text or equivalent StatusBadge
+  });
+});

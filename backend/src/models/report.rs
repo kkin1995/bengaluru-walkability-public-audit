@@ -53,6 +53,18 @@ pub struct Report {
     /// Admin-only; never included in ReportResponse.
     #[allow(dead_code)]
     pub submitter_ip: Option<String>,
+    // ── Phase 03 (D-08, D-13, D-15): set by resolve/assign handlers ──────────
+    /// Path to the resolution after-photo (stored like image_path — filename only).
+    /// Publicly visible via resolution_photo_url in ReportResponse (D-18).
+    #[allow(dead_code)] // Phase 03 (D-13, D-15): populated by resolve handler
+    pub resolution_photo_path: Option<String>,
+    /// Admin-authored notes recorded when resolving or closing a report (D-15).
+    /// Admin-only; NOT included in ReportResponse (D-17).
+    #[allow(dead_code)] // Phase 03 (D-15): populated by resolve handler
+    pub resolution_notes: Option<String>,
+    /// UUID of the organization this report is assigned to for internal routing (D-08).
+    #[allow(dead_code)] // Phase 03 (D-08): populated by assign-org handler
+    pub assigned_org_id: Option<Uuid>,
 }
 
 /// JSON response shape
@@ -71,11 +83,19 @@ pub struct ReportResponse {
     /// Ward name — None in public endpoint (admin handler joins and populates).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ward_name: Option<String>,
+    /// URL of the resolution after-photo (D-18 — publicly visible when present).
+    /// Omitted from JSON when None (no after-photo yet).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolution_photo_url: Option<String>,
 }
 
 impl Report {
     pub fn into_response(self, api_base: &str) -> ReportResponse {
         let image_url = format!("{}/uploads/{}", api_base, self.image_path);
+        // D-18: resolution_photo_url is publicly visible when present (same URL pattern as image_url).
+        let resolution_photo_url = self
+            .resolution_photo_path
+            .map(|p| format!("{}/uploads/{}", api_base, p));
         ReportResponse {
             id: self.id,
             created_at: self.created_at,
@@ -89,6 +109,7 @@ impl Report {
             location_source: self.location_source,
             // Public endpoint never exposes ward_name — admin handler populates it when needed.
             ward_name: None,
+            resolution_photo_url,
         }
     }
 }
@@ -169,6 +190,10 @@ mod tests {
             duplicate_count: 0,
             duplicate_confidence: None,
             submitter_ip: None,
+            // Phase 03 new fields — default to None for all existing tests
+            resolution_photo_path: None,
+            resolution_notes: None,
+            assigned_org_id: None,
         }
     }
 
