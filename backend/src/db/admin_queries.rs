@@ -366,6 +366,7 @@ pub async fn list_admin_reports(
             reports.status::TEXT AS status,
             reports.location_source::TEXT AS location_source,
             wards.ward_name AS ward_name,
+            wards.corporation AS corporation,
             {dedup_cols}
         FROM reports
         LEFT JOIN wards ON wards.id = reports.ward_id
@@ -420,6 +421,9 @@ pub async fn list_admin_reports(
                 "status":               row.get::<String, _>("status"),
                 "location_source":      row.get::<String, _>("location_source"),
                 "ward_name":            row.get::<Option<String>, _>("ward_name"),
+                // D-22: corporation is auto-derived at query time via LEFT JOIN wards.
+                // Feeds the CORP column rendered by Plan 03-03 ReportsTable.
+                "corporation":          row.try_get::<Option<String>, _>("corporation").unwrap_or(None),
                 "duplicate_count":      row.try_get::<i32, _>("duplicate_count").unwrap_or(0),
                 "duplicate_of_id":      row.try_get::<Option<Uuid>, _>("duplicate_of_id").unwrap_or(None),
                 "duplicate_confidence": row.try_get::<Option<String>, _>("duplicate_confidence").unwrap_or(None),
@@ -562,6 +566,135 @@ pub async fn update_report_status(
     .await?;
 
     tx.commit().await?;
+    Ok(true)
+}
+
+/// Resolve or close a report by updating its status and storing the resolution photo.
+///
+/// # Contract (D-13, D-14, WFLOW-02, WFLOW-05)
+/// - `new_status` must be "resolved" or "closed" — any other value is rejected with BadRequest.
+/// - Updates `reports.status`, `reports.resolution_photo_path`, `reports.resolution_notes`.
+/// - Inserts a `status_history` row in the same transaction.
+/// - Returns `Ok(true)` if found and updated, `Ok(false)` if report not found (caller returns 404).
+pub async fn resolve_report(
+    pool: &PgPool,
+    report_id: Uuid,
+    new_status: &str,
+    resolution_photo_path: &str,
+    resolution_notes: Option<&str>,
+    changed_by: Uuid,
+) -> Result<bool, AppError> {
+    // Defense-in-depth guard: validate status before opening transaction.
+    // validate_resolve_request in the handler is the primary gate; this is belt-and-suspenders
+    // per D-13/D-14 so that the DB layer is independently correct.
+    if !matches!(new_status, "resolved" | "closed") {
+        return Err(AppError::BadRequest(
+            "resolve_report called with invalid status".to_string(),
+        ));
+    }
+
+    let mut tx = pool.begin().await?;
+
+    let result = sqlx::query(
+        r#"
+        UPDATE reports
+        SET status = $1::report_status,
+            resolution_photo_path = $2,
+            resolution_notes = $3
+        WHERE id = $4
+        "#,
+    )
+    .bind(new_status)
+    .bind(resolution_photo_path)
+    .bind(resolution_notes)
+    .bind(report_id)
+    .execute(&mut *tx)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        tx.rollback().await?;
+        return Ok(false);
+    }
+
+    // Insert audit trail row in the same transaction.
+    sqlx::query(
+        r#"
+        INSERT INTO status_history (report_id, new_status, note, changed_by)
+        VALUES ($1, $2::report_status, $3, $4)
+        "#,
+    )
+    .bind(report_id)
+    .bind(new_status)
+    .bind(resolution_notes)
+    .bind(changed_by)
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    tracing::info!(
+        report_id = %report_id,
+        new_status = new_status,
+        changed_by = %changed_by,
+        "Report resolved"
+    );
+
+    Ok(true)
+}
+
+/// Assign a report to an organization and auto-advance status to 'assigned'.
+///
+/// # Contract (D-09, WFLOW-03)
+/// - Updates `reports.assigned_org_id = org_id` AND `reports.status = 'assigned'`.
+/// - Inserts a `status_history` row in the same transaction.
+/// - Returns `Ok(true)` if found and updated, `Ok(false)` if report not found.
+pub async fn assign_report_org(
+    pool: &PgPool,
+    report_id: Uuid,
+    org_id: Uuid,
+    changed_by: Uuid,
+) -> Result<bool, AppError> {
+    let mut tx = pool.begin().await?;
+
+    let result = sqlx::query(
+        r#"
+        UPDATE reports
+        SET assigned_org_id = $1,
+            status = 'assigned'::report_status
+        WHERE id = $2
+        "#,
+    )
+    .bind(org_id)
+    .bind(report_id)
+    .execute(&mut *tx)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        tx.rollback().await?;
+        return Ok(false);
+    }
+
+    // Insert audit trail row in the same transaction (D-09: auto-advance to 'assigned').
+    sqlx::query(
+        r#"
+        INSERT INTO status_history (report_id, new_status, note, changed_by)
+        VALUES ($1, 'assigned'::report_status, 'Assigned to organization', $2)
+        "#,
+    )
+    .bind(report_id)
+    .bind(changed_by)
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    tracing::info!(
+        report_id = %report_id,
+        org_id = %org_id,
+        changed_by = %changed_by,
+        "Report assigned to organization"
+    );
+
     Ok(true)
 }
 

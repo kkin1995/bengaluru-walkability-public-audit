@@ -336,6 +336,23 @@ pub struct ChangePasswordRequest {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Phase 03 — Org assignment request (WFLOW-03)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Body for POST /api/admin/reports/:id/assign-org (Phase 03 WFLOW-03).
+///
+/// `org_id` is required and non-nullable: assigning a report always requires a target org.
+/// UUID parse is enforced by serde_json; no manual validation needed.
+///
+/// Note: This is distinct from `handlers::admin::AssignOrgRequest` (which handles
+/// user-to-org assignment and uses `Option<Uuid>` to support clearing the assignment).
+/// This struct is for report-to-org assignment and requires a non-null org_id (D-08).
+#[derive(Debug, Deserialize)]
+pub struct ReportAssignOrgRequest {
+    pub org_id: Uuid,
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Phase 2 — Pure validation helpers (Profile page)
 // ─────────────────────────────────────────────────────────────────────────────
 
