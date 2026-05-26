@@ -54,6 +54,7 @@ export default function ReportDetailPage({
   const [role, setRole] = useState<"admin" | "reviewer">("admin");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [statusUpdateLoading, setStatusUpdateLoading] = useState(false);
   const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -125,11 +126,13 @@ export default function ReportDetailPage({
   async function handleDelete() {
     if (!report) return;
     setIsDeleting(true);
+    setDeleteError(null);
     try {
       await deleteReport(report.id);
       setShowDeleteModal(false);
       router.push("/admin/reports");
     } catch {
+      setDeleteError("Failed to delete report. Please try again.");
       setIsDeleting(false);
     }
   }
@@ -664,6 +667,11 @@ export default function ReportDetailPage({
               {/* EXACT UI-SPEC string */}
               Delete this report? This cannot be undone.
             </h2>
+            {deleteError && (
+              <p role="alert" style={{ fontSize: 13, color: "var(--danger-ink)", marginBottom: 12 }}>
+                {deleteError}
+              </p>
+            )}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <Btn
                 variant="ghost"
