@@ -524,13 +524,13 @@ export default function ReportDetailPage({
   return (
     <div
       data-testid="report-detail"
-      style={{ padding: "24px 32px", maxWidth: 1400, marginLeft: "auto", marginRight: "auto", paddingBottom: 80 }}
+      style={{ padding: "24px 32px", maxWidth: 1400, marginLeft: "auto", marginRight: "auto", paddingBottom: isDesktop ? 0 : 80 }}
     >
       {desktopActionBar}
 
       {/* Layout: desktop split panel | mobile single column */}
       {isDesktop ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 0, minHeight: "calc(100vh - 120px)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 0, height: "calc(100vh - 120px)", overflow: "hidden" }}>
           {/* Left column — D-01, D-03: flex column, photo hero fills height, identity strip anchored below */}
           <div style={{
             display: "flex",
