@@ -189,6 +189,104 @@ pub async fn list_reports(
     Ok(rows)
 }
 
+/// Fetch a paginated list of reports enriched with ward data (ward_name + corporation).
+///
+/// Used by the public GET /api/reports list endpoint to populate the map popup
+/// with corporation + ward_name per UI-SPEC §G (MAP-03 / D-31).
+///
+/// Privacy guarantees: submitter_name, submitter_contact, submitter_ip are NOT selected.
+/// Status history and resolution_notes are NOT included (list endpoint).
+///
+/// Returns a Vec of serde_json::Value objects matching the public list shape.
+pub async fn list_reports_enriched(
+    pool: &PgPool,
+    page: i64,
+    limit: i64,
+    category: Option<&str>,
+    status: Option<&str>,
+    api_base: &str,
+) -> Result<Vec<serde_json::Value>, AppError> {
+    let offset = (page - 1) * limit;
+
+    let rows = sqlx::query(
+        r#"
+        SELECT
+            r.id,
+            r.created_at,
+            r.image_path,
+            r.latitude,
+            r.longitude,
+            r.category::TEXT AS category,
+            r.severity::TEXT AS severity,
+            r.description,
+            r.status::TEXT AS status,
+            r.location_source::TEXT AS location_source,
+            r.resolution_photo_path,
+            w.ward_name,
+            w.corporation
+        FROM reports r
+        LEFT JOIN wards w ON w.id = r.ward_id
+        WHERE
+            ($1::TEXT IS NULL OR r.category::TEXT = $1)
+            AND ($2::TEXT IS NULL OR r.status::TEXT = $2)
+        ORDER BY r.created_at DESC
+        LIMIT $3 OFFSET $4
+        "#,
+    )
+    .bind(category)
+    .bind(status)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+
+    let items = rows
+        .iter()
+        .map(|row| {
+            let image_path = row.get::<String, _>("image_path");
+            let image_url = format!("{}/uploads/{}", api_base, image_path);
+
+            let latitude = row.get::<f64, _>("latitude");
+            let longitude = row.get::<f64, _>("longitude");
+            let lat_rounded = (latitude * 1000.0).round() / 1000.0;
+            let lng_rounded = (longitude * 1000.0).round() / 1000.0;
+
+            let resolution_photo_path = row.try_get::<Option<String>, _>("resolution_photo_path").unwrap_or(None);
+            let resolution_photo_url = resolution_photo_path
+                .map(|p| format!("{}/uploads/{}", api_base, p));
+
+            let mut obj = serde_json::Map::new();
+            obj.insert("id".to_string(), serde_json::json!(row.get::<Uuid, _>("id")));
+            obj.insert("created_at".to_string(), serde_json::json!(row.get::<DateTime<Utc>, _>("created_at")));
+            obj.insert("image_url".to_string(), serde_json::json!(image_url));
+            obj.insert("latitude".to_string(), serde_json::json!(lat_rounded));
+            obj.insert("longitude".to_string(), serde_json::json!(lng_rounded));
+            obj.insert("category".to_string(), serde_json::json!(row.get::<String, _>("category")));
+            obj.insert("severity".to_string(), serde_json::json!(row.get::<String, _>("severity")));
+            obj.insert("description".to_string(), serde_json::json!(row.get::<Option<String>, _>("description")));
+            obj.insert("status".to_string(), serde_json::json!(row.get::<String, _>("status")));
+            obj.insert("location_source".to_string(), serde_json::json!(row.get::<String, _>("location_source")));
+
+            // Include ward_name and corporation for map popup (MAP-03 / D-31)
+            if let Some(ward_name) = row.try_get::<Option<String>, _>("ward_name").unwrap_or(None) {
+                obj.insert("ward_name".to_string(), serde_json::json!(ward_name));
+            }
+            if let Some(corporation) = row.try_get::<Option<String>, _>("corporation").unwrap_or(None) {
+                obj.insert("corporation".to_string(), serde_json::json!(corporation));
+            }
+
+            // resolution_photo_url only when present (D-18)
+            if let Some(url) = resolution_photo_url {
+                obj.insert("resolution_photo_url".to_string(), serde_json::json!(url));
+            }
+
+            serde_json::Value::Object(obj)
+        })
+        .collect();
+
+    Ok(items)
+}
+
 // Retained for potential direct usage by tests or future admin detail queries.
 // The public handler now uses get_report_with_detail for the enriched response.
 #[allow(dead_code)]

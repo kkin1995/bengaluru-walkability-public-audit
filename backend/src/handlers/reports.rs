@@ -12,6 +12,8 @@ use crate::{
     models::report::{CreateReportRequest, ListReportsQuery, ReportResponse},
     AppState,
 };
+// Note: ReportResponse is used in create_report (fake_success_response) and get_report_by_id.
+// list_reports now uses list_reports_enriched which returns serde_json::Value directly.
 
 // ── Bengaluru bounding box constants ────────────────────────────────────────
 //
@@ -298,30 +300,30 @@ pub async fn list_reports(
     };
     let page = params.page.max(1);
 
-    // Run the paginated list and the total count concurrently.
+    // Run the paginated list (enriched with ward data for popup) and total count concurrently.
     // count_reports is non-fatal: if it fails, we omit `total` from the response
     // rather than failing the whole request.
+    // MAP-03 / D-31: list_reports_enriched includes ward_name + corporation via LEFT JOIN
+    // so the public map popup can display the GBA jurisdiction line.
     let (reports_result, total_result) = tokio::join!(
-        queries::list_reports(
+        queries::list_reports_enriched(
             &state.pool,
             page,
             limit,
             params.category.as_deref(),
             params.status.as_deref(),
+            &state.api_base_url,
         ),
         queries::count_reports(&state.pool),
     );
 
-    let reports = reports_result?;
-    let items: Vec<ReportResponse> = reports
-        .into_iter()
-        .map(|r| r.into_response(&state.api_base_url))
-        .collect();
+    let items = reports_result?;
+    let count = items.len();
 
     let mut response = json!({
         "page": page,
         "limit": limit,
-        "count": items.len(),
+        "count": count,
         "items": items,
     });
 

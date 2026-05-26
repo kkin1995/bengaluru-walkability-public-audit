@@ -37,6 +37,8 @@ function makeReport(overrides: Partial<{
   image_url: string;
   created_at: string;
   status: string;
+  corporation: string | null;
+  ward_name: string | null;
 }> = {}) {
   return {
     id: "report-uuid-001",
@@ -47,7 +49,9 @@ function makeReport(overrides: Partial<{
     description: "Large open drain, very dangerous",
     image_url: "http://localhost:3001/uploads/abc.jpg",
     created_at: "2026-03-01T10:00:00Z",
-    status: "new",
+    status: "open",
+    corporation: null,
+    ward_name: null,
     ...overrides,
   };
 }
@@ -411,15 +415,8 @@ describe("R5 / AC5.5 — Empty state when there are no reports", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 03 Wave 0 scaffolds — MAP-01 + MAP-03
+// Phase 03 MAP-01 + MAP-03 — implemented in plan 03-04
 // Ref: 03-UI-SPEC.md §"3-State Public Status Colors"; D-30, D-31
-//
-// These describe blocks use describe.skip — plan 03-04 executor must:
-//   1. Add STATUS_COLORS constant to ReportsMap.tsx (D-30 3-state color map)
-//   2. Wire fillColor on CircleMarker from report.status via STATUS_COLORS
-//   3. Add a StatusBadge or status text element inside the Popup
-//   4. Remove describe.skip and implement the assertions below
-//   5. Run `npm test -- --watchAll=false ReportsMap` to confirm green
 //
 // Color contract per 03-UI-SPEC.md §"3-State Public Status Colors":
 //   open, acknowledged, assigned → var(--danger) / oklch(0.62 0.14 30)
@@ -428,39 +425,111 @@ describe("R5 / AC5.5 — Empty state when there are no reports", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // MAP-01 / D-30 — Status colors applied to CircleMarker fillColor
-describe.skip("Phase 03 / MAP-01 — ReportsMap: status colors applied to CircleMarker", () => {
+describe("Phase 03 / MAP-01 — ReportsMap: status colors applied to CircleMarker", () => {
   it('CircleMarker fillColor reflects the danger color for status="open"', async () => {
-    // TODO (plan 03-04): render with report.status="open",
-    // assert circle-marker has data-fill-color matching STATUS_COLORS.open
-    // (danger token / oklch(0.62 0.14 30) or equivalent CSS variable)
+    mockFetchSuccess([makeReport({ status: "open" })]);
+    render(<ReportsMap apiUrl={API_URL} />);
+    await waitFor(() => {
+      const marker = screen.getByTestId("circle-marker");
+      // The react-leaflet mock spreads all props onto the div; fillColor is passed as a DOM attribute.
+      // React lowercases non-standard attributes on DOM elements; fillColor → fillcolor
+      expect(marker).toHaveAttribute("fillcolor", "var(--danger)");
+    });
   });
 
-  it('CircleMarker fillColor reflects the danger color for status="in_progress"', async () => {
-    // TODO (plan 03-04): render with report.status="in_progress",
-    // assert circle-marker data-fill-color matches STATUS_COLORS.in_progress (warn token)
+  it('CircleMarker fillColor reflects the warn color for status="in_progress"', async () => {
+    mockFetchSuccess([makeReport({ status: "in_progress" })]);
+    render(<ReportsMap apiUrl={API_URL} />);
+    await waitFor(() => {
+      const marker = screen.getByTestId("circle-marker");
+      // React lowercases non-standard attributes on DOM elements; fillColor → fillcolor
+      expect(marker).toHaveAttribute("fillcolor", "var(--warn)");
+    });
   });
 
   it('CircleMarker fillColor reflects the accent color for status="resolved"', async () => {
-    // TODO (plan 03-04): render with report.status="resolved",
-    // assert circle-marker data-fill-color matches STATUS_COLORS.resolved (accent token)
+    mockFetchSuccess([makeReport({ status: "resolved" })]);
+    render(<ReportsMap apiUrl={API_URL} />);
+    await waitFor(() => {
+      const marker = screen.getByTestId("circle-marker");
+      // React lowercases non-standard attributes on DOM elements; fillColor → fillcolor
+      expect(marker).toHaveAttribute("fillcolor", "var(--accent)");
+    });
   });
 
   it('CircleMarker fillColor reflects the accent color for status="closed"', async () => {
-    // TODO (plan 03-04): render with report.status="closed",
-    // assert circle-marker data-fill-color matches STATUS_COLORS.closed (accent token, same as resolved)
+    mockFetchSuccess([makeReport({ status: "closed" })]);
+    render(<ReportsMap apiUrl={API_URL} />);
+    await waitFor(() => {
+      const marker = screen.getByTestId("circle-marker");
+      // React lowercases non-standard attributes on DOM elements; fillColor → fillcolor
+      expect(marker).toHaveAttribute("fillcolor", "var(--accent)");
+    });
+  });
+
+  it('CircleMarker fillColor falls back to danger for unknown status', async () => {
+    mockFetchSuccess([makeReport({ status: "unknown_status" })]);
+    render(<ReportsMap apiUrl={API_URL} />);
+    await waitFor(() => {
+      const marker = screen.getByTestId("circle-marker");
+      // React lowercases non-standard attributes on DOM elements; fillColor → fillcolor
+      expect(marker).toHaveAttribute("fillcolor", "var(--danger)");
+    });
   });
 });
 
-// MAP-03 / D-31 — Popup status label rendered
-describe.skip("Phase 03 / MAP-03 — ReportsMap: popup shows status label", () => {
-  it('popup renders a human-readable status label for status="open"', async () => {
-    // TODO (plan 03-04): render with report.status="open",
-    // wait for popup to render, assert getByText(/open/i) or StatusBadge with "Open" label
-    // is present inside the popup element
+// MAP-03 / D-31 — Popup status label rendered + corporation/ward + Read More link
+describe("Phase 03 / MAP-03 — ReportsMap: popup shows status label and Read More link", () => {
+  it('popup renders a human-readable status label "Open" for status="open"', async () => {
+    mockFetchSuccess([makeReport({ status: "open" })]);
+    render(<ReportsMap apiUrl={API_URL} />);
+    await waitFor(() => {
+      const popup = screen.getByTestId("popup");
+      expect(popup).toHaveTextContent(/Open/i);
+    });
   });
 
-  it('popup renders the status label for status="in_progress"', async () => {
-    // TODO (plan 03-04): render with report.status="in_progress",
-    // assert popup contains "In Progress" text or equivalent StatusBadge
+  it('popup renders "In progress" for status="in_progress"', async () => {
+    mockFetchSuccess([makeReport({ status: "in_progress" })]);
+    render(<ReportsMap apiUrl={API_URL} />);
+    await waitFor(() => {
+      const popup = screen.getByTestId("popup");
+      expect(popup).toHaveTextContent(/In progress/i);
+    });
+  });
+
+  it('popup renders "Resolved" for status="resolved"', async () => {
+    mockFetchSuccess([makeReport({ status: "resolved" })]);
+    render(<ReportsMap apiUrl={API_URL} />);
+    await waitFor(() => {
+      const popup = screen.getByTestId("popup");
+      expect(popup).toHaveTextContent(/Resolved/i);
+    });
+  });
+
+  it('popup renders a "Read More →" link pointing to /reports/{id}', async () => {
+    mockFetchSuccess([makeReport({ id: "test-report-id", status: "open" })]);
+    render(<ReportsMap apiUrl={API_URL} />);
+    await waitFor(() => {
+      const link = screen.getByRole("link", { name: /read more/i });
+      expect(link).toHaveAttribute("href", "/reports/test-report-id");
+    });
+  });
+
+  it('popup renders corporation and ward_name when present', async () => {
+    mockFetchSuccess([
+      makeReport({
+        status: "open",
+        // @ts-expect-error - extending with optional fields
+        corporation: "West Corporation",
+        ward_name: "Shivajinagar",
+      }),
+    ]);
+    render(<ReportsMap apiUrl={API_URL} />);
+    await waitFor(() => {
+      const popup = screen.getByTestId("popup");
+      expect(popup).toHaveTextContent(/West Corporation/);
+      expect(popup).toHaveTextContent(/Shivajinagar/);
+    });
   });
 });
