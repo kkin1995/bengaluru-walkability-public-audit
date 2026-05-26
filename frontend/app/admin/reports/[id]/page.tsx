@@ -65,7 +65,7 @@ export default function ReportDetailPage({
 
   useEffect(() => {
     if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-      const mq = window.matchMedia("(min-width: 1024px)");
+      const mq = window.matchMedia("(min-width: 768px)");  // D-04: changed from 1024px to 768px
       setIsDesktop(mq.matches);
       const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
       mq.addEventListener("change", handler);
@@ -261,9 +261,10 @@ export default function ReportDetailPage({
     </div>
   );
 
-  // ── Right panel content (shared mobile + desktop) ─────────────────────────────
-  const rightPanel = (
-    <div style={{ padding: isDesktop ? "0 0 0 24px" : "16px" }}>
+  // ── Identity strip content (status badges + category + telemetry) — D-02 ────────
+  // Placed in the left column identity strip on desktop; rendered inline on mobile.
+  const identityStripContent = (
+    <>
       {/* Status badges row */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
         <StatusBadge status={report.status} />
@@ -278,24 +279,6 @@ export default function ReportDetailPage({
         )}
       </div>
 
-      {/* Phase 03: StatusActionPanel — replaces inline status PATCH buttons (WFLOW-01) */}
-      <StatusActionPanel
-        report={report}
-        onStatusChange={handleStatusMove}
-        onResolveClick={() => setResolveModalState({ open: true, mode: "resolve" })}
-        onCloseClick={() => setResolveModalState({ open: true, mode: "close" })}
-        onAssignClick={() => {
-          document.getElementById("org-assign-panel")?.scrollIntoView({ behavior: "smooth" });
-        }}
-        disabled={statusUpdateLoading}
-      />
-
-      {statusUpdateError && (
-        <p role="alert" style={{ fontSize: 13, color: "var(--danger-ink)", marginBottom: 12 }}>
-          {statusUpdateError}
-        </p>
-      )}
-
       {/* Category title */}
       <div style={{
         fontSize: 14,
@@ -308,7 +291,7 @@ export default function ReportDetailPage({
       </div>
 
       {/* Telemetry block — 2-column grid */}
-      <Card padded={false} style={{ marginBottom: 16, overflow: "hidden" }}>
+      <Card padded={false} style={{ marginBottom: 0, overflow: "hidden" }}>
         <div style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
@@ -345,6 +328,30 @@ export default function ReportDetailPage({
           ))}
         </div>
       </Card>
+    </>
+  );
+
+  // ── Action rail content (action panels) — D-05 ───────────────────────────────
+  // Placed in the right scrolling column on desktop; rendered inline on mobile.
+  const actionRailContent = (
+    <div style={{ padding: isDesktop ? "0" : "16px" }}>
+      {/* Phase 03: StatusActionPanel — replaces inline status PATCH buttons (WFLOW-01) */}
+      <StatusActionPanel
+        report={report}
+        onStatusChange={handleStatusMove}
+        onResolveClick={() => setResolveModalState({ open: true, mode: "resolve" })}
+        onCloseClick={() => setResolveModalState({ open: true, mode: "close" })}
+        onAssignClick={() => {
+          document.getElementById("org-assign-panel")?.scrollIntoView({ behavior: "smooth" });
+        }}
+        disabled={statusUpdateLoading}
+      />
+
+      {statusUpdateError && (
+        <p role="alert" style={{ fontSize: 13, color: "var(--danger-ink)", marginBottom: 12 }}>
+          {statusUpdateError}
+        </p>
+      )}
 
       {/* Phase 03: OrgAssignPanel (WFLOW-03, D-08, D-09) */}
       <div id="org-assign-panel">
@@ -420,14 +427,29 @@ export default function ReportDetailPage({
           <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
             <span
               aria-hidden="true"
+              data-status-token={
+                // ISSUE-06 fix: Phase 3 enum status token map (D-Discretion)
+                // data-status-token is testable; background var() references not resolved by JSDOM
+                report.status === "open"         ? "var(--status-open)" :
+                report.status === "acknowledged" ? "var(--status-acknowledged)" :
+                report.status === "assigned"     ? "var(--status-assigned)" :
+                report.status === "in_progress"  ? "var(--status-in-progress)" :
+                report.status === "resolved"     ? "var(--status-resolved)" :
+                report.status === "closed"       ? "var(--status-closed)" :
+                "var(--status-open)"
+              }
               style={{
                 width: 8,
                 height: 8,
                 borderRadius: 999,
                 background:
-                  report.status === "submitted" ? "var(--status-submitted)" :
-                  report.status === "under_review" ? "var(--status-review)" :
-                  "var(--status-resolved)",
+                  report.status === "open"         ? "var(--status-open)" :
+                  report.status === "acknowledged" ? "var(--status-acknowledged)" :
+                  report.status === "assigned"     ? "var(--status-assigned)" :
+                  report.status === "in_progress"  ? "var(--status-in-progress)" :
+                  report.status === "resolved"     ? "var(--status-resolved)" :
+                  report.status === "closed"       ? "var(--status-closed)" :
+                  "var(--status-open)",  // fallback
                 flexShrink: 0,
                 marginTop: 2,
               }}
@@ -509,39 +531,54 @@ export default function ReportDetailPage({
       {/* Layout: desktop split panel | mobile single column */}
       {isDesktop ? (
         <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 0, minHeight: "calc(100vh - 120px)" }}>
-          {/* Left panel: large photo */}
-          <div style={{ background: "var(--surface-2)", borderRadius: "var(--r-lg)", overflow: "hidden" }}>
-            {(report.image_url || report.image_path) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={report.image_url || `/uploads/${report.image_path}`}
-                alt={`Citizen-submitted photo of ${categoryLabel} at ${report.ward_name ?? "unknown ward"}`}
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              />
-            ) : (
-              <div style={{
-                width: "100%",
-                height: "100%",
-                background: "linear-gradient(135deg, var(--surface-2), var(--surface-3))",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: 400,
-              }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", textTransform: "uppercase" }}>
-                  NO PHOTO
-                </span>
-              </div>
-            )}
+          {/* Left column — D-01, D-03: flex column, photo hero fills height, identity strip anchored below */}
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            height: "calc(100vh - 120px)",
+            overflow: "hidden",
+            background: "var(--surface-2)",
+            borderRadius: "var(--r-lg)",
+          }}>
+            {/* Photo hero — flex: 1 so it fills remaining height */}
+            <div style={{ flex: 1, overflow: "hidden", minHeight: 200 }}>
+              {(report.image_url || report.image_path) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={report.image_url || `/uploads/${report.image_path}`}
+                  alt={`Citizen-submitted photo of ${categoryLabel} at ${report.ward_name ?? "unknown ward"}`}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+              ) : (
+                <div style={{
+                  width: "100%",
+                  height: "100%",
+                  background: "linear-gradient(135deg, var(--surface-2), var(--surface-3))",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minHeight: 400,
+                }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", textTransform: "uppercase" }}>
+                    NO PHOTO
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Identity strip — D-02: flex-shrink: 0, anchored below photo, never scrolls */}
+            <div style={{ flexShrink: 0, padding: "12px 16px", borderTop: "1px solid var(--border)", overflowY: "auto", maxHeight: "40%" }}>
+              {identityStripContent}
+            </div>
           </div>
 
-          {/* Right panel: scrollable detail content */}
+          {/* Right column — D-06: independent scroll, action panels only */}
           <div style={{ overflowY: "auto", maxHeight: "calc(100vh - 120px)", borderLeft: "1px solid var(--border)" }}>
-            {rightPanel}
+            {actionRailContent}
           </div>
         </div>
       ) : (
-        /* Mobile: single column */
+        /* Mobile: single column — Pitfall 1 fix: render both identityStripContent and actionRailContent */
         <div>
           {/* Mobile back button */}
           <button
@@ -574,7 +611,8 @@ export default function ReportDetailPage({
           )}
 
           {photoSection}
-          {rightPanel}
+          {identityStripContent}
+          {actionRailContent}
         </div>
       )}
 

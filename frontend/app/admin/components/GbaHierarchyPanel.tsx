@@ -17,6 +17,7 @@ interface ChainRow {
   level: string;
   name: string | null;
   title: string;
+  alwaysShow?: boolean;
 }
 
 const rowSeparator: CSSProperties = {
@@ -86,8 +87,14 @@ export function GbaHierarchyPanel({ hierarchy }: GbaHierarchyPanelProps): JSX.El
   }
 
   // Build ward display value: "{ward_number} · {ward_name}"
-  const wardDisplay = hierarchy.ward_number != null
-    ? `${hierarchy.ward_number} · ${hierarchy.ward_name}`
+  // ISSUE-01 fix: guard against both JS null/undefined AND the string "undefined"
+  // (API may return the string "undefined" when ward_number is absent from DB row)
+  const rawWardNumber = hierarchy.ward_number;
+  const wardNumberValid =
+    rawWardNumber != null &&
+    !(typeof rawWardNumber === "string" && rawWardNumber === "undefined");
+  const wardDisplay = wardNumberValid
+    ? `${rawWardNumber} · ${hierarchy.ward_name}`
     : hierarchy.ward_name;
 
   // Build corporation display: "{corporation} Corporation, GBA"
@@ -95,27 +102,31 @@ export function GbaHierarchyPanel({ hierarchy }: GbaHierarchyPanelProps): JSX.El
     ? `${hierarchy.corporation} Corporation, GBA`
     : null;
 
+  // ISSUE-03 fix: tag institutional rows (always show) vs. personnel rows (hide when null)
   const bureaucraticChain: ChainRow[] = [
-    { level: "Ward", name: wardDisplay, title: "Ward Engineer" },
-    { level: "ARO Sub Division", name: hierarchy.aro_sub_division, title: "Asst. Revenue Officer" },
-    { level: "RO Division", name: hierarchy.ro_division, title: "Revenue Officer" },
-    { level: "Zone", name: hierarchy.zone_name, title: "Zonal Commissioner" },
-    { level: "Corporation", name: corpDisplay, title: "Chief Commissioner" },
-    { level: "GBA", name: "Greater Bengaluru Authority", title: "Chief Commissioner, GBA" },
+    { level: "Ward",             name: wardDisplay,                   title: "Ward Engineer",          alwaysShow: true },
+    { level: "ARO Sub Division", name: hierarchy.aro_sub_division,   title: "Asst. Revenue Officer" },
+    { level: "RO Division",      name: hierarchy.ro_division,         title: "Revenue Officer" },
+    { level: "Zone",             name: hierarchy.zone_name,           title: "Zonal Commissioner" },
+    { level: "Corporation",      name: corpDisplay,                   title: "Chief Commissioner" },
+    { level: "GBA",              name: "Greater Bengaluru Authority", title: "Chief Commissioner, GBA", alwaysShow: true },
   ];
+
+  // Filter: keep rows that are always-shown OR have a non-null/non-empty name
+  const visibleChain = bureaucraticChain.filter(
+    (row) => row.alwaysShow || (row.name !== null && row.name !== undefined && row.name !== "")
+  );
 
   const mlaName = hierarchy.mla_name ?? "—";
   const mpName = hierarchy.mp_name ?? "—";
-  const acLabel = hierarchy.assembly_constituency_no !== null && hierarchy.assembly_constituency
-    ? `${hierarchy.assembly_constituency_no} – ${hierarchy.assembly_constituency}`
-    : hierarchy.assembly_constituency ?? "—";
 
   return (
     <Card style={{ marginBottom: 16 }}>
       {/* Bureaucratic chain */}
       <SectionLabel style={{ marginBottom: 12 }}>Bureaucratic Chain</SectionLabel>
       <div style={{ marginBottom: 20 }}>
-        {bureaucraticChain.map((row, idx) => (
+        {/* ISSUE-03 fix: use visibleChain (filtered) so isFirst derives from filtered index (Pitfall 2) */}
+        {visibleChain.map((row, idx) => (
           <ChainRowItem
             key={row.level}
             level={row.level}
@@ -135,10 +146,17 @@ export function GbaHierarchyPanel({ hierarchy }: GbaHierarchyPanelProps): JSX.El
           padding: "12px 16px",
         }}
       >
-        {/* Assembly constituency */}
+        {/* Assembly constituency — ISSUE-04 fix: AC number and constituency name as separate DOM elements */}
         <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
-            {acLabel}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+            {hierarchy.assembly_constituency_no !== null && (
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--muted)", marginRight: 6 }}>
+                {hierarchy.assembly_constituency_no}
+              </span>
+            )}
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+              {hierarchy.assembly_constituency ?? "—"}
+            </span>
           </div>
           <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 2 }}>
             MLA:{" "}
@@ -163,13 +181,15 @@ export function GbaHierarchyPanel({ hierarchy }: GbaHierarchyPanelProps): JSX.El
           </div>
         )}
 
-        {/* Disclaimer */}
+        {/* Disclaimer — ISSUE-05 fix: add wordBreak/overflowWrap to prevent horizontal overflow */}
         <div
           style={{
             fontSize: 11,
             color: "var(--muted)",
             marginTop: 10,
             fontFamily: "var(--font-mono)",
+            wordBreak: "break-word",
+            overflowWrap: "break-word",
           }}
         >
           Constituency boundaries may differ from ward boundaries.

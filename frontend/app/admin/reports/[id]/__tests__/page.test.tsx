@@ -257,27 +257,19 @@ describe("Phase 3.1 / ISSUE-06 — Status timeline dot uses Phase 3 enum tokens"
   it("status dot does NOT reference legacy --status-submitted or --status-review tokens", async () => {
     render(<ReportDetailPage params={{ id: "test-report-id" }} />);
     await screen.findByTestId("report-detail");
-    const dots = document.querySelectorAll('[aria-hidden="true"]');
-    const dot = Array.from(dots).find(
-      (el) =>
-        el.getAttribute("style")?.includes("border-radius: 999px") ||
-        el.getAttribute("style")?.includes("border-radius:999px")
-    ) as HTMLElement | undefined;
-    const styleStr = dot?.getAttribute("style") ?? "";
-    expect(styleStr).not.toContain("status-submitted");
-    expect(styleStr).not.toContain("status-review");
+    // Find the timeline dot by its data-status-token attribute (JSDOM drops background: var() from style)
+    const timelineDot = document.querySelector('[data-status-token]') as HTMLElement | null;
+    const tokenValue = timelineDot?.getAttribute("data-status-token") ?? "";
+    expect(tokenValue).not.toContain("status-submitted");
+    expect(tokenValue).not.toContain("status-review");
   });
 
   it("status dot uses --status-open token when report.status is 'open'", async () => {
     render(<ReportDetailPage params={{ id: "test-report-id" }} />);
     await screen.findByTestId("report-detail");
-    const dots = document.querySelectorAll('[aria-hidden="true"]');
-    const dot = Array.from(dots).find(
-      (el) =>
-        el.getAttribute("style")?.includes("border-radius: 999px") ||
-        el.getAttribute("style")?.includes("border-radius:999px")
-    ) as HTMLElement | undefined;
-    const styleStr = dot?.getAttribute("style") ?? "";
-    expect(styleStr).toContain("status-open");
+    // Find the timeline dot by its data-status-token attribute (JSDOM drops background: var() from style)
+    const timelineDot = document.querySelector('[data-status-token]') as HTMLElement | null;
+    const tokenValue = timelineDot?.getAttribute("data-status-token") ?? "";
+    expect(tokenValue).toContain("status-open");
   });
 });
