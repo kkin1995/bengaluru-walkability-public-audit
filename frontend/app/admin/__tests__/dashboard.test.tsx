@@ -112,9 +112,11 @@ import * as adminApi from "../lib/adminApi";
 // Fixtures
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Phase 03 (D-03): by_status now uses 6-value lifecycle shape.
+// Mapping: open→submitted, acknowledged+assigned+in_progress→under_review, resolved+closed→resolved
 const STATS_FIXTURE = {
   total_reports: 142,
-  by_status: { submitted: 38, under_review: 61, resolved: 43 },
+  by_status: { open: 38, acknowledged: 21, assigned: 20, in_progress: 20, resolved: 43, closed: 0 },
   by_category: {
     no_footpath: 20,
     broken_footpath: 40,
@@ -128,7 +130,7 @@ const STATS_FIXTURE = {
 
 const ZERO_STATS_FIXTURE = {
   total_reports: 0,
-  by_status: { submitted: 0, under_review: 0, resolved: 0 },
+  by_status: { open: 0, acknowledged: 0, assigned: 0, in_progress: 0, resolved: 0, closed: 0 },
   by_category: {
     no_footpath: 0,
     broken_footpath: 0,

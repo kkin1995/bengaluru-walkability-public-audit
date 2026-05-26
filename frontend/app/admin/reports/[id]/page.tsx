@@ -18,6 +18,11 @@ import { Pill } from "../../components/Pill";
 import { PhotoTile } from "../../components/PhotoTile";
 import { SectionLabel } from "../../components/SectionLabel";
 import { ConfidencePill } from "../../components/ConfidencePill";
+// Phase 03 (WFLOW-01, WFLOW-03, WFLOW-04, WFLOW-05): New admin lifecycle components
+import StatusActionPanel from "../../components/StatusActionPanel";
+import OrgAssignPanel from "../../components/OrgAssignPanel";
+import GbaHierarchyPanel from "../../components/GbaHierarchyPanel";
+import ResolveModal from "../../components/ResolveModal";
 
 // ─── Status timeline constants ─────────────────────────────────────────────────
 
@@ -52,6 +57,11 @@ export default function ReportDetailPage({
   const [statusUpdateLoading, setStatusUpdateLoading] = useState(false);
   const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
+  // Phase 03: ResolveModal state (WFLOW-04, WFLOW-05)
+  const [resolveModalState, setResolveModalState] = useState<{open: boolean; mode: "resolve" | "close"}>({
+    open: false,
+    mode: "resolve",
+  });
 
   useEffect(() => {
     if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
@@ -94,6 +104,11 @@ export default function ReportDetailPage({
 
   async function handleStatusMove(newStatus: string) {
     if (!report) return;
+    // Phase 03: resolved/closed transitions flow through ResolveModal (D-13, D-16)
+    if (newStatus === "resolved" || newStatus === "closed") {
+      setResolveModalState({ open: true, mode: newStatus === "resolved" ? "resolve" : "close" });
+      return;
+    }
     setStatusUpdateLoading(true);
     setStatusUpdateError(null);
     try {
@@ -263,6 +278,24 @@ export default function ReportDetailPage({
         )}
       </div>
 
+      {/* Phase 03: StatusActionPanel — replaces inline status PATCH buttons (WFLOW-01) */}
+      <StatusActionPanel
+        report={report}
+        onStatusChange={handleStatusMove}
+        onResolveClick={() => setResolveModalState({ open: true, mode: "resolve" })}
+        onCloseClick={() => setResolveModalState({ open: true, mode: "close" })}
+        onAssignClick={() => {
+          document.getElementById("org-assign-panel")?.scrollIntoView({ behavior: "smooth" });
+        }}
+        disabled={statusUpdateLoading}
+      />
+
+      {statusUpdateError && (
+        <p role="alert" style={{ fontSize: 13, color: "var(--danger-ink)", marginBottom: 12 }}>
+          {statusUpdateError}
+        </p>
+      )}
+
       {/* Category title */}
       <div style={{
         fontSize: 14,
@@ -313,40 +346,16 @@ export default function ReportDetailPage({
         </div>
       </Card>
 
-      {/* Action buttons — 2-column grid, min-height 44px (accessibility) */}
-      {!isDesktop && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 8,
-          marginBottom: 16,
-        }}>
-          <Btn
-            variant="accent"
-            size="md"
-            style={{ minHeight: 44, width: "100%", justifyContent: "center" }}
-            onClick={() => handleStatusMove("under_review")}
-            disabled={statusUpdateLoading || report.status === "under_review"}
-          >
-            Move to review
-          </Btn>
-          <Btn
-            variant="secondary"
-            size="md"
-            style={{ minHeight: 44, width: "100%", justifyContent: "center" }}
-            onClick={() => handleStatusMove("resolved")}
-            disabled={statusUpdateLoading || report.status === "resolved"}
-          >
-            Mark resolved
-          </Btn>
-        </div>
-      )}
+      {/* Phase 03: OrgAssignPanel (WFLOW-03, D-08, D-09) */}
+      <div id="org-assign-panel">
+        <OrgAssignPanel
+          report={report}
+          onAssigned={(updated) => setReport(updated)}
+        />
+      </div>
 
-      {statusUpdateError && (
-        <p role="alert" style={{ fontSize: 13, color: "var(--danger-ink)", marginBottom: 12 }}>
-          {statusUpdateError}
-        </p>
-      )}
+      {/* Phase 03: GbaHierarchyPanel (D-23, D-42, D-43, D-44) */}
+      <GbaHierarchyPanel hierarchy={report.ward_hierarchy ?? null} />
 
       {/* Citizen description */}
       <Card style={{ marginBottom: 16 }}>
@@ -485,15 +494,7 @@ export default function ReportDetailPage({
             Delete
           </Btn>
         )}
-        <Btn
-          variant="accent"
-          size="sm"
-          style={{ minHeight: 40 }}
-          onClick={() => handleStatusMove("resolved")}
-          disabled={statusUpdateLoading || report.status === "resolved"}
-        >
-          Resolve
-        </Btn>
+        {/* Phase 03: Resolve button moved to StatusActionPanel — removed from desktop top bar */}
       </div>
     </div>
   ) : null;
@@ -576,6 +577,18 @@ export default function ReportDetailPage({
           {rightPanel}
         </div>
       )}
+
+      {/* Phase 03: ResolveModal (WFLOW-04, WFLOW-05) — mounted at root to overlay full page */}
+      <ResolveModal
+        open={resolveModalState.open}
+        mode={resolveModalState.mode}
+        report={report}
+        onClose={() => setResolveModalState({ open: false, mode: resolveModalState.mode })}
+        onResolved={(updated) => {
+          setReport(updated);
+          setResolveModalState({ open: false, mode: resolveModalState.mode });
+        }}
+      />
 
       {/* Delete confirmation modal — inline modal per UI-SPEC */}
       {showDeleteModal && (

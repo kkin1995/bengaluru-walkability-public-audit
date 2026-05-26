@@ -70,12 +70,14 @@ export default function AdminDashboard() {
   }, []);
 
   // Derive the stats shape expected by StatsCards
+  // Phase 03 (D-03): by_status now uses 6-value lifecycle shape
   const statsForCards = stats
     ? {
         total: stats.total_reports,
-        submitted: stats.by_status.submitted,
-        under_review: stats.by_status.under_review,
-        resolved: stats.by_status.resolved,
+        // Map new 6-value shape to legacy StatsCards expectations
+        submitted: stats.by_status.open,
+        under_review: stats.by_status.acknowledged + stats.by_status.assigned + stats.by_status.in_progress,
+        resolved: stats.by_status.resolved + stats.by_status.closed,
       }
     : null;
 
