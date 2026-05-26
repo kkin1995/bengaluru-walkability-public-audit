@@ -26,6 +26,7 @@ export interface StatusBadgeProps {
 interface StatusMeta {
   tone: "info" | "warn" | "accent" | "muted";
   dot: string;
+  dotTreatment: "filled" | "ring" | "pulse";
   label: string;
   ariaLabel: string;
   toneStyle: CSSProperties;
@@ -36,51 +37,56 @@ const STATUS_MAP: Record<string, StatusMeta> = {
   // Ref: 03-UI-SPEC.md §"Status Color System — 6-State Admin StatusBadge"
   open: {
     tone: "info",
-    dot: "var(--status-open-bg, var(--status-submitted))",
+    dot: "var(--status-open, var(--status-submitted))",
+    dotTreatment: "filled",
     label: "Open",
     ariaLabel: "Status: open",
     toneStyle: {
       background: "var(--status-open-bg, var(--info-bg))",
       color: "var(--info-ink)",
-      border: "1px solid oklch(0.86 0.06 200)",
+      border: "1px solid var(--status-open-border, oklch(0.86 0.06 200))",
     },
   },
   acknowledged: {
     tone: "info",
-    dot: "transparent",
+    dot: "var(--status-acknowledged, var(--status-submitted))",
+    dotTreatment: "ring",
     label: "Acknowledged",
     ariaLabel: "Status: acknowledged",
     toneStyle: {
       background: "var(--status-acknowledged-bg, var(--info-bg))",
       color: "var(--info-ink)",
-      border: "1px solid oklch(0.86 0.06 200)",
+      border: "1px solid var(--status-acknowledged-border, oklch(0.86 0.06 200))",
     },
   },
   assigned: {
     tone: "warn",
-    dot: "var(--status-assigned-bg, var(--status-review))",
+    dot: "var(--status-assigned, var(--status-review))",
+    dotTreatment: "filled",
     label: "Assigned",
     ariaLabel: "Status: assigned",
     toneStyle: {
       background: "var(--status-assigned-bg, var(--warn-bg))",
       color: "var(--warn-ink)",
-      border: "1px solid oklch(0.84 0.12 60)",
+      border: "1px solid var(--status-assigned-border, oklch(0.84 0.12 60))",
     },
   },
   in_progress: {
     tone: "warn",
-    dot: "var(--status-in-progress-bg, var(--status-review))",
+    dot: "var(--status-in-progress, var(--status-review))",
+    dotTreatment: "pulse",
     label: "In Progress",
     ariaLabel: "Status: in progress",
     toneStyle: {
       background: "var(--status-in-progress-bg, var(--warn-bg))",
       color: "var(--warn-ink)",
-      border: "1px solid oklch(0.84 0.12 60)",
+      border: "1px solid var(--status-in-progress-border, oklch(0.84 0.12 60))",
     },
   },
   resolved: {
     tone: "accent",
     dot: "var(--status-resolved)",
+    dotTreatment: "filled",
     label: "Resolved",
     ariaLabel: "Status: resolved",
     toneStyle: {
@@ -91,19 +97,21 @@ const STATUS_MAP: Record<string, StatusMeta> = {
   },
   closed: {
     tone: "muted",
-    dot: "#d4d4d1",
+    dot: "var(--status-closed, #d4d4d1)",
+    dotTreatment: "filled",
     label: "Closed",
     ariaLabel: "Status: closed",
     toneStyle: {
-      background: "#eaeae6",
+      background: "var(--status-closed-bg, #eaeae6)",
       color: "var(--muted)",
-      border: "1px solid #d4d4d1",
+      border: "1px solid var(--status-closed-border, #d4d4d1)",
     },
   },
   // ── Legacy values (pre-migration-008) — kept for soft rollout ───────────────
   submitted: {
     tone: "info",
     dot: "var(--status-submitted)",
+    dotTreatment: "filled",
     label: "Submitted",
     ariaLabel: "Status: submitted",
     toneStyle: {
@@ -115,6 +123,7 @@ const STATUS_MAP: Record<string, StatusMeta> = {
   under_review: {
     tone: "warn",
     dot: "var(--status-review)",
+    dotTreatment: "filled",
     label: "Under Review",
     ariaLabel: "Status: under review",
     toneStyle: {
@@ -132,17 +141,31 @@ const SIZE_STYLE: Record<"sm" | "md", CSSProperties> = {
 
 function StatusBadge({ status, monoLabel = false, size = "md" }: StatusBadgeProps): JSX.Element {
   const known = STATUS_MAP[status];
-  // For unknown statuses: fall back to info tone but use the raw status value in aria-label
+  // For unknown statuses: fall back to open (info) tone but use the raw status value in aria-label
   const m = known ?? {
-    ...STATUS_MAP.submitted,
+    ...STATUS_MAP.open,
     ariaLabel: `Status: ${status}`,
     label: status,
-    dot: "var(--status-submitted)",
+    dot: "var(--status-open, var(--status-submitted))",
   };
 
   const monoStyle: CSSProperties = monoLabel
     ? { fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.02em", textTransform: "uppercase" }
     : {};
+
+  // Compute dot style based on dotTreatment
+  const dotStyle: CSSProperties = {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+    flexShrink: 0,
+  };
+  if (m.dotTreatment === "ring") {
+    dotStyle.background = "transparent";
+    dotStyle.boxShadow = `inset 0 0 0 1.5px ${m.dot}`;
+  } else {
+    dotStyle.background = m.dot;
+  }
 
   return (
     <span
@@ -166,13 +189,9 @@ function StatusBadge({ status, monoLabel = false, size = "md" }: StatusBadgeProp
     >
       <span
         aria-hidden="true"
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: 999,
-          background: m.dot,
-          flexShrink: 0,
-        }}
+        data-dot-treatment={m.dotTreatment}
+        className={m.dotTreatment === "pulse" ? "pulse-dot" : undefined}
+        style={dotStyle}
       />
       {m.label}
     </span>

@@ -33,6 +33,21 @@ export interface ChangePasswordPayload {
   new_password: string;
 }
 
+// Phase 03 (D-21, D-42, D-43, D-44): Ward hierarchy from wards table migration
+export interface WardHierarchy {
+  ward_name: string | null;
+  ward_number: number | null;
+  corporation: string | null;
+  zone_name: string | null;
+  ro_division: string | null;
+  aro_sub_division: string | null;
+  assembly_constituency: string | null;
+  assembly_constituency_no: number | null;
+  parliamentary_constituency: string | null;
+  mla_name: string | null;
+  mp_name: string | null;
+}
+
 export interface AdminReport {
   id: string;
   created_at: string;
@@ -49,6 +64,13 @@ export interface AdminReport {
   status: string;
   location_source: string;
   ward_name: string | null;
+  // Phase 03 (D-13, D-14, D-15): Resolution evidence fields
+  resolution_photo_url: string | null;
+  resolution_notes: string | null;
+  // Phase 03 (D-08, D-09): Org assignment
+  assigned_org_id: string | null;
+  // Phase 03 (D-21, D-23): Ward hierarchy for bureaucratic + elected chain display
+  ward_hierarchy?: WardHierarchy | null;
   // ABUSE-06: Deduplication signals (Phase 02-02)
   duplicate_count?: number;
   duplicate_of_id?: string | null;
@@ -76,7 +98,8 @@ export interface AdminReportListResponse {
 
 export interface AdminStats {
   total_reports: number;
-  by_status: { submitted: number; under_review: number; resolved: number };
+  // Phase 03 (D-03): 6-value status enum shape
+  by_status: { open: number; acknowledged: number; assigned: number; in_progress: number; resolved: number; closed: number };
   by_category: Record<string, number>;
   by_severity: Record<string, number>;
 }
@@ -242,6 +265,48 @@ export async function changePassword(data: ChangePasswordPayload): Promise<void>
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
+  });
+}
+
+// ─── Phase 03: Resolution + Org assignment ────────────────────────────────────
+
+/**
+ * Submit resolution evidence for a report (WFLOW-04, WFLOW-05).
+ * Uses raw fetch (not apiFetch) because we must NOT set Content-Type manually —
+ * the browser sets multipart/form-data boundary automatically (Pitfall 7 in research).
+ * D-13: After-photo is mandatory; D-15: notes are optional.
+ */
+export async function resolveReport(
+  id: string,
+  status: "resolved" | "closed",
+  photo: File,
+  notes?: string
+): Promise<AdminReport> {
+  const form = new FormData();
+  form.append("status", status);
+  form.append("resolution_photo", photo);
+  if (notes) form.append("resolution_notes", notes);
+  const res = await fetch(`${BASE}/api/admin/reports/${id}/resolve`, {
+    method: "POST",
+    credentials: "include",
+    body: form,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Assign a report to an organisation (WFLOW-03, D-09).
+ * Auto-advances status to "assigned" on the backend.
+ */
+export async function assignReportOrg(
+  id: string,
+  orgId: string
+): Promise<AdminReport> {
+  return apiFetch<AdminReport>(`${BASE}/api/admin/reports/${id}/assign-org`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ org_id: orgId }),
   });
 }
 
