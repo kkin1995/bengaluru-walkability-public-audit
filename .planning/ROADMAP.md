@@ -20,6 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 02.5: Admin Portal UI Redesign** - Implement the hybrid "B-voice × A-structure" design system for the admin portal at /admin — teal Console palette, JetBrains Mono chrome, A-pattern report cards, light+dark mode, full accessibility pass (INSERTED — visual polish before GBA handoff) (completed 2026-05-22)
 - [ ] **Phase 02.6: Build Metadata & Version Stamping** - Inject `package.json` version into both the citizen-facing UI footer and the admin console brand string at build time via `NEXT_PUBLIC_APP_VERSION`; auto-update on every release (INSERTED — polish before GBA handoff)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
+- [ ] **Phase 3.1: Admin Report Detail — Split Layout** - Restructure /admin/reports/[id] into two-column split layout: fixed left column (photo + metadata) + independently-scrolling right rail (action panels + GBA hierarchy + history) — eliminates below-fold discoverability (F-07 / ISSUE-07 from Phase 03 UAT) (INSERTED — UAT polish after Phase 3 ships)
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
 ## Phase Details
@@ -258,6 +259,23 @@ Plans:
 - [ ] 03-03-PLAN.md — Admin frontend (Direction B): StatusBadge 6-value extension, StatusActionPanel + OrgAssignPanel + GbaHierarchyPanel + ResolveModal components, /admin/reports/[id] panel wiring, CORP column on reports list, adminApi extension
 - [ ] 03-04-PLAN.md — Public frontend (Direction A): ReportsMap STATUS_COLORS pin coloring, extended popup (corporation + ward + status + Read More), status-based map legend, NEW public /reports/[id] server component page
 
+### Phase 3.1: Admin Report Detail — Split Layout (INSERTED)
+
+**Goal**: Restructure `/admin/reports/[id]` into a two-column split layout where the left column (report photo + core metadata) is fixed/sticky and the right column (StatusActionPanel, OrgAssignPanel, GbaHierarchyPanel, status history) has its own independently-scrolling region. Eliminates the below-fold discoverability problem (F-07 / ISSUE-07) found in Phase 03 UAT. Follows the Figma inspect panel / VS Code editor+sidebar Option 4 pattern. Phase 3.1 also closes Phase 03 UAT ISSUE-01..06 (GbaHierarchyPanel display bugs and the status timeline dot color map) in the same coordinated pass — no separate micro-phase per CONTEXT.md D-07.
+**Depends on**: Phase 3
+**Requirements**: F-07 (Phase 03 UAT ISSUE-07; ISSUE-01..06 closed in the same plan)
+**Success Criteria** (what must be TRUE):
+
+  1. On desktop (≥768px), `/admin/reports/[id]` renders in two fixed-height columns — left column (photo + metadata) is sticky and does not scroll independently; right column has `overflow-y: auto` and scrolls within the viewport height so all action panels are reachable without scrolling the whole page
+  2. On mobile (<768px), the layout stacks to a single column, preserving the current mobile experience unchanged
+  3. No data or functionality is removed — all existing panels (StatusActionPanel, OrgAssignPanel, GbaHierarchyPanel, status history) remain present and fully functional
+  4. `npm run build` passes with zero TypeScript errors and all existing frontend tests remain green
+
+**Plans**: 1 plan
+Plans:
+
+- [ ] 03.1-01-PLAN.md — Split layout restructure of `/admin/reports/[id]` (left flex-column photo + identity strip; right action rail with independent scroll) + 768px breakpoint + GbaHierarchyPanel ISSUE-01/03/04/05 fixes + status timeline ISSUE-06 dot color map fix
+
 ### Phase 4: Export and Public Analytics
 
 **Goal**: GBA planners can download actionable exports in their preferred format, citizens can see high-level progress statistics, and admins have ward-level analytics to identify where investment is most needed
@@ -284,7 +302,7 @@ Plans: *(not yet created — Phase 4 has no plan files on disk; planning begins 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 2.4 → 2.4.1 → 2.5 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 2.4 → 2.4.1 → 2.5 → 3 → 3.1 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -299,4 +317,5 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.4.1 Security Hardening | 3/3 | Complete   | 2026-05-20 |
 | 2.5 Admin Portal UI Redesign | 4/4 | Complete   | 2026-05-22 |
 | 3. Government Triage Workflow | 1/4 | In Progress|  |
+| 3.1 Admin Report Detail — Split Layout | 0/1 | Planned | - |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
