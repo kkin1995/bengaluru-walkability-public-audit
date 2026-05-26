@@ -496,7 +496,7 @@ export default function ReportDetailPage({
                 textTransform: "uppercase",
                 letterSpacing: "0.04em",
               }}>
-                {report.status.replace("_", " ")}
+                {report.status.replace(/_/g, " ")}
               </div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
                 {formatDate(report.updated_at)} · BY · SYSTEM
