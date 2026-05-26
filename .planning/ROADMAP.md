@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 02.5: Admin Portal UI Redesign** - Implement the hybrid "B-voice × A-structure" design system for the admin portal at /admin — teal Console palette, JetBrains Mono chrome, A-pattern report cards, light+dark mode, full accessibility pass (INSERTED — visual polish before GBA handoff) (completed 2026-05-22)
 - [ ] **Phase 02.6: Build Metadata & Version Stamping** - Inject `package.json` version into both the citizen-facing UI footer and the admin console brand string at build time via `NEXT_PUBLIC_APP_VERSION`; auto-update on every release (INSERTED — polish before GBA handoff)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
-- [ ] **Phase 3.1: Admin Report Detail — Split Layout** - Restructure /admin/reports/[id] into two-column split layout: fixed left column (photo + metadata) + independently-scrolling right rail (action panels + GBA hierarchy + history) — eliminates below-fold discoverability (F-07 / ISSUE-07 from Phase 03 UAT) (INSERTED — UAT polish after Phase 3 ships)
+- [x] **Phase 3.1: Admin Report Detail — Split Layout** - Restructure /admin/reports/[id] into two-column split layout: fixed left column (photo + metadata) + independently-scrolling right rail (action panels + GBA hierarchy + history) — eliminates below-fold discoverability (F-07 / ISSUE-07 from Phase 03 UAT) (INSERTED — UAT polish after Phase 3 ships) (completed 2026-05-26)
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
 ## Phase Details
@@ -274,7 +274,7 @@ Plans:
 **Plans**: 1 plan
 Plans:
 
-- [ ] 03.1-01-PLAN.md — Split layout restructure of `/admin/reports/[id]` (left flex-column photo + identity strip; right action rail with independent scroll) + 768px breakpoint + GbaHierarchyPanel ISSUE-01/03/04/05 fixes + status timeline ISSUE-06 dot color map fix
+- [x] 03.1-01-PLAN.md — Split layout restructure of `/admin/reports/[id]` (left flex-column photo + identity strip; right action rail with independent scroll) + 768px breakpoint + GbaHierarchyPanel ISSUE-01/03/04/05 fixes + status timeline ISSUE-06 dot color map fix
 
 ### Phase 4: Export and Public Analytics
 
@@ -317,5 +317,5 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.4.1 Security Hardening | 3/3 | Complete   | 2026-05-20 |
 | 2.5 Admin Portal UI Redesign | 4/4 | Complete   | 2026-05-22 |
 | 3. Government Triage Workflow | 1/4 | In Progress|  |
-| 3.1 Admin Report Detail — Split Layout | 0/1 | Planned | - |
+| 3.1 Admin Report Detail — Split Layout | 1/1 | Complete   | 2026-05-26 |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
