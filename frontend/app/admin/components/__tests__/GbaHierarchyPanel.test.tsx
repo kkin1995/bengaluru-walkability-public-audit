@@ -84,6 +84,8 @@ describe("D-23 — GbaHierarchyPanel: bureaucratic chain rows rendered", () => {
     expect(screen.getByText("Asst. Revenue Officer")).toBeInTheDocument();
     expect(screen.getByText("Revenue Officer")).toBeInTheDocument();
     expect(screen.getByText("Zonal Commissioner")).toBeInTheDocument();
+    // Corporation row title — distinct from GBA row title "Chief Commissioner, GBA"
+    expect(screen.getByText("Chief Commissioner")).toBeInTheDocument();
     expect(screen.getByText("Chief Commissioner, GBA")).toBeInTheDocument();
   });
 });
