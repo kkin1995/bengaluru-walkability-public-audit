@@ -927,21 +927,28 @@ export default function ReportsTable({
                     {/* ID + thumbnail */}
                     <td style={{ padding: "10px 12px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <PhotoTile
-                          size={32}
-                          radius="var(--r-xs)"
-                          src={report.image_path ? `${API_BASE_URL}/uploads/${report.image_path}` : undefined}
-                          alt=""
-                        />
-                        <span style={{
-                          fontFamily: "var(--font-mono)",
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: "var(--ink-2)",
-                          whiteSpace: "nowrap",
-                        }}>
+                        <a href={`/admin/reports/${report.id}`} style={{ lineHeight: 0 }}>
+                          <PhotoTile
+                            size={32}
+                            radius="var(--r-xs)"
+                            src={report.image_path ? `${API_BASE_URL}/uploads/${report.image_path}` : undefined}
+                            alt=""
+                          />
+                        </a>
+                        <a
+                          href={`/admin/reports/${report.id}`}
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: "var(--ink-2)",
+                            whiteSpace: "nowrap",
+                            textDecoration: "underline",
+                            textDecorationColor: "var(--muted)",
+                          }}
+                        >
                           WLK-{report.id.slice(0, 5).toUpperCase()}
-                        </span>
+                        </a>
                         {/* ABUSE-06: Duplicate label for reports that are duplicates */}
                         {report.duplicate_of_id && (
                           <span
