@@ -73,23 +73,6 @@ export default function ReportDetailPage({
     }
   }, []);
 
-  // Lock page scroll on desktop — only the right rail should scroll (F-07).
-  // Both html and body must be locked; Next.js App Router scrolls via <html>.
-  useEffect(() => {
-    const el = document.documentElement;
-    const prev = el.style.overflow;
-    if (isDesktop) {
-      el.style.overflow = "hidden";
-      document.body.style.overflow = "hidden";
-    } else {
-      el.style.overflow = prev === "hidden" ? "" : prev;
-      document.body.style.overflow = "";
-    }
-    return () => {
-      el.style.overflow = "";
-      document.body.style.overflow = "";
-    };
-  }, [isDesktop]);
 
   useEffect(() => {
     const promise = getMe();
