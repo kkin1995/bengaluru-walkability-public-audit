@@ -247,7 +247,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — DB migrations 008 (ENUM rename + reports columns, no-transaction) + 009 (wards hierarchy columns + 369-row backfill), Report/ReportResponse struct extension, validate_status + get_report_stats updates, Wave 0 test scaffolds
+- [x] 03-01-PLAN.md — DB migrations 008 (ENUM rename + reports columns, no-transaction) + 009 (wards hierarchy columns + 369-row backfill), Report/ReportResponse struct extension, validate_status + get_report_stats updates, Wave 0 test scaffolds
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -298,5 +298,5 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.4 Self-Hosted Infrastructure | 4/4 | Complete | 2026-05-20 |
 | 2.4.1 Security Hardening | 3/3 | Complete   | 2026-05-20 |
 | 2.5 Admin Portal UI Redesign | 4/4 | Complete   | 2026-05-22 |
-| 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
+| 3. Government Triage Workflow | 1/4 | In Progress|  |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
