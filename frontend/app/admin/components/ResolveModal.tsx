@@ -221,7 +221,7 @@ export function ResolveModal({
         )}
 
         {/* Dropzone / preview */}
-        <div style={dropzoneStyle}>
+        <div style={dropzoneStyle} onClick={() => !photoFile && fileInputRef.current?.click()} role="button" aria-label="Upload after photo" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && !photoFile && fileInputRef.current?.click()}>
           {photoPreviewUrl ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}

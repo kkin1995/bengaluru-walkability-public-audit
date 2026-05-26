@@ -489,20 +489,36 @@ pub async fn get_admin_report_by_id(
     let row = sqlx::query(
         r#"
         SELECT
-            id,
-            created_at,
-            image_path,
-            latitude,
-            longitude,
-            category::TEXT AS category,
-            severity::TEXT AS severity,
-            description,
-            submitter_name,
-            submitter_contact,
-            status::TEXT AS status,
-            location_source::TEXT AS location_source
-        FROM reports
-        WHERE id = $1
+            r.id,
+            r.created_at,
+            r.image_path,
+            r.latitude,
+            r.longitude,
+            r.category::TEXT AS category,
+            r.severity::TEXT AS severity,
+            r.description,
+            r.submitter_name,
+            r.submitter_contact,
+            r.status::TEXT AS status,
+            r.location_source::TEXT AS location_source,
+            r.resolution_photo_path,
+            r.resolution_notes,
+            r.assigned_org_id,
+            r.ward_id,
+            w.ward_name,
+            w.zone_name,
+            w.ro_division,
+            w.aro_sub_division,
+            w.assembly_constituency,
+            w.assembly_constituency_no,
+            w.parliamentary_constituency,
+            w.mla_name,
+            w.mp_name,
+            o.name AS corporation
+        FROM reports r
+        LEFT JOIN wards w ON w.id = r.ward_id
+        LEFT JOIN organizations o ON o.id = w.org_id
+        WHERE r.id = $1
         "#,
     )
     .bind(report_id)
@@ -510,19 +526,44 @@ pub async fn get_admin_report_by_id(
     .await?;
 
     Ok(row.map(|r| {
+        let ward_id = r.get::<Option<Uuid>, _>("ward_id");
+        let ward_hierarchy = if ward_id.is_some() {
+            serde_json::json!({
+                "ward_name":                  r.get::<Option<String>, _>("ward_name"),
+                "zone_name":                  r.get::<Option<String>, _>("zone_name"),
+                "ro_division":                r.get::<Option<String>, _>("ro_division"),
+                "aro_sub_division":           r.get::<Option<String>, _>("aro_sub_division"),
+                "assembly_constituency":      r.get::<Option<String>, _>("assembly_constituency"),
+                "assembly_constituency_no":   r.get::<Option<i32>, _>("assembly_constituency_no"),
+                "parliamentary_constituency": r.get::<Option<String>, _>("parliamentary_constituency"),
+                "mla_name":                   r.get::<Option<String>, _>("mla_name"),
+                "mp_name":                    r.get::<Option<String>, _>("mp_name"),
+                "corporation":                r.get::<Option<String>, _>("corporation"),
+            })
+        } else {
+            serde_json::Value::Null
+        };
+
         serde_json::json!({
-            "id":                r.get::<Uuid, _>("id"),
-            "created_at":        r.get::<DateTime<Utc>, _>("created_at"),
-            "image_path":        r.get::<String, _>("image_path"),
-            "latitude":          r.get::<f64, _>("latitude"),
-            "longitude":         r.get::<f64, _>("longitude"),
-            "category":          r.get::<String, _>("category"),
-            "severity":          r.get::<String, _>("severity"),
-            "description":       r.get::<Option<String>, _>("description"),
-            "submitter_name":    r.get::<Option<String>, _>("submitter_name"),
-            "submitter_contact": r.get::<Option<String>, _>("submitter_contact"),
-            "status":            r.get::<String, _>("status"),
-            "location_source":   r.get::<String, _>("location_source"),
+            "id":                   r.get::<Uuid, _>("id"),
+            "created_at":           r.get::<DateTime<Utc>, _>("created_at"),
+            "image_path":           r.get::<String, _>("image_path"),
+            "latitude":             r.get::<f64, _>("latitude"),
+            "longitude":            r.get::<f64, _>("longitude"),
+            "category":             r.get::<String, _>("category"),
+            "severity":             r.get::<String, _>("severity"),
+            "description":          r.get::<Option<String>, _>("description"),
+            "submitter_name":       r.get::<Option<String>, _>("submitter_name"),
+            "submitter_contact":    r.get::<Option<String>, _>("submitter_contact"),
+            "status":               r.get::<String, _>("status"),
+            "location_source":      r.get::<String, _>("location_source"),
+            "resolution_photo_path": r.get::<Option<String>, _>("resolution_photo_path"),
+            "resolution_notes":     r.get::<Option<String>, _>("resolution_notes"),
+            "assigned_org_id":      r.get::<Option<Uuid>, _>("assigned_org_id"),
+            "ward_id":              ward_id,
+            "ward_name":            r.get::<Option<String>, _>("ward_name"),
+            "corporation":          r.get::<Option<String>, _>("corporation"),
+            "ward_hierarchy":       ward_hierarchy,
         })
     }))
 }
