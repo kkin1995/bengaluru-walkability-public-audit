@@ -296,6 +296,51 @@ The migration 009 backfill will use a large `UPDATE wards SET ... WHERE ward_num
 
 ---
 
+## GBA Org Seed Data (Migration 010_org_seed.sql)
+
+**Per D-12 (locked decision):** Researcher has supplied a placeholder GBA org structure based on publicly available 2025 GBA reorganization announcements. The `organizations` table is currently empty (per STATE.md). Plan 03-01 Task 4 creates `backend/migrations/010_org_seed.sql` that seeds this structure.
+
+**Hierarchy to seed (6 rows minimum — 1 GBA + 5 zone rows; D-12 explicitly temporary; ward office rows can be added later when ground-truth GBA structure is confirmed):**
+
+```
+GBA (org_type='gba', parent_id=NULL)
+├── Bengaluru Central Corporation        (org_type='corporation', parent_id=GBA.id)
+├── Bengaluru North Corporation          (org_type='corporation', parent_id=GBA.id)
+├── Bengaluru East Corporation           (org_type='corporation', parent_id=GBA.id)
+├── Bengaluru South Corporation          (org_type='corporation', parent_id=GBA.id)
+└── Bengaluru West Corporation           (org_type='corporation', parent_id=GBA.id)
+```
+
+These 5 corporation names align with the existing `wards.corporation` TEXT values (Central, North, East, South, West) per D-20 — the seed migration uses the formal "Bengaluru {X} Corporation" display name while the wards table continues to use the short directional label. OrgAssignPanel cascade (D-11) will filter wards by matching `org.name` prefix against `ward.corporation`.
+
+**Recommended SQL pattern (CTE chain — avoids two-pass UUID lookup):**
+
+```sql
+-- 010_org_seed.sql
+-- Per D-12: placeholder GBA org structure based on publicly available GBA 2025 info.
+-- Update with ground-truth IDs once GBA structure is confirmed.
+WITH gba AS (
+  INSERT INTO organizations (id, name, org_type, parent_id)
+  VALUES (gen_random_uuid(), 'GBA', 'gba', NULL)
+  RETURNING id
+)
+INSERT INTO organizations (id, name, org_type, parent_id)
+SELECT gen_random_uuid(), name, 'corporation', gba.id
+FROM gba, (VALUES
+  ('Bengaluru Central Corporation'),
+  ('Bengaluru North Corporation'),
+  ('Bengaluru East Corporation'),
+  ('Bengaluru South Corporation'),
+  ('Bengaluru West Corporation')
+) AS c(name);
+```
+
+**Idempotency note:** Migration 010 is run exactly once by sqlx::migrate! at startup. If re-applied accidentally (e.g., on a fresh DB), the CTE inserts again — but `organizations.id` is unique on UUID and there is no UNIQUE constraint on `name`, so re-application would produce duplicate rows. To prevent: add `WHERE NOT EXISTS (SELECT 1 FROM organizations WHERE org_type='gba')` guard before each INSERT. Plan 03-01 Task 4 must include this guard.
+
+**Ward office rows: out of scope for migration 010.** GBA has not finalized ward office boundaries as of 2026-05-25. The cascade picker (D-11) will show the 5 corporations as the only assignable orgs at this phase; ward offices can be seeded in a follow-up migration once confirmed.
+
+---
+
 ## Architecture Patterns
 
 ### Recommended Project Structure for Phase 3 Changes
@@ -716,21 +761,9 @@ export async function resolveReport(
 // Existing PATCH /api/admin/reports/:id/status remains for non-photo transitions
 ```
 
-### GBA Org Seed Data (Migration 009 or a separate seeding migration)
+### GBA Org Seed Data (Migration 010_org_seed.sql)
 
-The `organizations` table is currently empty (per STATE.md). A seed migration (or the planner can include in 009) should add placeholder GBA structure:
-
-```sql
--- Seed placeholder GBA org structure (D-12: explicitly temporary)
--- Organization hierarchy: GBA → Corporation → Ward Office
-INSERT INTO organizations (id, name, org_type, parent_id) VALUES
-  (gen_random_uuid(), 'GBA', 'gba', NULL);
--- Then 5 corporations referencing the GBA row
--- (5 INSERT statements, parent_id = GBA.id)
--- Ward offices can be added later when GBA structure is confirmed
-```
-
-Since the planner needs actual UUIDs for the FK chain, recommend using a CTE to chain the inserts.
+See the dedicated `## GBA Org Seed Data (Migration 010_org_seed.sql)` section above for the full seeded hierarchy (6 rows minimum — 1 GBA + 5 corporations) and the canonical CTE pattern Plan 03-01 Task 4 implements. Migration 010 is its own file (separate from 009 schema changes) per the recommendation that data seeding stays separate from schema changes.
 
 ---
 
@@ -793,7 +826,7 @@ Bangalore Rural → Dr. C N Manjunath
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Migration 009 backfill strategy: 369 UPDATE statements vs CASE expression**
    - Recommendation: Generate 369 individual UPDATE statements (one per ward), keyed on `ward_number`. Matches the style of migration 004 (individual INSERTs). A Python script from the GeoJSON is the appropriate generation tool.
