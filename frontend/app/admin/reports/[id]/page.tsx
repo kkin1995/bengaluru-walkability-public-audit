@@ -8,6 +8,7 @@ import {
   updateReportStatus,
   getMe,
   type AdminReport,
+  type StatusHistoryEntry,
 } from "../../lib/adminApi";
 import { getCategoryLabel } from "@/app/lib/translations";
 import StatusBadge from "../../components/StatusBadge";
@@ -36,6 +37,22 @@ function getSevLevel(severity: string): "high" | "medium" | "low" {
 
 function formatDate(isoString: string): string {
   return new Date(isoString).toLocaleDateString();
+}
+
+// Phase 03.2 (D-07): Extract status dot color mapping into a reusable helper.
+// Returns the CSS variable reference for the given status string.
+// data-status-token attribute carries the same value for JSDOM testability
+// (JSDOM cannot resolve background: var() in inline styles).
+function statusDotColor(status: string): string {
+  switch (status) {
+    case "open":         return "var(--status-open)";
+    case "acknowledged": return "var(--status-acknowledged)";
+    case "assigned":     return "var(--status-assigned)";
+    case "in_progress":  return "var(--status-in-progress)";
+    case "resolved":     return "var(--status-resolved)";
+    case "closed":       return "var(--status-closed)";
+    default:             return "var(--status-open)";
+  }
 }
 
 // ─── PhotoHero ────────────────────────────────────────────────────────────────
@@ -456,53 +473,77 @@ export default function ReportDetailPage({
       <Card>
         <SectionLabel style={{ marginBottom: 12 }}>{STATUS_HISTORY}</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Current status as fallback timeline entry (API doesn't expose status_history yet) */}
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <span
-              aria-hidden="true"
-              data-status-token={
-                // ISSUE-06 fix: Phase 3 enum status token map (D-Discretion)
-                // data-status-token is testable; background var() references not resolved by JSDOM
-                report.status === "open"         ? "var(--status-open)" :
-                report.status === "acknowledged" ? "var(--status-acknowledged)" :
-                report.status === "assigned"     ? "var(--status-assigned)" :
-                report.status === "in_progress"  ? "var(--status-in-progress)" :
-                report.status === "resolved"     ? "var(--status-resolved)" :
-                report.status === "closed"       ? "var(--status-closed)" :
-                "var(--status-open)"
-              }
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 999,
-                background:
-                  report.status === "open"         ? "var(--status-open)" :
-                  report.status === "acknowledged" ? "var(--status-acknowledged)" :
-                  report.status === "assigned"     ? "var(--status-assigned)" :
-                  report.status === "in_progress"  ? "var(--status-in-progress)" :
-                  report.status === "resolved"     ? "var(--status-resolved)" :
-                  report.status === "closed"       ? "var(--status-closed)" :
-                  "var(--status-open)",  // fallback
-                flexShrink: 0,
-                marginTop: 2,
-              }}
-            />
-            <div>
-              <div style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                fontWeight: 600,
-                color: "var(--ink)",
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}>
-                {report.status.replace(/_/g, " ")}
-              </div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
-                {formatDate(report.updated_at)} · BY · SYSTEM
-              </div>
-            </div>
-          </div>
+          {/* Phase 03.2 (D-07): Render real status_history entries when available */}
+          {(report.status_history && report.status_history.length > 0)
+            ? report.status_history.map((entry: StatusHistoryEntry) => (
+                <div key={entry.id} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span
+                    aria-hidden="true"
+                    data-status-token={statusDotColor(entry.new_status)}
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background: statusDotColor(entry.new_status),
+                      flexShrink: 0,
+                      marginTop: 2,
+                    }}
+                  />
+                  <div>
+                    <div style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "var(--ink)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}>
+                      {entry.new_status.replace(/_/g, " ")}
+                    </div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
+                      {formatDate(entry.changed_at)} · BY · {entry.changed_by_name || "—"}
+                    </div>
+                    {entry.note && (
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", marginTop: 2, fontStyle: "italic" }}>
+                        {entry.note}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            : (
+                /* Fallback: empty or undefined status_history — show current status with updated_at */
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span
+                    aria-hidden="true"
+                    data-status-token={statusDotColor(report.status)}
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background: statusDotColor(report.status),
+                      flexShrink: 0,
+                      marginTop: 2,
+                    }}
+                  />
+                  <div>
+                    <div style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "var(--ink)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}>
+                      {report.status.replace(/_/g, " ")}
+                    </div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
+                      {formatDate(report.updated_at)} · BY · —
+                    </div>
+                  </div>
+                </div>
+              )
+          }
         </div>
       </Card>
     </div>
