@@ -878,7 +878,7 @@ const INTAKE_SQL: &str = "SELECT \
     date_trunc('day', created_at AT TIME ZONE 'UTC')::DATE::TEXT AS day, \
     COUNT(*)::BIGINT AS count \
     FROM reports \
-    WHERE created_at >= NOW() - ($1 || ' days')::INTERVAL \
+    WHERE created_at >= NOW() - make_interval(days => $1) \
     GROUP BY 1 \
     ORDER BY 1";
 
