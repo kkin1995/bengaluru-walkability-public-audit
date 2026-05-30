@@ -3,17 +3,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import { BENGALURU_CENTER } from "../lib/constants";
-import { getCategoryLabel } from "../lib/translations";
+import { getCategoryLabel, publicStatusLabel, publicStatusColor } from "../lib/translations";
 
 const BENGALURU_MAP_CENTER: [number, number] = [BENGALURU_CENTER.lat, BENGALURU_CENTER.lng];
 
-const CATEGORY_COLORS: Record<string, string> = {
-  no_footpath: "#ef4444",
-  broken_footpath: "#f97316",
-  blocked_footpath: "#eab308",
-  unsafe_crossing: "#8b5cf6",
-  poor_lighting: "#6b7280",
-  other: "#3b82f6",
+// MAP-01 (D-30): status-based public pin colors — 3-state mapping for citizens.
+// open, acknowledged, assigned → red (var(--danger)) — attention needed
+// in_progress                  → amber (var(--warn)) — in motion
+// resolved, closed             → green (var(--accent)) — resolved
+export const STATUS_COLORS: Record<string, string> = {
+  open:         "var(--danger)",
+  acknowledged: "var(--danger)",
+  assigned:     "var(--danger)",
+  in_progress:  "var(--warn)",
+  resolved:     "var(--accent)",
+  closed:       "var(--accent)",
 };
 
 
@@ -27,6 +31,9 @@ interface Report {
   image_url: string;
   created_at: string;
   status: string;
+  // Phase 03 popup additions (D-31): populated from public list endpoint via ward JOIN
+  corporation?: string | null;
+  ward_name?: string | null;
 }
 
 interface ReportsMapProps {
@@ -109,7 +116,7 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
             key={report.id}
             center={[report.latitude, report.longitude]}
             radius={8}
-            fillColor={CATEGORY_COLORS[report.category] ?? "#3b82f6"}
+            fillColor={STATUS_COLORS[report.status] ?? "var(--danger)"}
             color="white"
             weight={2}
             fillOpacity={0.85}
@@ -125,14 +132,30 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
                     (e.target as HTMLImageElement).style.display = "none";
                   }}
                 />
-                <p className="font-semibold text-sm">
-                  {getCategoryLabel(report.category).en}
-                </p>
+                {/* Category label + inline status chip (MAP-03 / D-31 per UI-SPEC §G) */}
+                <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                  <p className="font-semibold text-sm" style={{ margin: 0 }}>
+                    {getCategoryLabel(report.category).en}
+                  </p>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: publicStatusColor(report.status), flexShrink: 0 }} />
+                    <span style={{ fontSize: 11 }}>{publicStatusLabel(report.status)}</span>
+                  </span>
+                </div>
                 <p className="text-xs text-gray-500 capitalize">
                   Severity: {report.severity}
                 </p>
                 {report.description && (
                   <p className="text-xs text-gray-700 mt-1">{report.description}</p>
+                )}
+                {/* GBA jurisdiction line (UI-SPEC §G): GBA tag + corporation + ward name */}
+                {(report.corporation || report.ward_name) && (
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", background: "var(--surface-2)", padding: "4px 8px", borderRadius: 4 }}>GBA</span>
+                    <span style={{ fontWeight: 600 }}>{report.corporation ?? "—"}</span>
+                    <span>·</span>
+                    <span>{report.ward_name ?? "—"}</span>
+                  </div>
                 )}
                 <p className="text-xs text-gray-400 mt-1">
                   {new Date(report.created_at).toLocaleDateString("en-IN", {
@@ -141,6 +164,13 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
                     year: "numeric",
                   })}
                 </p>
+                {/* Read More → link (UI-SPEC §G / D-27, D-28): links to public report detail page */}
+                <a
+                  href={`/reports/${report.id}`}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 8, color: "var(--accent-ink)", fontWeight: 600, fontSize: 12 }}
+                >
+                  Read More →
+                </a>
               </div>
             </Popup>
           </CircleMarker>

@@ -1,6 +1,6 @@
 # Phase 3: Government Triage Workflow - Context
 
-**Gathered:** 2026-05-25 (updated; original: 2026-03-14)
+**Gathered:** 2026-05-25 (updated 2x; original: 2026-03-14)
 **Status:** Backend plans 03-01/03-02 need replanning for new scope; frontend plans 03-03/03-04 blocked on design team spec (see D-37 + specifics)
 
 <domain>
@@ -47,18 +47,37 @@ Citizen submission flow, dedup logic, and analytics/export are NOT part of this 
 ### GBA Hierarchy — Data Source
 - **D-19:** All hierarchy data exists in `data/gba_wards_2025.geojson` — already partially loaded into `wards` table (currently: `id`, `ward_number`, `ward_name`, `corporation`, `boundary`)
 - **D-20:** The 5 corporations are already stored as TEXT in `wards.corporation`: Central, North, East, South, West
-- **D-21:** Add hierarchy columns to `wards` table via migration: `zone_name`, `ro_division`, `aro_sub_division`, `assembly_constituency`, `assembly_constituency_no` — backfilled from GeoJSON at migration time
+- **D-21:** Add hierarchy columns to `wards` table via migration: `zone_name`, `ro_division`, `aro_sub_division`, `assembly_constituency`, `assembly_constituency_no`, `parliamentary_constituency`, `mla_name`, `mp_name` — backfilled from GeoJSON + Vidhan Sabha/ECI data at migration time (parliamentary_constituency derived from `ac_no` via hardcoded Delimitation Commission mapping — see D-41; mla_name/mp_name seeded from D-43/D-44)
 - **D-22:** Corporation tagging on reports: auto-derived at query time via JOIN `reports → wards` on `ward_id`. No denormalized corporation column on reports table.
 
 ### GBA Hierarchy — Display
-- **D-23:** Show both the full bureaucratic AND elected chains per report:
-  - Bureaucratic: Ward → ARO Sub Division → RO Division → Zone → Corporation → GBA
-  - Elected: Assembly Constituency (MLA territory) from ward's `ac` field
-- **D-24:** Researcher task: find official designation titles at each bureaucratic level (e.g., "Ward Assistant Executive Engineer") — org structure/designations ONLY; do NOT store named individuals
+- **D-23:** Show both the Engineering accountability chain AND the elected chain per report:
+  - Engineering (footpath accountability): Ward → [AEE Sub-Division] → [EE Division] → [SE Zone] → Corporation Chief Engineer → GBA Commissioner — **exact structure pending research (D-45)**
+  - Elected: Assembly Constituency + MLA name (from `wards.mla_name`) + Parliamentary Constituency + MP name (from `wards.mp_name`)
+  - Note: `zone_name`, `ro_division`, `aro_sub_division` from GeoJSON are **Revenue Officer geographic zones** — NOT the engineering accountability chain for footpaths. Their display role is subject to research findings (D-46).
+- **D-24 (revised):** Researcher tasks:
+  1. Find the BBMP/GBA Engineering Department hierarchy for roads/footpaths (AEE → EE/DEE → SE → Chief Engineer) including how wards map to engineering sub-divisions
+  2. Find current MLA names per Assembly Constituency from Karnataka Vidhan Sabha records
+  3. Find current MP names per Lok Sabha constituency from ECI records
+  4. Confirm whether `zone_name`/`ro_division`/`aro_sub_division` from GeoJSON appear in any official BBMP accountability/escalation path, or are purely geographic demarcation
 - **D-25:** Display locations:
-  - Admin report detail page: full hierarchy chain (both chains)
+  - Admin report detail page: full hierarchy chain (engineering chain + elected chain with named MLA/MP)
   - Public map popup: Corporation name + ward name + status + "Read More →" link
-  - Public single-report page (`/reports/[id]`): full hierarchy + all report details
+  - Public single-report page (`/reports/[id]`): full hierarchy + all report details (engineering chain + named MLA/MP)
+
+### Parliamentary Constituency (MP) — New
+- **D-41:** Add `parliamentary_constituency` (TEXT) column to `wards` table in migration 008, backfilled via a hardcoded `ac_no → Lok Sabha constituency` mapping derived from the Delimitation Commission of India order. The mapping is small (Bengaluru GBA wards span ~4–5 Lok Sabha seats: Bangalore North, Central, South, and portions of Bangalore Rural/Tumkur). No new data file needed — mapping lives in the migration SQL.
+- **D-42:** The elected chain display (on both admin detail page and public `/reports/[id]`) shows two levels:
+  - Assembly Constituency: `{ac_no} – {ac_name}` (e.g., "154 – Rajarajeshwarinagar") + MLA name (e.g., "S. T. Somashekhar") — from `wards.mla_name`
+  - Parliamentary Constituency: `{parliamentary_constituency}` (e.g., "Bangalore South") + MP name — from `wards.mp_name`
+
+### Named Elected Officials — New
+- **D-43:** Add `mla_name` (TEXT) column to `wards` table. Seeded at migration time from Karnataka Vidhan Sabha data (current post-2023 election results). Updated manually after each Karnataka state election (every ~5 years). Multiple wards sharing the same Assembly Constituency get the same `mla_name`.
+- **D-44:** Add `mp_name` (TEXT) column to `wards` table. Seeded at migration time from ECI Lok Sabha data (current post-2024 election results). Updated manually after each general election (every ~5 years). Multiple wards sharing the same Parliamentary Constituency get the same `mp_name`.
+
+### Engineering Accountability Chain — New (Research Required)
+- **D-45:** The correct accountability chain for footpath complaints is the BBMP/GBA **Engineering Department** (AEE → EE/DEE → SE → Chief Engineer for Roads → GBA Commissioner) — NOT the Revenue Officer (RO/ARO) chain. Research required before 03-01 replanning. Plan 03-01 replanning is **blocked on D-24 research findings**.
+- **D-46:** The `zone_name`, `ro_division`, `aro_sub_division` fields in the GeoJSON are **Revenue Officer geographic zone labels** used for administrative demarcation (property tax, khata) — NOT the functional accountability chain for road/footpath infrastructure. Whether to display them at all (as geographic context vs. omit to avoid confusion) is subject to research findings. Researcher to recommend.
 
 ### Public Single-Report Page (`/reports/[id]`)
 - **D-26:** New citizen-facing page — uses Direction-A design system (`globals.css`)
@@ -148,7 +167,7 @@ Citizen submission flow, dedup logic, and analytics/export are NOT part of this 
 - `status_history` table with `note` column — use for status timeline in public report page
 
 ### Integration Points
-- `backend/migrations/008_workflow.sql` — rename enum values; add `resolution_photo_path`, `resolution_notes`, `assigned_org_id` to `reports`; add `zone_name`, `ro_division`, `aro_sub_division`, `assembly_constituency`, `assembly_constituency_no` to `wards`
+- `backend/migrations/008_workflow.sql` — rename enum values; add `resolution_photo_path`, `resolution_notes`, `assigned_org_id` to `reports`; add `zone_name`, `ro_division`, `aro_sub_division`, `assembly_constituency`, `assembly_constituency_no`, `parliamentary_constituency`, `mla_name`, `mp_name` to `wards` (PC backfilled from AC_no→Lok Sabha mapping; mla_name/mp_name backfilled from Vidhan Sabha/ECI data — pending research D-24)
 - `backend/src/handlers/admin.rs` — add POST `/api/admin/reports/:id/resolve` (multipart), POST `/api/admin/reports/:id/assign-org` (JSON)
 - `backend/src/handlers/reports.rs` (public) — extend `GET /api/reports/:id` to include status history + ward hierarchy; or add new endpoint
 - `frontend/app/reports/[id]/page.tsx` — New public page (does not exist yet)
@@ -183,9 +202,9 @@ All admin components use Direction-B: teal Console palette, JetBrains Mono, CSS 
 - Auto-advances status to `assigned` on save (D-09)
 
 **C. GBA Hierarchy Panel** — Read-only info section for the report's ward:
-- Bureaucratic chain: Ward → ARO Sub Division → RO Division → Zone → Corporation → GBA
-- Elected chain: Assembly Constituency (e.g., "154 – Rajarajeshwarinagar")
-- Design as structured label/value list or info card
+- Engineering chain (pending research D-45): Ward → [AEE Sub-Division] → [EE Division] → [SE Zone] → Corporation → GBA Commissioner
+- Elected chain: Assembly Constituency + MLA name (`wards.mla_name`) + Parliamentary Constituency + MP name (`wards.mp_name`)
+- Design as structured label/value list or info card; named officials shown with their role label
 
 **2. Resolve/Close Modal:**
 - Title: "Resolve Report" or "Close Report"
@@ -226,8 +245,8 @@ All public components use Direction-A (citizen design system, `globals.css`).
 - Status badge
 - Status history timeline: e.g., "Open (Jan 12) → Acknowledged (Jan 15) → In Progress (Jan 20)"
 - GBA Responsibility Hierarchy section:
-  - Bureaucratic: Ward → ARO Sub Division → RO Division → Zone → Corporation → GBA (each level labeled with official designation)
-  - Elected: Assembly Constituency (MLA territory)
+  - Engineering chain (footpath accountability, pending research D-45): Ward → [AEE Sub-Division] → [EE Division] → [SE Zone] → Corporation → GBA Commissioner
+  - Elected: Assembly Constituency + MLA name + Parliamentary Constituency + MP name
 - Resolution section (only when resolved/closed): after-photo + resolution notes
 - Back-to-map link
 
@@ -251,9 +270,46 @@ All public components use Direction-A (citizen design system, `globals.css`).
 - **SMS/WhatsApp notifications to GBA officers** — Deferred to post-launch based on GBA requirements.
 - **Report social sharing** — Share to WhatsApp/Twitter with pre-filled text. Deferred to polish phase.
 
+### Road Network Enrichment — Deferred to Phase 4
+
+Seven KML files exist in the project root. Five are redundant with existing ward/zone data already in PostGIS. Two are strategically new and HIGH VALUE for Phase 4:
+
+**`bengaluru-road-centerline-map.kml`** — BBMP/KGIS road network
+- 101,092 road segments, 14,599 km total
+- Fields: `Road_Class` (07=local 97.6%, 04=arterial 2.9%, others), `Road_Type` (01/02), `Road_Surface` (01/02/03), `KGISWardID` (old 198-ward system — DO NOT use for routing), `SHAPE.STLength()` (segment length in metres)
+- Only 1,043/101,092 segments have a road name — names are NOT reliable for UX
+- **⚠ `KGISWardID` uses old 198-ward BBMP numbering, NOT the 369 GBA wards. Always use PostGIS spatial query against `wards` polygons for current ward attribution.**
+- ChatGPT analysis: `.planning/codex/road-network-kml-findings.md`
+
+**`bengaluru-road-width-map.kml`** — BBMP road ROW vs built width
+- 23,238 segments
+- Fields: `RR_TP_HIER` (MA=Major Arterial 45%, MI=Minor 38%, PU=Public 11%, OR/IR/CR/PR), `RR_WIDTH_P` (planned ROW width in metres), `RR_width_B` (built/carriageway width in metres), `SHAPE.STLength()`
+- Average shortfall (planned − built): 10.9m across ALL segments → avg ~5.5m per side of missing footpath+green strip space
+- **Only 9,472 IDs overlap between centerline and width datasets** — need spatial matching, not just ID joins
+- Field codes need official KGIS codebook verification before public display
+
+**Capabilities confirmed for Phase 4:**
+1. **Nearest-road segment tagging** — snap reports to nearest road at submission time (ST_DWithin ~50m); store `nearest_road_segment_id`, `road_class`, `road_hierarchy` on a `report_road_matches` table
+2. **ROW gap analysis** — `RR_WIDTH_P - RR_width_B` = space that should be footpath per road spec; use to weight report priority on roads with large shortfall
+3. **Corridor-aware clustering** — group reports by road segment, not just 50m radius; "8 reports on this 500m stretch" is more actionable than 8 point duplicates
+4. **Analytics normalized by road length** — reports-per-km by ward/corporation is fairer than raw count; foundation for Priority Walking Network (PWN) scoring
+
+**Redundant KMLs (no action needed):**
+- `53329777...kml` — GBA outer boundary (1 polygon)
+- `632f5209...kml` — 5 Corporation zone polygons
+- `790f6df1...kml` — 5 Corporation polygons (duplicate)
+- `e7ad0eac...kml` — 10 Zone polygons (Corporation + Zone name)
+All duplicated by `data/gba_wards_2025.geojson` already in PostGIS.
+
+**Recommended Phase 4 import path:**
+- `ogr2ogr` to convert KML → GeoJSON, then load via PostGIS migration or Rust importer
+- Tables: `road_segments`, `road_width_segments`, `report_road_matches`
+- GiST index on geometry; precompute road matches for existing reports
+- Avoid embedding raw KML/SQL in Rust migrations (too large)
+
 </deferred>
 
 ---
 
 *Phase: 03-government-triage-workflow*
-*Context gathered: 2026-05-25 (updated from 2026-03-14)*
+*Context gathered: 2026-05-25 (updated 3x; original: 2026-03-14)*

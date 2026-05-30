@@ -20,6 +20,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 02.5: Admin Portal UI Redesign** - Implement the hybrid "B-voice × A-structure" design system for the admin portal at /admin — teal Console palette, JetBrains Mono chrome, A-pattern report cards, light+dark mode, full accessibility pass (INSERTED — visual polish before GBA handoff) (completed 2026-05-22)
 - [x] **Phase 02.6: Build Metadata & Version Stamping** - Inject `package.json` version into both the citizen-facing UI footer and the admin console brand string at build time via `NEXT_PUBLIC_APP_VERSION`; auto-update on every release (INSERTED — polish before GBA handoff) (gap closure 02.6-03 in progress — fixes UAT footer-whitespace on /report and admin logout soft-navigation) (completed 2026-05-25)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
+- [x] **Phase 3.1: Admin Report Detail — Split Layout** - Restructure /admin/reports/[id] into two-column split layout: fixed left column (photo + metadata) + independently-scrolling right rail (action panels + GBA hierarchy + history) — eliminates below-fold discoverability (F-07 / ISSUE-07 from Phase 03 UAT) (INSERTED — UAT polish after Phase 3 ships) (completed 2026-05-26)
+- [x] **Phase 3.2: Admin UAT Gap Fixes — Dashboard Chart Period Filter and Status History Attribution** - Wire up the 7D/14D/30D intake chart period filter buttons on the admin dashboard, implement real status_history timestamps and admin user attribution in the report detail view (INSERTED — UAT gap closure after Phase 3.1) (completed 2026-05-30)
+- [x] **Phase 3.3: Admin UAT Gap Fixes — Intake Chart Real Data and Attribution Fallback** - Replace dashboard INTAKE sparkbars stub data with a real per-day intake endpoint (GET /api/admin/stats/intake?days=N), and fix status history attribution to fall back to admin email when display_name is NULL (INSERTED — UAT gap closure after Phase 3.2) (completed 2026-05-30)
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
 ## Phase Details
@@ -269,13 +272,74 @@ Plans:
   5. Public map pins display distinct colors for Open, In Progress, and Resolved — a citizen clicking any pin sees the current status in the popup
 
 **Plans**: 4 plans
+Plans:
+**Wave 1**
 
+- [x] 03-01-PLAN.md — DB migrations 008 (ENUM rename + reports columns, no-transaction) + 009 (wards hierarchy columns + 369-row backfill), Report/ReportResponse struct extension, validate_status + get_report_stats updates, Wave 0 test scaffolds
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-02-PLAN.md — Backend: resolve_report + assign_report_org DB fns, admin_resolve_report (multipart) + admin_assign_report_org (JSON) handlers, public GET /api/reports/:id extension (history + ward_hierarchy)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-03-PLAN.md — Admin frontend (Direction B): StatusBadge 6-value extension, StatusActionPanel + OrgAssignPanel + GbaHierarchyPanel + ResolveModal components, /admin/reports/[id] panel wiring, CORP column on reports list, adminApi extension
+- [ ] 03-04-PLAN.md — Public frontend (Direction A): ReportsMap STATUS_COLORS pin coloring, extended popup (corporation + ward + status + Read More), status-based map legend, NEW public /reports/[id] server component page
+
+### Phase 3.1: Admin Report Detail — Split Layout (INSERTED)
+
+**Goal**: Restructure `/admin/reports/[id]` into a two-column split layout where the left column (report photo + core metadata) is fixed/sticky and the right column (StatusActionPanel, OrgAssignPanel, GbaHierarchyPanel, status history) has its own independently-scrolling region. Eliminates the below-fold discoverability problem (F-07 / ISSUE-07) found in Phase 03 UAT. Follows the Figma inspect panel / VS Code editor+sidebar Option 4 pattern. Phase 3.1 also closes Phase 03 UAT ISSUE-01..06 (GbaHierarchyPanel display bugs and the status timeline dot color map) in the same coordinated pass — no separate micro-phase per CONTEXT.md D-07.
+**Depends on**: Phase 3
+**Requirements**: F-07 (Phase 03 UAT ISSUE-07; ISSUE-01..06 closed in the same plan)
+**Success Criteria** (what must be TRUE):
+
+  1. On desktop (≥768px), `/admin/reports/[id]` renders in two fixed-height columns — left column (photo + metadata) is sticky and does not scroll independently; right column has `overflow-y: auto` and scrolls within the viewport height so all action panels are reachable without scrolling the whole page
+  2. On mobile (<768px), the layout stacks to a single column, preserving the current mobile experience unchanged
+  3. No data or functionality is removed — all existing panels (StatusActionPanel, OrgAssignPanel, GbaHierarchyPanel, status history) remain present and fully functional
+  4. `npm run build` passes with zero TypeScript errors and all existing frontend tests remain green
+
+**Plans**: 1 plan
 Plans:
 
-- [ ] 03-01-PLAN.md — DB migrations 008/009 (ENUM rename + add values), Report/ReportResponse struct extension, get_report_stats fix
-- [ ] 03-02-PLAN.md — Backend: expanded validate_status, resolve_report and assign_report_org DB fns, two new handler routes
-- [ ] 03-03-PLAN.md — Admin frontend: StatusBadge expansion, ResolveModal, OrgPicker, detail page wiring
-- [ ] 03-04-PLAN.md — Public map: STATUS_COLORS pin colors, popup status label + after-photo, map legend update
+- [x] 03.1-01-PLAN.md — Split layout restructure of `/admin/reports/[id]` (left flex-column photo + identity strip; right action rail with independent scroll) + 768px breakpoint + GbaHierarchyPanel ISSUE-01/03/04/05 fixes + status timeline ISSUE-06 dot color map fix
+
+### Phase 3.2: Admin UAT Gap Fixes — Dashboard Chart Period Filter and Status History Attribution (INSERTED)
+
+**Goal**: Fix the two confirmed UAT bugs from Phase 3.1: wire up the 7D/14D/30D intake chart period filter buttons on the admin dashboard so period selection updates the chart, and implement real status history timestamps and admin user attribution in the report detail view (replacing the "Invalid Date / BY · SYSTEM" placeholders)
+**Depends on**: Phase 3.1
+**Requirements**: BUG-03.1-B, BUG-03.1-C (phase-local; sourced from 03.1-UAT-ISSUES.md and 03.1-UAT.md gap analysis)
+**Success Criteria** (what must be TRUE):
+
+  1. On the admin dashboard, clicking 7D or 30D updates the INTAKE chart to show data for the selected period — the active button highlights and the chart re-renders
+  2. In the report detail view, status history entries show a real formatted timestamp (not "Invalid Date") and the name of the admin who changed the status (not "BY · SYSTEM")
+  3. `npm run build` passes with zero TypeScript errors and all existing tests remain green
+
+**Plans**: TBD
+
+Plans: *(not yet created — planning begins now)*
+
+### Phase 3.3: Admin UAT Gap Fixes — Intake Chart Real Data and Attribution Fallback (INSERTED)
+
+**Goal**: Fix the two confirmed UAT bugs from Phase 3.2: the dashboard INTAKE sparkbars render hardcoded STUB_SPARKBARS data unrelated to real reports (needs a new GET /api/admin/stats/intake?days=N endpoint + frontend data wiring), and status history attribution always shows "BY · —" because the seeded admin has display_name = NULL (one-liner COALESCE(au.display_name, au.email) fallback)
+**Depends on**: Phase 3.2
+**Requirements**: BUG-03.2-A, BUG-03.2-B (phase-local; sourced from 03.3-UAT-ISSUES.md)
+**Success Criteria** (what must be TRUE):
+
+  1. The dashboard INTAKE sparkbars reflect actual per-day report intake counts for the selected 7D/14D/30D window — empty days show height 0, and a system with 1 total report shows at most 1 bar with height > 0 (no STUB_SPARKBARS pattern)
+  2. GET /api/admin/stats/intake?days=N returns per-day report counts, clamps days to [1,90], and is behind admin auth
+  3. Status history entries on /admin/reports/[id] show "BY · <admin email>" when no display name is set (no longer "BY · —")
+  4. `cargo test` and the frontend intake + dashboard test suites pass; `npm run build` and `cargo check` succeed with no new dependency or migration
+
+**Plans**: 2 plans
+
+Plans:
+**Wave 1**
+
+- [x] 03.3-01-PLAN.md — BUG-03.2-B attribution COALESCE fallback in status history query + SQL-string test helper (backend admin_queries.rs)
+
+**Wave 2** *(blocked on Wave 1 — shared admin_queries.rs)*
+
+- [x] 03.3-02-PLAN.md — BUG-03.2-A intake endpoint: IntakeDayCount struct + get_intake_stats DB fn + admin_get_intake_stats handler (days clamp [1,90]) + route + getIntakeStats adminApi fn + dashboard useEffect wiring + Wave 0 tests
 
 ### Phase 4: Export and Public Analytics
 
@@ -303,7 +367,7 @@ Plans: *(not yet created — Phase 4 has no plan files on disk; planning begins 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 2.4 → 2.4.1 → 2.5 → 2.6 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 2.4 → 2.4.1 → 2.5 → 2.6 → 3 → 3.1 → 3.2 → 3.3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -318,7 +382,10 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.4.1 Security Hardening | 3/3 | Complete   | 2026-05-20 |
 | 2.5 Admin Portal UI Redesign | 4/4 | Complete   | 2026-05-22 |
 | 2.6 Build Metadata & Version Stamping | 3/3 | Complete    | 2026-05-25 |
-| 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
+| 3. Government Triage Workflow | 2/4 | Complete (merged PR #12) | 2026-05-30 |
+| 3.1 Admin Report Detail — Split Layout | 1/1 | Complete   | 2026-05-26 |
+| 3.2 Admin UAT Gap Fixes | 2/2 | Complete   | 2026-05-30 |
+| 3.3 Intake Chart + Attribution Fallback | 2/2 | Complete   | 2026-05-30 |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
 
 ### Phase 5: Coming Soon Homepage + Branching Workflow Setup

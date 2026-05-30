@@ -44,3 +44,20 @@ const CATEGORY_LABEL_MAP: Record<string, { en: string; kn: string }> = {
 export function getCategoryLabel(value: string): { en: string; kn: string } {
   return CATEGORY_LABEL_MAP[value] ?? { en: value, kn: value };
 }
+
+// MAP-03 / D-42: public 3-state mapping for citizens — 6-state admin enum is collapsed for clarity.
+// open, acknowledged, assigned → "Open" (red — attention needed)
+// in_progress                  → "In progress" (amber — in motion)
+// resolved, closed             → "Resolved" (green — resolved)
+export function publicStatusLabel(status: string): "Open" | "In progress" | "Resolved" {
+  if (status === "in_progress") return "In progress";
+  if (status === "resolved" || status === "closed") return "Resolved";
+  return "Open"; // open, acknowledged, assigned, and unknown statuses
+}
+
+// Returns CSS variable string for the 3-state public status color mapping.
+export function publicStatusColor(status: string): string {
+  if (status === "in_progress") return "var(--warn)";
+  if (status === "resolved" || status === "closed") return "var(--accent)";
+  return "var(--danger)"; // open, acknowledged, assigned, unknown
+}

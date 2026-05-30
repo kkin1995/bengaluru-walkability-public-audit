@@ -61,11 +61,11 @@ Requirements for MVP — scoped for soft launch with Walkaluru / GBA.
 
 ### Government Workflow
 
-- [ ] **WFLOW-01**: Reports support an extended status lifecycle: `Open → Acknowledged → Assigned → In Progress → Resolved → Closed`
-- [ ] **WFLOW-02**: Every status transition is recorded in `status_history` with timestamp and acting admin user ID
-- [ ] **WFLOW-03**: Admin can assign a report to an organization (corporation or ward office)
-- [ ] **WFLOW-04**: Admin can add resolution notes when closing a report
-- [ ] **WFLOW-05**: Admin can upload a resolution photo (after-photo) when marking a report as Resolved
+- [x] **WFLOW-01**: Reports support an extended status lifecycle: `Open → Acknowledged → Assigned → In Progress → Resolved → Closed`
+- [x] **WFLOW-02**: Every status transition is recorded in `status_history` with timestamp and acting admin user ID
+- [x] **WFLOW-03**: Admin can assign a report to an organization (corporation or ward office)
+- [x] **WFLOW-04**: Admin can add resolution notes when closing a report
+- [x] **WFLOW-05**: Admin can upload a resolution photo (after-photo) when marking a report as Resolved
 
 ### Public Map
 
@@ -174,11 +174,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-03 | Phase 02.4 | Pending |
 | INFRA-04 | Phase 02.4 | Pending |
 | INFRA-05 | Phase 02.4 | Pending |
-| WFLOW-01 | Phase 3 | Pending |
-| WFLOW-02 | Phase 3 | Pending |
-| WFLOW-03 | Phase 3 | Pending |
-| WFLOW-04 | Phase 3 | Pending |
-| WFLOW-05 | Phase 3 | Pending |
+| WFLOW-01 | Phase 3 | Complete |
+| WFLOW-02 | Phase 3 | Complete |
+| WFLOW-03 | Phase 3 | Complete |
+| WFLOW-04 | Phase 3 | Complete |
+| WFLOW-05 | Phase 3 | Complete |
 | MAP-01 | Phase 3 | Pending |
 | MAP-02 | Phase 4 | Pending |
 | MAP-03 | Phase 3 | Pending |

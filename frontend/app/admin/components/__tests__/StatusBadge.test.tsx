@@ -186,3 +186,131 @@ describe("R-COMP-6 — StatusBadge: data-testid='status-badge' always present", 
     }
   );
 });
+
+// ---------------------------------------------------------------------------
+// Phase 03 (D-03..D-05) — 6-value status lifecycle: Wave 0 scaffold tests
+// Ref: 03-UI-SPEC.md §"Status Color System — 6-State Admin StatusBadge"
+// These tests verify the Phase 03 StatusBadge entries land with the correct
+// data-status attribute, human-readable label, and data-tone value.
+// ---------------------------------------------------------------------------
+
+describe('Phase 03 / D-03 — StatusBadge: status="open"', () => {
+  it('renders with data-status="open"', () => {
+    render(<StatusBadge status="open" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge.getAttribute("data-status")).toBe("open");
+  });
+
+  it('renders the human-readable label "Open"', () => {
+    render(<StatusBadge status="open" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent("Open");
+  });
+
+  it('renders with data-tone="info"', () => {
+    render(<StatusBadge status="open" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge.getAttribute("data-tone")).toBe("info");
+  });
+});
+
+describe('Phase 03 / D-04 — StatusBadge: status="acknowledged"', () => {
+  it('renders with data-status="acknowledged"', () => {
+    render(<StatusBadge status="acknowledged" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge.getAttribute("data-status")).toBe("acknowledged");
+  });
+
+  it('renders the human-readable label "Acknowledged"', () => {
+    render(<StatusBadge status="acknowledged" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent("Acknowledged");
+  });
+
+  it('renders with data-tone="info"', () => {
+    render(<StatusBadge status="acknowledged" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge.getAttribute("data-tone")).toBe("info");
+  });
+});
+
+describe('Phase 03 / D-05 — StatusBadge: status="assigned"', () => {
+  it('renders with data-status="assigned"', () => {
+    render(<StatusBadge status="assigned" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge.getAttribute("data-status")).toBe("assigned");
+  });
+
+  it('renders the human-readable label "Assigned"', () => {
+    render(<StatusBadge status="assigned" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent("Assigned");
+  });
+
+  it('renders with data-tone="warn"', () => {
+    render(<StatusBadge status="assigned" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge.getAttribute("data-tone")).toBe("warn");
+  });
+});
+
+describe('Phase 03 / D-05 — StatusBadge: status="in_progress"', () => {
+  it('renders with data-status="in_progress"', () => {
+    render(<StatusBadge status="in_progress" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge.getAttribute("data-status")).toBe("in_progress");
+  });
+
+  it('renders the human-readable label "In Progress"', () => {
+    render(<StatusBadge status="in_progress" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent("In Progress");
+  });
+
+  it('renders with data-tone="warn"', () => {
+    render(<StatusBadge status="in_progress" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge.getAttribute("data-tone")).toBe("warn");
+  });
+});
+
+describe('Phase 03 / D-37 — StatusBadge: status="closed"', () => {
+  it('renders with data-status="closed"', () => {
+    render(<StatusBadge status="closed" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge.getAttribute("data-status")).toBe("closed");
+  });
+
+  it('renders the human-readable label "Closed"', () => {
+    render(<StatusBadge status="closed" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent("Closed");
+  });
+
+  it('renders with data-tone="muted" (distinct grey tone — D-37/D-38)', () => {
+    render(<StatusBadge status="closed" />);
+    const badge = document.querySelector("[data-testid='status-badge']") as HTMLElement;
+    expect(badge.getAttribute("data-tone")).toBe("muted");
+  });
+});
+
+describe("Phase 03 — StatusBadge: aria-label presence for all 6 Phase 03 statuses", () => {
+  it.each(["open", "acknowledged", "assigned", "in_progress", "resolved", "closed"])(
+    'status "%s" produces at least one element carrying an aria-label attribute',
+    (status) => {
+      render(<StatusBadge status={status} />);
+      const elements = document.querySelectorAll("[aria-label]");
+      expect(elements.length).toBeGreaterThan(0);
+    }
+  );
+});

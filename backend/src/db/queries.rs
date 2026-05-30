@@ -1,4 +1,5 @@
-use sqlx::PgPool;
+use chrono::{DateTime, Utc};
+use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
 use crate::errors::AppError;
@@ -106,7 +107,10 @@ pub async fn insert_report(
             duplicate_of_id,
             duplicate_count,
             duplicate_confidence,
-            submitter_ip
+            submitter_ip,
+            resolution_photo_path,
+            resolution_notes,
+            assigned_org_id
         "#,
     )
     .bind(image_path)
@@ -138,37 +142,47 @@ pub async fn count_reports(pool: &PgPool) -> Result<i64, AppError> {
     Ok(count)
 }
 
-pub async fn list_reports(
+/// Fetch a paginated list of reports enriched with ward data (ward_name + corporation).
+///
+/// Used by the public GET /api/reports list endpoint to populate the map popup
+/// with corporation + ward_name per UI-SPEC §G (MAP-03 / D-31).
+///
+/// Privacy guarantees: submitter_name, submitter_contact, submitter_ip are NOT selected.
+/// Status history and resolution_notes are NOT included (list endpoint).
+///
+/// Returns a Vec of serde_json::Value objects matching the public list shape.
+pub async fn list_reports_enriched(
     pool: &PgPool,
     page: i64,
     limit: i64,
     category: Option<&str>,
     status: Option<&str>,
-) -> Result<Vec<Report>, AppError> {
+    api_base: &str,
+) -> Result<Vec<serde_json::Value>, AppError> {
     let offset = (page - 1) * limit;
 
-    let rows = sqlx::query_as::<_, Report>(
+    let rows = sqlx::query(
         r#"
         SELECT
-            id, created_at, image_path, latitude, longitude,
-            category::TEXT AS category,
-            severity::TEXT AS severity,
-            description,
-            submitter_name,
-            submitter_contact,
-            status::TEXT AS status,
-            location_source::TEXT AS location_source,
-            ward_id,
-            photo_hash,
-            duplicate_of_id,
-            duplicate_count,
-            duplicate_confidence,
-            submitter_ip
-        FROM reports
+            r.id,
+            r.created_at,
+            r.image_path,
+            r.latitude,
+            r.longitude,
+            r.category::TEXT AS category,
+            r.severity::TEXT AS severity,
+            r.description,
+            r.status::TEXT AS status,
+            r.location_source::TEXT AS location_source,
+            r.resolution_photo_path,
+            w.ward_name,
+            w.corporation
+        FROM reports r
+        LEFT JOIN wards w ON w.id = r.ward_id
         WHERE
-            ($1::TEXT IS NULL OR category::TEXT = $1)
-            AND ($2::TEXT IS NULL OR status::TEXT = $2)
-        ORDER BY created_at DESC
+            ($1::TEXT IS NULL OR r.category::TEXT = $1)
+            AND ($2::TEXT IS NULL OR r.status::TEXT = $2)
+        ORDER BY r.created_at DESC
         LIMIT $3 OFFSET $4
         "#,
     )
@@ -179,9 +193,56 @@ pub async fn list_reports(
     .fetch_all(pool)
     .await?;
 
-    Ok(rows)
+    let items = rows
+        .iter()
+        .map(|row| {
+            let image_path = row.get::<String, _>("image_path");
+            let image_url = format!("{}/uploads/{}", api_base, image_path);
+
+            let latitude = row.get::<f64, _>("latitude");
+            let longitude = row.get::<f64, _>("longitude");
+            let lat_rounded = (latitude * 1000.0).round() / 1000.0;
+            let lng_rounded = (longitude * 1000.0).round() / 1000.0;
+
+            let resolution_photo_path = row.try_get::<Option<String>, _>("resolution_photo_path").unwrap_or(None);
+            let resolution_photo_url = resolution_photo_path
+                .map(|p| format!("{}/uploads/{}", api_base, p));
+
+            let mut obj = serde_json::Map::new();
+            obj.insert("id".to_string(), serde_json::json!(row.get::<Uuid, _>("id")));
+            obj.insert("created_at".to_string(), serde_json::json!(row.get::<DateTime<Utc>, _>("created_at")));
+            obj.insert("image_url".to_string(), serde_json::json!(image_url));
+            obj.insert("latitude".to_string(), serde_json::json!(lat_rounded));
+            obj.insert("longitude".to_string(), serde_json::json!(lng_rounded));
+            obj.insert("category".to_string(), serde_json::json!(row.get::<String, _>("category")));
+            obj.insert("severity".to_string(), serde_json::json!(row.get::<String, _>("severity")));
+            obj.insert("description".to_string(), serde_json::json!(row.get::<Option<String>, _>("description")));
+            obj.insert("status".to_string(), serde_json::json!(row.get::<String, _>("status")));
+            obj.insert("location_source".to_string(), serde_json::json!(row.get::<String, _>("location_source")));
+
+            // Include ward_name and corporation for map popup (MAP-03 / D-31)
+            if let Some(ward_name) = row.try_get::<Option<String>, _>("ward_name").unwrap_or(None) {
+                obj.insert("ward_name".to_string(), serde_json::json!(ward_name));
+            }
+            if let Some(corporation) = row.try_get::<Option<String>, _>("corporation").unwrap_or(None) {
+                obj.insert("corporation".to_string(), serde_json::json!(corporation));
+            }
+
+            // resolution_photo_url only when present (D-18)
+            if let Some(url) = resolution_photo_url {
+                obj.insert("resolution_photo_url".to_string(), serde_json::json!(url));
+            }
+
+            serde_json::Value::Object(obj)
+        })
+        .collect();
+
+    Ok(items)
 }
 
+// Retained for potential direct usage by tests or future admin detail queries.
+// The public handler now uses get_report_with_detail for the enriched response.
+#[allow(dead_code)]
 pub async fn get_report_by_id(pool: &PgPool, id: Uuid) -> Result<Report, AppError> {
     let row = sqlx::query_as::<_, Report>(
         r#"
@@ -199,7 +260,10 @@ pub async fn get_report_by_id(pool: &PgPool, id: Uuid) -> Result<Report, AppErro
             duplicate_of_id,
             duplicate_count,
             duplicate_confidence,
-            submitter_ip
+            submitter_ip,
+            resolution_photo_path,
+            resolution_notes,
+            assigned_org_id
         FROM reports
         WHERE id = $1
         "#,
@@ -210,6 +274,143 @@ pub async fn get_report_by_id(pool: &PgPool, id: Uuid) -> Result<Report, AppErro
     .ok_or(AppError::NotFound)?;
 
     Ok(row)
+}
+
+/// Fetch a single report by ID enriched with status history and ward hierarchy.
+///
+/// This is the data source for the public GET /api/reports/:id endpoint (D-29).
+///
+/// # Privacy guarantees (D-17, Pitfall 10)
+/// - `status_history.note` (resolution_notes) is NEVER selected — admin-only field.
+/// - `status_history.changed_by` is NEVER selected — admin-only field.
+/// - `reports.submitter_name`, `reports.submitter_contact`, `reports.submitter_ip` are
+///   NEVER selected — citizen PII, never exposed in public API.
+///
+/// # Returns
+/// A `serde_json::Value` with shape:
+/// ```json
+/// {
+///   "id", "created_at", "image_url", "latitude", "longitude", "category",
+///   "severity", "description", "status", "location_source",
+///   "resolution_photo_url" (only when Some),
+///   "history": [{"status", "changed_at"}, ...],
+///   "ward_hierarchy": {"ward_name", "corporation", "zone_name", "ro_division",
+///     "aro_sub_division", "assembly_constituency", "assembly_constituency_no",
+///     "parliamentary_constituency", "mla_name", "mp_name"}
+/// }
+/// ```
+///
+/// Returns `AppError::NotFound` if no such report exists.
+pub async fn get_report_with_detail(
+    pool: &PgPool,
+    id: Uuid,
+    api_base: &str,
+) -> Result<serde_json::Value, AppError> {
+    // Query 1: report + ward hierarchy via LEFT JOIN.
+    // Pitfall 9: LEFT JOIN so reports with no ward_id still return a row.
+    let row = sqlx::query(
+        r#"
+        SELECT
+            r.id,
+            r.created_at,
+            r.image_path,
+            r.latitude,
+            r.longitude,
+            r.category::TEXT AS category,
+            r.severity::TEXT AS severity,
+            r.description,
+            r.status::TEXT AS status,
+            r.location_source::TEXT AS location_source,
+            r.resolution_photo_path,
+            w.ward_name,
+            w.corporation,
+            w.zone_name,
+            w.ro_division,
+            w.aro_sub_division,
+            w.assembly_constituency,
+            w.assembly_constituency_no,
+            w.parliamentary_constituency,
+            w.mla_name,
+            w.mp_name
+        FROM reports r
+        LEFT JOIN wards w ON w.id = r.ward_id
+        WHERE r.id = $1
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(AppError::NotFound)?;
+
+    // Query 2: public status history.
+    // PRIVACY (D-17, Pitfall 10): status_history.note and status_history.changed_by
+    // are NEVER selected for the public response — admin-only fields stay admin-only.
+    let history_rows = sqlx::query(
+        "SELECT new_status::TEXT AS status, changed_at FROM status_history WHERE report_id = $1 ORDER BY changed_at ASC",
+    )
+    .bind(id)
+    .fetch_all(pool)
+    .await?;
+
+    let history: Vec<serde_json::Value> = history_rows
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "status": r.get::<String, _>("status"),
+                "changed_at": r.get::<DateTime<Utc>, _>("changed_at"),
+            })
+        })
+        .collect();
+
+    // Build base URL for image URLs.
+    let image_path = row.get::<String, _>("image_path");
+    let image_url = format!("{}/uploads/{}", api_base, image_path);
+
+    // Round latitude and longitude to 3 decimal places (privacy + consistency).
+    let latitude = row.get::<f64, _>("latitude");
+    let longitude = row.get::<f64, _>("longitude");
+    let lat_rounded = (latitude * 1000.0).round() / 1000.0;
+    let lng_rounded = (longitude * 1000.0).round() / 1000.0;
+
+    // Build the ward_hierarchy object (all keys always present; values may be null).
+    // Frontend dispatches on null values per UI-SPEC.
+    let ward_hierarchy = serde_json::json!({
+        "ward_name":                 row.try_get::<Option<String>, _>("ward_name").unwrap_or(None),
+        "corporation":               row.try_get::<Option<String>, _>("corporation").unwrap_or(None),
+        "zone_name":                 row.try_get::<Option<String>, _>("zone_name").unwrap_or(None),
+        "ro_division":               row.try_get::<Option<String>, _>("ro_division").unwrap_or(None),
+        "aro_sub_division":          row.try_get::<Option<String>, _>("aro_sub_division").unwrap_or(None),
+        "assembly_constituency":     row.try_get::<Option<String>, _>("assembly_constituency").unwrap_or(None),
+        "assembly_constituency_no":  row.try_get::<Option<i32>, _>("assembly_constituency_no").unwrap_or(None),
+        "parliamentary_constituency": row.try_get::<Option<String>, _>("parliamentary_constituency").unwrap_or(None),
+        "mla_name":                  row.try_get::<Option<String>, _>("mla_name").unwrap_or(None),
+        "mp_name":                   row.try_get::<Option<String>, _>("mp_name").unwrap_or(None),
+    });
+
+    // Build the response JSON.
+    let mut obj = serde_json::Map::new();
+    obj.insert("id".to_string(), serde_json::json!(row.get::<Uuid, _>("id")));
+    obj.insert("created_at".to_string(), serde_json::json!(row.get::<DateTime<Utc>, _>("created_at")));
+    obj.insert("image_url".to_string(), serde_json::json!(image_url));
+    obj.insert("latitude".to_string(), serde_json::json!(lat_rounded));
+    obj.insert("longitude".to_string(), serde_json::json!(lng_rounded));
+    obj.insert("category".to_string(), serde_json::json!(row.get::<String, _>("category")));
+    obj.insert("severity".to_string(), serde_json::json!(row.get::<String, _>("severity")));
+    obj.insert("description".to_string(), serde_json::json!(row.get::<Option<String>, _>("description")));
+    obj.insert("status".to_string(), serde_json::json!(row.get::<String, _>("status")));
+    obj.insert("location_source".to_string(), serde_json::json!(row.get::<String, _>("location_source")));
+
+    // resolution_photo_url is only included when resolution_photo_path is Some (D-18).
+    // resolution_notes (admin-only per D-17) is NEVER included.
+    if let Some(photo_path) = row.try_get::<Option<String>, _>("resolution_photo_path").unwrap_or(None) {
+        let resolution_photo_url = format!("{}/uploads/{}", api_base, photo_path);
+        obj.insert("resolution_photo_url".to_string(), serde_json::json!(resolution_photo_url));
+    }
+
+    obj.insert("history".to_string(), serde_json::json!(history));
+    obj.insert("ward_hierarchy".to_string(), ward_hierarchy);
+
+    Ok(serde_json::Value::Object(obj))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

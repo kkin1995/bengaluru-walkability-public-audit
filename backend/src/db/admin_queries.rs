@@ -366,6 +366,7 @@ pub async fn list_admin_reports(
             reports.status::TEXT AS status,
             reports.location_source::TEXT AS location_source,
             wards.ward_name AS ward_name,
+            wards.corporation AS corporation,
             {dedup_cols}
         FROM reports
         LEFT JOIN wards ON wards.id = reports.ward_id
@@ -420,6 +421,9 @@ pub async fn list_admin_reports(
                 "status":               row.get::<String, _>("status"),
                 "location_source":      row.get::<String, _>("location_source"),
                 "ward_name":            row.get::<Option<String>, _>("ward_name"),
+                // D-22: corporation is auto-derived at query time via LEFT JOIN wards.
+                // Feeds the CORP column rendered by Plan 03-03 ReportsTable.
+                "corporation":          row.try_get::<Option<String>, _>("corporation").unwrap_or(None),
                 "duplicate_count":      row.try_get::<i32, _>("duplicate_count").unwrap_or(0),
                 "duplicate_of_id":      row.try_get::<Option<Uuid>, _>("duplicate_of_id").unwrap_or(None),
                 "duplicate_confidence": row.try_get::<Option<String>, _>("duplicate_confidence").unwrap_or(None),
@@ -478,6 +482,7 @@ pub async fn get_duplicate_reports_for_original(
 
 /// Fetch a single report by ID with full PII and exact coordinates.
 /// Returns `None` if not found.
+/// Includes `updated_at` (D-04) and a `status_history` array newest-first (D-05, D-06).
 pub async fn get_admin_report_by_id(
     pool: &PgPool,
     report_id: Uuid,
@@ -485,42 +490,113 @@ pub async fn get_admin_report_by_id(
     let row = sqlx::query(
         r#"
         SELECT
-            id,
-            created_at,
-            image_path,
-            latitude,
-            longitude,
-            category::TEXT AS category,
-            severity::TEXT AS severity,
-            description,
-            submitter_name,
-            submitter_contact,
-            status::TEXT AS status,
-            location_source::TEXT AS location_source
-        FROM reports
-        WHERE id = $1
+            r.id,
+            r.created_at,
+            r.updated_at,
+            r.image_path,
+            r.latitude,
+            r.longitude,
+            r.category::TEXT AS category,
+            r.severity::TEXT AS severity,
+            r.description,
+            r.submitter_name,
+            r.submitter_contact,
+            r.status::TEXT AS status,
+            r.location_source::TEXT AS location_source,
+            r.resolution_photo_path,
+            r.resolution_notes,
+            r.assigned_org_id,
+            r.ward_id,
+            w.ward_name,
+            w.zone_name,
+            w.ro_division,
+            w.aro_sub_division,
+            w.assembly_constituency,
+            w.assembly_constituency_no,
+            w.parliamentary_constituency,
+            w.mla_name,
+            w.mp_name,
+            o.name AS corporation
+        FROM reports r
+        LEFT JOIN wards w ON w.id = r.ward_id
+        LEFT JOIN organizations o ON o.id = w.org_id
+        WHERE r.id = $1
         "#,
     )
     .bind(report_id)
     .fetch_optional(pool)
     .await?;
 
-    Ok(row.map(|r| {
-        serde_json::json!({
-            "id":                r.get::<Uuid, _>("id"),
-            "created_at":        r.get::<DateTime<Utc>, _>("created_at"),
-            "image_path":        r.get::<String, _>("image_path"),
-            "latitude":          r.get::<f64, _>("latitude"),
-            "longitude":         r.get::<f64, _>("longitude"),
-            "category":          r.get::<String, _>("category"),
-            "severity":          r.get::<String, _>("severity"),
-            "description":       r.get::<Option<String>, _>("description"),
-            "submitter_name":    r.get::<Option<String>, _>("submitter_name"),
-            "submitter_contact": r.get::<Option<String>, _>("submitter_contact"),
-            "status":            r.get::<String, _>("status"),
-            "location_source":   r.get::<String, _>("location_source"),
+    // Early-return None if report not found — do not issue the status_history query.
+    let r = match row {
+        None => return Ok(None),
+        Some(r) => r,
+    };
+
+    // D-05, D-06: Fetch status history for this report, newest first, with admin attribution.
+    // BUG-03.2-B: uses STATUS_HISTORY_SQL constant which applies COALESCE(au.display_name,
+    // au.email) so the admin email is shown when display_name is NULL.
+    let history_rows = sqlx::query(STATUS_HISTORY_SQL)
+        .bind(report_id)
+        .fetch_all(pool)
+        .await?;
+
+    let status_history: Vec<serde_json::Value> = history_rows
+        .iter()
+        .map(|h| {
+            serde_json::json!({
+                "id":               h.get::<Uuid, _>("id"),
+                "old_status":       h.try_get::<String, _>("old_status").ok(),
+                "new_status":       h.get::<String, _>("new_status"),
+                "changed_at":       h.get::<DateTime<Utc>, _>("changed_at"),
+                "note":             h.try_get::<String, _>("note").ok(),
+                "changed_by":       h.try_get::<Uuid, _>("changed_by").ok(),
+                "changed_by_name":  h.try_get::<String, _>("changed_by_name").ok(),
+            })
         })
-    }))
+        .collect();
+
+    let ward_id = r.get::<Option<Uuid>, _>("ward_id");
+    let ward_hierarchy = if ward_id.is_some() {
+        serde_json::json!({
+            "ward_name":                  r.get::<Option<String>, _>("ward_name"),
+            "zone_name":                  r.get::<Option<String>, _>("zone_name"),
+            "ro_division":                r.get::<Option<String>, _>("ro_division"),
+            "aro_sub_division":           r.get::<Option<String>, _>("aro_sub_division"),
+            "assembly_constituency":      r.get::<Option<String>, _>("assembly_constituency"),
+            "assembly_constituency_no":   r.get::<Option<i32>, _>("assembly_constituency_no"),
+            "parliamentary_constituency": r.get::<Option<String>, _>("parliamentary_constituency"),
+            "mla_name":                   r.get::<Option<String>, _>("mla_name"),
+            "mp_name":                    r.get::<Option<String>, _>("mp_name"),
+            "corporation":                r.get::<Option<String>, _>("corporation"),
+        })
+    } else {
+        serde_json::Value::Null
+    };
+
+    Ok(Some(serde_json::json!({
+        "id":                   r.get::<Uuid, _>("id"),
+        "created_at":           r.get::<DateTime<Utc>, _>("created_at"),
+        "updated_at":           r.get::<DateTime<Utc>, _>("updated_at"),
+        "image_path":           r.get::<String, _>("image_path"),
+        "latitude":             r.get::<f64, _>("latitude"),
+        "longitude":            r.get::<f64, _>("longitude"),
+        "category":             r.get::<String, _>("category"),
+        "severity":             r.get::<String, _>("severity"),
+        "description":          r.get::<Option<String>, _>("description"),
+        "submitter_name":       r.get::<Option<String>, _>("submitter_name"),
+        "submitter_contact":    r.get::<Option<String>, _>("submitter_contact"),
+        "status":               r.get::<String, _>("status"),
+        "location_source":      r.get::<String, _>("location_source"),
+        "resolution_photo_path": r.get::<Option<String>, _>("resolution_photo_path"),
+        "resolution_notes":     r.get::<Option<String>, _>("resolution_notes"),
+        "assigned_org_id":      r.get::<Option<Uuid>, _>("assigned_org_id"),
+        "ward_id":              ward_id,
+        "ward_name":            r.get::<Option<String>, _>("ward_name"),
+        "corporation":          r.get::<Option<String>, _>("corporation"),
+        "ward_hierarchy":       ward_hierarchy,
+        "status_history":       status_history,
+    })))
 }
 
 /// Transition a report's status and record the change in `status_history`.
@@ -565,6 +641,135 @@ pub async fn update_report_status(
     Ok(true)
 }
 
+/// Resolve or close a report by updating its status and storing the resolution photo.
+///
+/// # Contract (D-13, D-14, WFLOW-02, WFLOW-05)
+/// - `new_status` must be "resolved" or "closed" — any other value is rejected with BadRequest.
+/// - Updates `reports.status`, `reports.resolution_photo_path`, `reports.resolution_notes`.
+/// - Inserts a `status_history` row in the same transaction.
+/// - Returns `Ok(true)` if found and updated, `Ok(false)` if report not found (caller returns 404).
+pub async fn resolve_report(
+    pool: &PgPool,
+    report_id: Uuid,
+    new_status: &str,
+    resolution_photo_path: &str,
+    resolution_notes: Option<&str>,
+    changed_by: Uuid,
+) -> Result<bool, AppError> {
+    // Defense-in-depth guard: validate status before opening transaction.
+    // validate_resolve_request in the handler is the primary gate; this is belt-and-suspenders
+    // per D-13/D-14 so that the DB layer is independently correct.
+    if !matches!(new_status, "resolved" | "closed") {
+        return Err(AppError::BadRequest(
+            "resolve_report called with invalid status".to_string(),
+        ));
+    }
+
+    let mut tx = pool.begin().await?;
+
+    let result = sqlx::query(
+        r#"
+        UPDATE reports
+        SET status = $1::report_status,
+            resolution_photo_path = $2,
+            resolution_notes = $3
+        WHERE id = $4
+        "#,
+    )
+    .bind(new_status)
+    .bind(resolution_photo_path)
+    .bind(resolution_notes)
+    .bind(report_id)
+    .execute(&mut *tx)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        tx.rollback().await?;
+        return Ok(false);
+    }
+
+    // Insert audit trail row in the same transaction.
+    sqlx::query(
+        r#"
+        INSERT INTO status_history (report_id, new_status, note, changed_by)
+        VALUES ($1, $2::report_status, $3, $4)
+        "#,
+    )
+    .bind(report_id)
+    .bind(new_status)
+    .bind(resolution_notes)
+    .bind(changed_by)
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    tracing::info!(
+        report_id = %report_id,
+        new_status = new_status,
+        changed_by = %changed_by,
+        "Report resolved"
+    );
+
+    Ok(true)
+}
+
+/// Assign a report to an organization and auto-advance status to 'assigned'.
+///
+/// # Contract (D-09, WFLOW-03)
+/// - Updates `reports.assigned_org_id = org_id` AND `reports.status = 'assigned'`.
+/// - Inserts a `status_history` row in the same transaction.
+/// - Returns `Ok(true)` if found and updated, `Ok(false)` if report not found.
+pub async fn assign_report_org(
+    pool: &PgPool,
+    report_id: Uuid,
+    org_id: Uuid,
+    changed_by: Uuid,
+) -> Result<bool, AppError> {
+    let mut tx = pool.begin().await?;
+
+    let result = sqlx::query(
+        r#"
+        UPDATE reports
+        SET assigned_org_id = $1,
+            status = 'assigned'::report_status
+        WHERE id = $2
+        "#,
+    )
+    .bind(org_id)
+    .bind(report_id)
+    .execute(&mut *tx)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        tx.rollback().await?;
+        return Ok(false);
+    }
+
+    // Insert audit trail row in the same transaction (D-09: auto-advance to 'assigned').
+    sqlx::query(
+        r#"
+        INSERT INTO status_history (report_id, new_status, note, changed_by)
+        VALUES ($1, 'assigned'::report_status, 'Assigned to organization', $2)
+        "#,
+    )
+    .bind(report_id)
+    .bind(changed_by)
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    tracing::info!(
+        report_id = %report_id,
+        org_id = %org_id,
+        changed_by = %changed_by,
+        "Report assigned to organization"
+    );
+
+    Ok(true)
+}
+
 /// Delete a report row and return its `image_path` so the caller can remove
 /// the file from disk. Returns `None` if no such report exists.
 pub async fn delete_report(pool: &PgPool, report_id: Uuid) -> Result<Option<String>, AppError> {
@@ -589,8 +794,10 @@ pub async fn get_report_stats(pool: &PgPool) -> Result<StatsResponse, AppError> 
         .await?;
 
     // Seed every expected key with 0 so callers always see a full map (R34).
+    // Phase 03 (D-03, D-04, Pitfall 4): updated from 3-value to 6-value enum.
+    // "submitted" and "under_review" are NOT seeded — they were renamed in migration 008.
     let mut by_status: std::collections::HashMap<String, i64> =
-        ["submitted", "under_review", "resolved"]
+        ["open", "acknowledged", "assigned", "in_progress", "resolved", "closed"]
             .iter()
             .map(|k| (k.to_string(), 0))
             .collect();
@@ -654,6 +861,51 @@ pub async fn get_report_stats(pool: &PgPool) -> Result<StatsResponse, AppError> 
         by_category,
         by_severity,
     })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Intake stats — per-day report counts (BUG-03.2-A)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// SQL literal used by `get_intake_stats` at runtime.
+///
+/// Defined as a const so both the runtime query and the `intake_sql_fragment()`
+/// test helper reference the exact same string — no drift possible.
+///
+/// Security note (T-intake-sqli): `days` is a bound parameter (`$1`) — never
+/// interpolated via `format!` or string concatenation.
+const INTAKE_SQL: &str = "SELECT \
+    date_trunc('day', created_at AT TIME ZONE 'UTC')::DATE::TEXT AS day, \
+    COUNT(*)::BIGINT AS count \
+    FROM reports \
+    WHERE created_at >= NOW() - make_interval(days => $1) \
+    GROUP BY 1 \
+    ORDER BY 1";
+
+/// Returns per-day report counts for the last `days` calendar days (UTC).
+///
+/// # Contract (BUG-03.2-A)
+/// - Only days with at least one submission appear in the result.
+/// - The frontend is responsible for zero-filling sparse gaps.
+/// - `days` must already be clamped to [1, 90] by the caller (handler).
+pub async fn get_intake_stats(
+    pool: &PgPool,
+    days: i32,
+) -> Result<Vec<crate::models::admin::IntakeDayCount>, AppError> {
+    let rows = sqlx::query(INTAKE_SQL)
+        .bind(days)
+        .fetch_all(pool)
+        .await?;
+
+    let result = rows
+        .iter()
+        .map(|r| crate::models::admin::IntakeDayCount {
+            day: r.get::<String, _>("day"),
+            count: r.get::<i64, _>("count"),
+        })
+        .collect();
+
+    Ok(result)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -789,6 +1041,33 @@ pub const ADMIN_REPORT_DEDUP_COLS: &str =
     "reports.duplicate_count, reports.duplicate_of_id, reports.duplicate_confidence";
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Status history SQL constant — single source of truth for the status_history
+// SELECT used in get_report_admin().  Both the runtime query and the test helper
+// reference this constant so they can never drift apart (BUG-03.2-B).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The SQL string used in the status history `sqlx::query(...)` block.
+///
+/// # Fix applied (BUG-03.2-B)
+/// Column expression changed from the bare `au.display_name` alias to
+/// `COALESCE(au.display_name, au.email) AS changed_by_name` so the admin email
+/// is surfaced when `display_name` is NULL (the default for seeded admins).
+const STATUS_HISTORY_SQL: &str = r#"
+        SELECT
+            sh.id,
+            sh.old_status::TEXT AS old_status,
+            sh.new_status::TEXT AS new_status,
+            sh.changed_at,
+            sh.note,
+            sh.changed_by,
+            COALESCE(au.display_name, au.email) AS changed_by_name
+        FROM status_history sh
+        LEFT JOIN admin_users au ON au.id = sh.changed_by
+        WHERE sh.report_id = $1
+        ORDER BY sh.changed_at DESC
+        "#;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Pure SQL-string helpers (testable without a database)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -815,6 +1094,35 @@ pub fn admin_user_cols_sql() -> &'static str {
 #[allow(dead_code)]
 pub fn deactivate_admin_user_sql() -> &'static str {
     DEACTIVATE_ADMIN_USER_SQL
+}
+
+/// Returns the status history SQL string used in `get_report_admin()`.
+///
+/// # Contract (BUG-03.2-B)
+/// The returned string must contain "COALESCE", "au.email", and "changed_by_name"
+/// so that admin attribution in the status history timeline falls back to the
+/// admin email when `display_name` is NULL.
+///
+/// This is a test-only hook — the same `STATUS_HISTORY_SQL` constant is used by
+/// the runtime `sqlx::query(STATUS_HISTORY_SQL)` call, so this function asserts
+/// the exact SQL the query executes.
+#[allow(dead_code)]
+pub fn attribution_sql_fragment() -> &'static str {
+    STATUS_HISTORY_SQL
+}
+
+/// Returns the intake SQL string used by `get_intake_stats`.
+///
+/// # Contract (BUG-03.2-A)
+/// The returned string must contain "date_trunc" and "GROUP BY" so that
+/// per-day aggregation is verified without executing any DB query.
+///
+/// This is a test-only hook — the same `INTAKE_SQL` constant is used by
+/// the runtime `sqlx::query(INTAKE_SQL)` call, so this function asserts
+/// the exact SQL the query executes.
+#[allow(dead_code)]
+pub fn intake_sql_fragment() -> &'static str {
+    INTAKE_SQL
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1262,6 +1570,84 @@ mod tests {
             upper.contains("FALSE"),
             "deactivate_admin_user SQL must include 'FALSE' to guard against deactivating \
              super-admin rows (AC-SA-BE-3-F1); got: {}",
+            sql
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite 6 — BUG-03.2-B: status history attribution fallback via COALESCE
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// BUG-03.2-B — The status history query must use COALESCE(au.display_name, au.email)
+    /// so that the admin email is shown when display_name is NULL (the default for
+    /// seeded admins).  Without this, the timeline always renders "BY · —".
+    ///
+    /// This test asserts on the exact SQL string the runtime query executes
+    /// (via the STATUS_HISTORY_SQL constant) — it is not a snapshot test.
+    #[test]
+    fn attribution_fallback_sql_uses_coalesce() {
+        let fragment = attribution_sql_fragment();
+        assert!(
+            fragment.contains("COALESCE"),
+            "Status history SQL must use COALESCE for attribution fallback (BUG-03.2-B); \
+             a bare display_name alias returns NULL when display_name is unset. \
+             Got: {}",
+            fragment
+        );
+        assert!(
+            fragment.contains("au.email"),
+            "Status history SQL must include 'au.email' as the COALESCE fallback so the \
+             admin email appears when display_name is NULL (BUG-03.2-B); got: {}",
+            fragment
+        );
+        assert!(
+            fragment.contains("changed_by_name"),
+            "Status history SQL must alias the column as 'changed_by_name' so the \
+             row-accessor h.try_get::<String, _>(\"changed_by_name\") succeeds (BUG-03.2-B); \
+             got: {}",
+            fragment
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite 7 — BUG-03.2-A: intake stats SQL uses date_trunc + GROUP BY
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// BUG-03.2-A — The intake SQL must use `date_trunc('day', ...)` to aggregate
+    /// per-day counts and `GROUP BY` to collapse multiple rows per day into one.
+    ///
+    /// Security note (T-intake-sqli): The SQL must NOT use `format!` or string
+    /// interpolation for the interval — `days` is a bound parameter.
+    /// The test verifies the SQL literal contains the bound form `$1`.
+    ///
+    /// T-intake-dos: `days` clamping [1,90] is enforced in the handler before
+    /// the DB call — not in the SQL itself. This test asserts the SQL structure,
+    /// not the clamp (which is tested via the handler grep acceptance criterion).
+    #[test]
+    fn intake_sql_uses_date_trunc_and_group_by() {
+        let sql = intake_sql_fragment();
+        assert!(
+            sql.contains("date_trunc"),
+            "Intake SQL must use date_trunc to aggregate per-day counts (BUG-03.2-A); \
+             got: {}",
+            sql
+        );
+        assert!(
+            sql.contains("GROUP BY"),
+            "Intake SQL must use GROUP BY to collapse multiple submissions per day (BUG-03.2-A); \
+             got: {}",
+            sql
+        );
+        assert!(
+            sql.contains("$1"),
+            "Intake SQL must bind `days` as a parameter ($1) — never format!/string-interpolate \
+             the interval (T-intake-sqli); got: {}",
+            sql
+        );
+        assert!(
+            !sql.contains("format!"),
+            "Intake SQL must not be constructed with format! — it must be a static literal \
+             with bound parameters (T-intake-sqli); got: {}",
             sql
         );
     }
