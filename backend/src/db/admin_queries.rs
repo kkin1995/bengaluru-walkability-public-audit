@@ -482,6 +482,7 @@ pub async fn get_duplicate_reports_for_original(
 
 /// Fetch a single report by ID with full PII and exact coordinates.
 /// Returns `None` if not found.
+/// Includes `updated_at` (D-04) and a `status_history` array newest-first (D-05, D-06).
 pub async fn get_admin_report_by_id(
     pool: &PgPool,
     report_id: Uuid,
@@ -491,6 +492,7 @@ pub async fn get_admin_report_by_id(
         SELECT
             r.id,
             r.created_at,
+            r.updated_at,
             r.image_path,
             r.latitude,
             r.longitude,
@@ -525,47 +527,89 @@ pub async fn get_admin_report_by_id(
     .fetch_optional(pool)
     .await?;
 
-    Ok(row.map(|r| {
-        let ward_id = r.get::<Option<Uuid>, _>("ward_id");
-        let ward_hierarchy = if ward_id.is_some() {
-            serde_json::json!({
-                "ward_name":                  r.get::<Option<String>, _>("ward_name"),
-                "zone_name":                  r.get::<Option<String>, _>("zone_name"),
-                "ro_division":                r.get::<Option<String>, _>("ro_division"),
-                "aro_sub_division":           r.get::<Option<String>, _>("aro_sub_division"),
-                "assembly_constituency":      r.get::<Option<String>, _>("assembly_constituency"),
-                "assembly_constituency_no":   r.get::<Option<i32>, _>("assembly_constituency_no"),
-                "parliamentary_constituency": r.get::<Option<String>, _>("parliamentary_constituency"),
-                "mla_name":                   r.get::<Option<String>, _>("mla_name"),
-                "mp_name":                    r.get::<Option<String>, _>("mp_name"),
-                "corporation":                r.get::<Option<String>, _>("corporation"),
-            })
-        } else {
-            serde_json::Value::Null
-        };
+    // Early-return None if report not found — do not issue the status_history query.
+    let r = match row {
+        None => return Ok(None),
+        Some(r) => r,
+    };
 
-        serde_json::json!({
-            "id":                   r.get::<Uuid, _>("id"),
-            "created_at":           r.get::<DateTime<Utc>, _>("created_at"),
-            "image_path":           r.get::<String, _>("image_path"),
-            "latitude":             r.get::<f64, _>("latitude"),
-            "longitude":            r.get::<f64, _>("longitude"),
-            "category":             r.get::<String, _>("category"),
-            "severity":             r.get::<String, _>("severity"),
-            "description":          r.get::<Option<String>, _>("description"),
-            "submitter_name":       r.get::<Option<String>, _>("submitter_name"),
-            "submitter_contact":    r.get::<Option<String>, _>("submitter_contact"),
-            "status":               r.get::<String, _>("status"),
-            "location_source":      r.get::<String, _>("location_source"),
-            "resolution_photo_path": r.get::<Option<String>, _>("resolution_photo_path"),
-            "resolution_notes":     r.get::<Option<String>, _>("resolution_notes"),
-            "assigned_org_id":      r.get::<Option<Uuid>, _>("assigned_org_id"),
-            "ward_id":              ward_id,
-            "ward_name":            r.get::<Option<String>, _>("ward_name"),
-            "corporation":          r.get::<Option<String>, _>("corporation"),
-            "ward_hierarchy":       ward_hierarchy,
+    // D-05, D-06: Fetch status history for this report, newest first, with admin attribution.
+    let history_rows = sqlx::query(
+        r#"
+        SELECT
+            sh.id,
+            sh.old_status::TEXT AS old_status,
+            sh.new_status::TEXT AS new_status,
+            sh.changed_at,
+            sh.note,
+            sh.changed_by,
+            au.display_name AS changed_by_name
+        FROM status_history sh
+        LEFT JOIN admin_users au ON au.id = sh.changed_by
+        WHERE sh.report_id = $1
+        ORDER BY sh.changed_at DESC
+        "#,
+    )
+    .bind(report_id)
+    .fetch_all(pool)
+    .await?;
+
+    let status_history: Vec<serde_json::Value> = history_rows
+        .iter()
+        .map(|h| {
+            serde_json::json!({
+                "id":               h.get::<Uuid, _>("id"),
+                "old_status":       h.try_get::<String, _>("old_status").ok(),
+                "new_status":       h.get::<String, _>("new_status"),
+                "changed_at":       h.get::<DateTime<Utc>, _>("changed_at"),
+                "note":             h.try_get::<String, _>("note").ok(),
+                "changed_by":       h.try_get::<Uuid, _>("changed_by").ok(),
+                "changed_by_name":  h.try_get::<String, _>("changed_by_name").ok(),
+            })
         })
-    }))
+        .collect();
+
+    let ward_id = r.get::<Option<Uuid>, _>("ward_id");
+    let ward_hierarchy = if ward_id.is_some() {
+        serde_json::json!({
+            "ward_name":                  r.get::<Option<String>, _>("ward_name"),
+            "zone_name":                  r.get::<Option<String>, _>("zone_name"),
+            "ro_division":                r.get::<Option<String>, _>("ro_division"),
+            "aro_sub_division":           r.get::<Option<String>, _>("aro_sub_division"),
+            "assembly_constituency":      r.get::<Option<String>, _>("assembly_constituency"),
+            "assembly_constituency_no":   r.get::<Option<i32>, _>("assembly_constituency_no"),
+            "parliamentary_constituency": r.get::<Option<String>, _>("parliamentary_constituency"),
+            "mla_name":                   r.get::<Option<String>, _>("mla_name"),
+            "mp_name":                    r.get::<Option<String>, _>("mp_name"),
+            "corporation":                r.get::<Option<String>, _>("corporation"),
+        })
+    } else {
+        serde_json::Value::Null
+    };
+
+    Ok(Some(serde_json::json!({
+        "id":                   r.get::<Uuid, _>("id"),
+        "created_at":           r.get::<DateTime<Utc>, _>("created_at"),
+        "updated_at":           r.get::<DateTime<Utc>, _>("updated_at"),
+        "image_path":           r.get::<String, _>("image_path"),
+        "latitude":             r.get::<f64, _>("latitude"),
+        "longitude":            r.get::<f64, _>("longitude"),
+        "category":             r.get::<String, _>("category"),
+        "severity":             r.get::<String, _>("severity"),
+        "description":          r.get::<Option<String>, _>("description"),
+        "submitter_name":       r.get::<Option<String>, _>("submitter_name"),
+        "submitter_contact":    r.get::<Option<String>, _>("submitter_contact"),
+        "status":               r.get::<String, _>("status"),
+        "location_source":      r.get::<String, _>("location_source"),
+        "resolution_photo_path": r.get::<Option<String>, _>("resolution_photo_path"),
+        "resolution_notes":     r.get::<Option<String>, _>("resolution_notes"),
+        "assigned_org_id":      r.get::<Option<Uuid>, _>("assigned_org_id"),
+        "ward_id":              ward_id,
+        "ward_name":            r.get::<Option<String>, _>("ward_name"),
+        "corporation":          r.get::<Option<String>, _>("corporation"),
+        "ward_hierarchy":       ward_hierarchy,
+        "status_history":       status_history,
+    })))
 }
 
 /// Transition a report's status and record the change in `status_history`.
