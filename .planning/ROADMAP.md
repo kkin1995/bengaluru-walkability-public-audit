@@ -334,5 +334,5 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.5 Admin Portal UI Redesign | 4/4 | Complete   | 2026-05-22 |
 | 3. Government Triage Workflow | 1/4 | In Progress|  |
 | 3.1 Admin Report Detail — Split Layout | 1/1 | Complete   | 2026-05-26 |
-| 3.2 Admin UAT Gap Fixes | 0/TBD | Planned | - |
+| 3.2 Admin UAT Gap Fixes | 1/2 | In Progress|  |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
