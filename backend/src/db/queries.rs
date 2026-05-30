@@ -142,53 +142,6 @@ pub async fn count_reports(pool: &PgPool) -> Result<i64, AppError> {
     Ok(count)
 }
 
-pub async fn list_reports(
-    pool: &PgPool,
-    page: i64,
-    limit: i64,
-    category: Option<&str>,
-    status: Option<&str>,
-) -> Result<Vec<Report>, AppError> {
-    let offset = (page - 1) * limit;
-
-    let rows = sqlx::query_as::<_, Report>(
-        r#"
-        SELECT
-            id, created_at, image_path, latitude, longitude,
-            category::TEXT AS category,
-            severity::TEXT AS severity,
-            description,
-            submitter_name,
-            submitter_contact,
-            status::TEXT AS status,
-            location_source::TEXT AS location_source,
-            ward_id,
-            photo_hash,
-            duplicate_of_id,
-            duplicate_count,
-            duplicate_confidence,
-            submitter_ip,
-            resolution_photo_path,
-            resolution_notes,
-            assigned_org_id
-        FROM reports
-        WHERE
-            ($1::TEXT IS NULL OR category::TEXT = $1)
-            AND ($2::TEXT IS NULL OR status::TEXT = $2)
-        ORDER BY created_at DESC
-        LIMIT $3 OFFSET $4
-        "#,
-    )
-    .bind(category)
-    .bind(status)
-    .bind(limit)
-    .bind(offset)
-    .fetch_all(pool)
-    .await?;
-
-    Ok(rows)
-}
-
 /// Fetch a paginated list of reports enriched with ward data (ward_name + corporation).
 ///
 /// Used by the public GET /api/reports list endpoint to populate the map popup
