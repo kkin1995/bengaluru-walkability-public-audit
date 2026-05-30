@@ -22,7 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
 - [x] **Phase 3.1: Admin Report Detail — Split Layout** - Restructure /admin/reports/[id] into two-column split layout: fixed left column (photo + metadata) + independently-scrolling right rail (action panels + GBA hierarchy + history) — eliminates below-fold discoverability (F-07 / ISSUE-07 from Phase 03 UAT) (INSERTED — UAT polish after Phase 3 ships) (completed 2026-05-26)
 - [x] **Phase 3.2: Admin UAT Gap Fixes — Dashboard Chart Period Filter and Status History Attribution** - Wire up the 7D/14D/30D intake chart period filter buttons on the admin dashboard, implement real status_history timestamps and admin user attribution in the report detail view (INSERTED — UAT gap closure after Phase 3.1) (completed 2026-05-30)
-- [ ] **Phase 3.3: Admin UAT Gap Fixes — Intake Chart Real Data and Attribution Fallback** - Replace dashboard INTAKE sparkbars stub data with a real per-day intake endpoint (GET /api/admin/stats/intake?days=N), and fix status history attribution to fall back to admin email when display_name is NULL (INSERTED — UAT gap closure after Phase 3.2)
+- [x] **Phase 3.3: Admin UAT Gap Fixes — Intake Chart Real Data and Attribution Fallback** - Replace dashboard INTAKE sparkbars stub data with a real per-day intake endpoint (GET /api/admin/stats/intake?days=N), and fix status history attribution to fall back to admin email when display_name is NULL (INSERTED — UAT gap closure after Phase 3.2) (completed 2026-05-30)
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
 ## Phase Details
@@ -314,7 +314,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 — shared admin_queries.rs)*
 
-- [ ] 03.3-02-PLAN.md — BUG-03.2-A intake endpoint: IntakeDayCount struct + get_intake_stats DB fn + admin_get_intake_stats handler (days clamp [1,90]) + route + getIntakeStats adminApi fn + dashboard useEffect wiring + Wave 0 tests
+- [x] 03.3-02-PLAN.md — BUG-03.2-A intake endpoint: IntakeDayCount struct + get_intake_stats DB fn + admin_get_intake_stats handler (days clamp [1,90]) + route + getIntakeStats adminApi fn + dashboard useEffect wiring + Wave 0 tests
 
 
 ### Phase 4: Export and Public Analytics
