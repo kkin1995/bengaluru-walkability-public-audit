@@ -37,6 +37,8 @@ export default function AdminDashboard() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [recentReports, setRecentReports] = useState<AdminReport[]>([]);
   const isOnline = useOnlineStatus();
+  // Phase 03.2 (D-01): Active period state for the intake sparkbars chart
+  const [activePeriod, setActivePeriod] = useState<"7D" | "14D" | "30D">("14D");
 
   const fetchStats = useCallback(async () => {
     setIsLoading(true);
@@ -94,6 +96,23 @@ export default function AdminDashboard() {
   const highPct = Math.round((highCount / totalSeverity) * 100);
   const mediumPct = Math.round((mediumCount / totalSeverity) * 100);
   const lowPct = 100 - highPct - mediumPct;
+
+  // Phase 03.2 (D-01, D-02): Derive sparkbars window from activePeriod.
+  // Slices/pads STUB_SPARKBARS to the selected day count so the chart visibly changes per period.
+  // When a real per-day intake endpoint is added, swap in the series here without changing the wiring.
+  const sparkbarsValues: number[] = (() => {
+    const dayCount = activePeriod === "7D" ? 7 : activePeriod === "30D" ? 30 : 14;
+    if (dayCount <= STUB_SPARKBARS.length) {
+      // Slice the last N values so the most-recent bars are always shown
+      return STUB_SPARKBARS.slice(STUB_SPARKBARS.length - dayCount);
+    }
+    // Pad to dayCount by repeating the stub data cyclically
+    const result: number[] = [];
+    for (let i = 0; i < dayCount; i++) {
+      result.push(STUB_SPARKBARS[i % STUB_SPARKBARS.length]);
+    }
+    return result;
+  })();
 
   // ─── Offline banner ─────────────────────────────────────────────────────────
   const offlineBanner = !isOnline ? (
@@ -420,7 +439,7 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* 14-day intake sparkbars */}
+      {/* Intake sparkbars with period filter — Phase 03.2 (D-01, D-02) */}
       <Card style={{ marginBottom: 24 }}>
         <div
           style={{
@@ -430,21 +449,36 @@ export default function AdminDashboard() {
             marginBottom: 12,
           }}
         >
-          <SectionLabel>Intake · 14_Day</SectionLabel>
+          <SectionLabel>
+            {activePeriod === "7D" ? "Intake · 7_Day" : activePeriod === "30D" ? "Intake · 30_Day" : "Intake · 14_Day"}
+          </SectionLabel>
           <div style={{ display: "flex", gap: 6 }}>
             {(["7D", "14D", "30D"] as const).map((label) => (
-              <Pill
+              <button
                 key={label}
-                tone={label === "14D" ? "accent" : "outline"}
-                size="sm"
+                type="button"
+                onClick={() => setActivePeriod(label)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                }}
+                aria-pressed={label === activePeriod}
               >
-                {label}
-              </Pill>
+                <Pill
+                  tone={label === activePeriod ? "accent" : "outline"}
+                  size="sm"
+                >
+                  {label}
+                </Pill>
+              </button>
             ))}
           </div>
         </div>
         <Sparkbars
-          values={STUB_SPARKBARS}
+          values={sparkbarsValues}
           color="var(--ink-2)"
           height={48}
           width={600}

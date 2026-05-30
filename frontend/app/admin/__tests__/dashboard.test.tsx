@@ -398,3 +398,76 @@ describe("EC-FE-6 — getStats() failure shows error state with retry button, no
     });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 03.2 / BUG-03.1-B — Period filter buttons are clickable (D-01, D-02)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Phase 03.2 / BUG-03.1-B — Period filter buttons change active state", () => {
+  it("renders period buttons 7D, 14D, 30D", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+    await waitFor(() => {
+      expect(screen.getByText("7D")).toBeInTheDocument();
+      expect(screen.getByText("14D")).toBeInTheDocument();
+      expect(screen.getByText("30D")).toBeInTheDocument();
+    });
+  });
+
+  it("14D button is active (data-tone=accent) by default", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+    await waitFor(() => {
+      const pill14D = screen.getByText("14D").closest("[data-component='pill']") as HTMLElement | null;
+      expect(pill14D?.getAttribute("data-tone")).toBe("accent");
+    });
+  });
+
+  it("clicking 7D button changes active period: 7D pill gets data-tone=accent", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("7D")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      const btn7D = screen.getByText("7D").closest("button");
+      if (btn7D) {
+        await userEvent.click(btn7D);
+      }
+    });
+
+    await waitFor(() => {
+      const pill7D = screen.getByText("7D").closest("[data-component='pill']") as HTMLElement | null;
+      expect(pill7D?.getAttribute("data-tone")).toBe("accent");
+      // 14D should no longer be accent
+      const pill14D = screen.getByText("14D").closest("[data-component='pill']") as HTMLElement | null;
+      expect(pill14D?.getAttribute("data-tone")).toBe("outline");
+    });
+  });
+
+  it("clicking 30D button changes active period: 30D pill gets data-tone=accent", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("30D")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      const btn30D = screen.getByText("30D").closest("button");
+      if (btn30D) {
+        await userEvent.click(btn30D);
+      }
+    });
+
+    await waitFor(() => {
+      const pill30D = screen.getByText("30D").closest("[data-component='pill']") as HTMLElement | null;
+      expect(pill30D?.getAttribute("data-tone")).toBe("accent");
+      // 14D should no longer be accent
+      const pill14D = screen.getByText("14D").closest("[data-component='pill']") as HTMLElement | null;
+      expect(pill14D?.getAttribute("data-tone")).toBe("outline");
+    });
+  });
+});
