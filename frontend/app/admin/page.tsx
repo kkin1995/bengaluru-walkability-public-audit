@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getStats, getAdminReports, type AdminStats, type AdminReport } from "./lib/adminApi";
+import { getStats, getAdminReports, getIntakeStats, type AdminStats, type AdminReport, type IntakeDayCount } from "./lib/adminApi";
 import { useOnlineStatus } from "./lib/useOnlineStatus";
 import { getCategoryLabel } from "@/app/lib/translations";
 import StatsCards from "./components/StatsCards";
@@ -26,9 +26,6 @@ function statusActionLabel(status: string): string {
   return "New";
 }
 
-// Stub sparkbars data — 14-day intake
-const STUB_SPARKBARS = [3, 5, 2, 8, 6, 4, 9, 7, 5, 3, 6, 8, 4, 5];
-
 export default function AdminDashboard() {
   const router = useRouter();
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -39,6 +36,8 @@ export default function AdminDashboard() {
   const isOnline = useOnlineStatus();
   // Phase 03.2 (D-01): Active period state for the intake sparkbars chart
   const [activePeriod, setActivePeriod] = useState<"7D" | "14D" | "30D">("14D");
+  // BUG-03.2-A: Real intake data — replaces the former hardcoded stub (removed)
+  const [intakeData, setIntakeData] = useState<number[]>([]);
 
   const fetchStats = useCallback(async () => {
     setIsLoading(true);
@@ -71,6 +70,39 @@ export default function AdminDashboard() {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  // BUG-03.2-A: Fetch real per-day intake counts whenever the active period changes.
+  // Zero-fills sparse days (days with no submissions) oldest→newest.
+  // On fetch error, falls back to an all-zero array of the correct length (no crash).
+  // IMPORTANT: Do NOT call setActivePeriod inside this effect — infinite loop risk.
+  useEffect(() => {
+    const dayCount = activePeriod === "7D" ? 7 : activePeriod === "30D" ? 30 : 14;
+
+    getIntakeStats(dayCount)
+      .then((rows: IntakeDayCount[]) => {
+        // Build a dense number[] of length dayCount, ordered oldest→newest.
+        // Days absent from the API response are zero-filled.
+        const rowMap: Record<string, number> = {};
+        for (const r of rows) {
+          rowMap[r.day] = r.count;
+        }
+
+        const dense: number[] = [];
+        const now = new Date();
+        for (let i = dayCount - 1; i >= 0; i--) {
+          const d = new Date(now);
+          d.setUTCDate(d.getUTCDate() - i);
+          const key = d.toISOString().slice(0, 10);
+          dense.push(rowMap[key] ?? 0);
+        }
+        setIntakeData(dense);
+      })
+      .catch(() => {
+        // Non-critical: show flat-zero bars on error rather than crashing
+        const dayCount2 = activePeriod === "7D" ? 7 : activePeriod === "30D" ? 30 : 14;
+        setIntakeData(Array(dayCount2).fill(0) as number[]);
+      });
+  }, [activePeriod]);
+
   // Derive the stats shape expected by StatsCards
   // Phase 03 (D-03): by_status now uses 6-value lifecycle shape
   const statsForCards = stats
@@ -97,22 +129,13 @@ export default function AdminDashboard() {
   const mediumPct = Math.round((mediumCount / totalSeverity) * 100);
   const lowPct = 100 - highPct - mediumPct;
 
-  // Phase 03.2 (D-01, D-02): Derive sparkbars window from activePeriod.
-  // Slices/pads STUB_SPARKBARS to the selected day count so the chart visibly changes per period.
-  // When a real per-day intake endpoint is added, swap in the series here without changing the wiring.
-  const sparkbarsValues: number[] = (() => {
-    const dayCount = activePeriod === "7D" ? 7 : activePeriod === "30D" ? 30 : 14;
-    if (dayCount <= STUB_SPARKBARS.length) {
-      // Slice the last N values so the most-recent bars are always shown
-      return STUB_SPARKBARS.slice(STUB_SPARKBARS.length - dayCount);
-    }
-    // Pad to dayCount by repeating the stub data cyclically
-    const result: number[] = [];
-    for (let i = 0; i < dayCount; i++) {
-      result.push(STUB_SPARKBARS[i % STUB_SPARKBARS.length]);
-    }
-    return result;
-  })();
+  // BUG-03.2-A: Derive the Sparkbars window size from the active period.
+  // intakeData is populated by the [activePeriod] useEffect above.
+  // Show flat-zero bars during first load (before the first fetch resolves) rather
+  // than a blank chart — RESEARCH.md Pitfall 5.
+  const intakeDayCount = activePeriod === "7D" ? 7 : activePeriod === "30D" ? 30 : 14;
+  const sparkbarsValues: number[] =
+    intakeData.length > 0 ? intakeData : (Array(intakeDayCount).fill(0) as number[]);
 
   // ─── Offline banner ─────────────────────────────────────────────────────────
   const offlineBanner = !isOnline ? (

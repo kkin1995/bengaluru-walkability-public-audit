@@ -31,6 +31,7 @@ import userEvent from "@testing-library/user-event";
 jest.mock("../lib/adminApi", () => ({
   getStats: jest.fn(),
   getAdminReports: jest.fn(),
+  getIntakeStats: jest.fn(),
   getUsers: jest.fn(),
   login: jest.fn(),
   logout: jest.fn(),
@@ -144,8 +145,10 @@ const ZERO_STATS_FIXTURE = {
 
 // Default mock for getAdminReports — returns empty activity list unless overridden.
 // Required because page.tsx now fetches recent reports on mount alongside stats.
+// Default mock for getIntakeStats — returns empty array unless overridden (Pitfall 4 — missing mock throws "not a function").
 beforeEach(() => {
   (adminApi.getAdminReports as jest.Mock).mockResolvedValue({ data: [], pagination: { page: 1, limit: 5, total_count: 0, total_pages: 0 } });
+  (adminApi.getIntakeStats as jest.Mock).mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -468,6 +471,61 @@ describe("Phase 03.2 / BUG-03.1-B — Period filter buttons change active state"
       // 14D should no longer be accent
       const pill14D = screen.getByText("14D").closest("[data-component='pill']") as HTMLElement | null;
       expect(pill14D?.getAttribute("data-tone")).toBe("outline");
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-03.2-A — Intake stats fetched on mount and on period change
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("BUG-03.2-A — Dashboard fetches real intake data on period change", () => {
+  it("on mount (default 14D), calls getIntakeStats(14)", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+
+    await waitFor(() => {
+      expect(adminApi.getIntakeStats).toHaveBeenCalledWith(14);
+    });
+  });
+
+  it("clicking 7D calls getIntakeStats(7)", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("7D")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      const btn7D = screen.getByText("7D").closest("button");
+      if (btn7D) {
+        await userEvent.click(btn7D);
+      }
+    });
+
+    await waitFor(() => {
+      expect(adminApi.getIntakeStats).toHaveBeenCalledWith(7);
+    });
+  });
+
+  it("clicking 30D calls getIntakeStats(30)", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("30D")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      const btn30D = screen.getByText("30D").closest("button");
+      if (btn30D) {
+        await userEvent.click(btn30D);
+      }
+    });
+
+    await waitFor(() => {
+      expect(adminApi.getIntakeStats).toHaveBeenCalledWith(30);
     });
   });
 });
