@@ -243,6 +243,22 @@ export async function getStats(): Promise<AdminStats> {
   return apiFetch<AdminStats>(`${BASE}/api/admin/stats`);
 }
 
+/// Per-day report count returned by GET /api/admin/stats/intake?days=N (BUG-03.2-A).
+/// `day` is an ISO date string "YYYY-MM-DD" (UTC).
+/// Only days with at least one submission appear — frontend zero-fills gaps.
+export interface IntakeDayCount {
+  day: string;
+  count: number;
+}
+
+/// Fetch per-day report counts for the last `days` calendar days.
+///
+/// Routes through apiFetch so credentials: "include" is applied automatically
+/// (shared pattern — do not call fetch() directly here).
+export async function getIntakeStats(days: number): Promise<IntakeDayCount[]> {
+  return apiFetch<IntakeDayCount[]>(`${BASE}/api/admin/stats/intake?days=${days}`);
+}
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export async function getUsers(): Promise<AdminUser[]> {
