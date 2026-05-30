@@ -22,6 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
 - [x] **Phase 3.1: Admin Report Detail — Split Layout** - Restructure /admin/reports/[id] into two-column split layout: fixed left column (photo + metadata) + independently-scrolling right rail (action panels + GBA hierarchy + history) — eliminates below-fold discoverability (F-07 / ISSUE-07 from Phase 03 UAT) (INSERTED — UAT polish after Phase 3 ships) (completed 2026-05-26)
 - [x] **Phase 3.2: Admin UAT Gap Fixes — Dashboard Chart Period Filter and Status History Attribution** - Wire up the 7D/14D/30D intake chart period filter buttons on the admin dashboard, implement real status_history timestamps and admin user attribution in the report detail view (INSERTED — UAT gap closure after Phase 3.1) (completed 2026-05-30)
+- [ ] **Phase 3.3: Admin UAT Gap Fixes — Intake Chart Real Data and Attribution Fallback** - Replace dashboard INTAKE sparkbars stub data with a real per-day intake endpoint (GET /api/admin/stats/intake?days=N), and fix status history attribution to fall back to admin email when display_name is NULL (INSERTED — UAT gap closure after Phase 3.2)
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
 ## Phase Details
@@ -291,6 +292,30 @@ Plans:
 **Plans**: TBD
 
 Plans: *(not yet created — planning begins now)*
+
+### Phase 3.3: Admin UAT Gap Fixes — Intake Chart Real Data and Attribution Fallback (INSERTED)
+
+**Goal**: Fix the two confirmed UAT bugs from Phase 3.2: the dashboard INTAKE sparkbars render hardcoded STUB_SPARKBARS data unrelated to real reports (needs a new GET /api/admin/stats/intake?days=N endpoint + frontend data wiring), and status history attribution always shows "BY · —" because the seeded admin has display_name = NULL (one-liner COALESCE(au.display_name, au.email) fallback)
+**Depends on**: Phase 3.2
+**Requirements**: BUG-03.2-A, BUG-03.2-B (phase-local; sourced from 03.3-UAT-ISSUES.md)
+**Success Criteria** (what must be TRUE):
+
+  1. The dashboard INTAKE sparkbars reflect actual per-day report intake counts for the selected 7D/14D/30D window — empty days show height 0, and a system with 1 total report shows at most 1 bar with height > 0 (no STUB_SPARKBARS pattern)
+  2. GET /api/admin/stats/intake?days=N returns per-day report counts, clamps days to [1,90], and is behind admin auth
+  3. Status history entries on /admin/reports/[id] show "BY · <admin email>" when no display name is set (no longer "BY · —")
+  4. `cargo test` and the frontend intake + dashboard test suites pass; `npm run build` and `cargo check` succeed with no new dependency or migration
+
+**Plans**: 2 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 03.3-01-PLAN.md — BUG-03.2-B attribution COALESCE fallback in status history query + SQL-string test helper (backend admin_queries.rs)
+
+**Wave 2** *(blocked on Wave 1 — shared admin_queries.rs)*
+
+- [ ] 03.3-02-PLAN.md — BUG-03.2-A intake endpoint: IntakeDayCount struct + get_intake_stats DB fn + admin_get_intake_stats handler (days clamp [1,90]) + route + getIntakeStats adminApi fn + dashboard useEffect wiring + Wave 0 tests
+
 
 ### Phase 4: Export and Public Analytics
 
