@@ -11,6 +11,7 @@ frontend/.next/
 frontend/out/
 frontend/.env.local
 frontend/.env.production
+frontend/tsconfig.tsbuildinfo
 
 # Docker
 .env
