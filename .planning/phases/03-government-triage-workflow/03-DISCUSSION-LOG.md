@@ -1,0 +1,292 @@
+# Phase 3: Government Triage Workflow - Discussion Log
+
+> **Audit trail only.** Do not use as input to planning, research, or execution agents.
+> Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
+
+**Date:** 2026-05-25
+**Phase:** 03-government-triage-workflow
+**Areas discussed:** GBA meeting outcome + scope pivot, Corporation tagging, GBA hierarchy levels, Hierarchy display locations, Public single-report page, Org assignment, Phase 02.6 sequencing
+
+---
+
+## Update Session 2 — 2026-05-25
+
+**Areas discussed:** Parliamentary Constituency (MP) in elected chain
+
+### Parliamentary Constituency Addition
+
+**User's request (free text):** "I just want to ensure that the MP (Member of Parliament) is also there in the accountability hierarchy. Earlier I saw MLA, but I did not see MP."
+
+**Context check:** The GeoJSON (`data/gba_wards_2025.geojson`) has `ac` and `ac_no` (Assembly Constituency / MLA) but no Parliamentary Constituency (Lok Sabha) field. The chain is: Report → Ward (via GPS+ST_Within) → `wards.ac_no` → `wards.parliamentary_constituency` (new column). No second GPS lookup required.
+
+### Data Source for PC
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Derive at migration time from a lookup | Hardcoded AC_no → Lok Sabha seat mapping in migration SQL (Delimitation Commission order) | ✓ |
+| Add to GeoJSON as new field | Enrich GeoJSON manually then backfill | |
+| Skip MP for now | MLA-only for this phase | |
+
+**User's choice:** Derive at migration time
+
+### PC Display Location
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Same elected chain as MLA | Both AC (MLA) and PC (MP) on admin detail + public /reports/[id] | ✓ |
+| Public page only, not admin | PC visible to citizens but not admins | |
+| Separate "Elected Officials" section | Dedicated section apart from bureaucratic chain | |
+
+**User's choice:** Same elected chain as MLA (Recommended)
+
+### Decisions captured: D-41, D-42; D-21, D-23, D-25 updated
+
+---
+
+## Update Session 3 — 2026-05-25
+
+**Areas discussed:** Correctness of RO/ARO accountability chain for footpaths; named elected officials (MLA/MP)
+
+### RO/ARO Chain Validity
+
+**User's observation (free text):** "Can you also check if ARO and RO is the correct accountability chain? Another app (Namma Kasa) for reporting garbage spots has Junior Health Inspector → Asst. Executive Engineer → Additional Commissioner → Commissioner → BSWML → Your Ward Central (#25). Revenue officer seems odd for footpaths."
+
+**Finding:** The `RO_Division` and `ARO_Sub_Division` fields in the GeoJSON refer to **Revenue Officer** administrative zones used for property tax and khata records — NOT the Engineering department that is responsible for road/footpath infrastructure. The correct accountability chain for footpaths is the BBMP Engineering Department (AEE → EE → SE → Chief Engineer for Roads → GBA Commissioner).
+
+### Engineering Chain — Research Decision
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Research Engineering chain first, block planning | Get the correct chain before committing to DB schema | ✓ |
+| Show what we can, add engineering chain later | Proceed with Corporation + MLA/MP; add AEE/EE chain in gap-closure | |
+| Research both chains in parallel | Research while planning proceeds with simplified display | |
+
+**User's choice:** Research first — Plan 03-01 replanning is blocked on research findings (D-45)
+
+### Named Elected Officials
+
+**User's request (free text):** "We want Accountability and Transparency but we want names of officers where possible or at least names of MLA and MP."
+
+**Note:** This reverses D-24 ("do NOT store named individuals") for elected officials specifically. Bureaucratic officer names (AEE/EE/SE) remain subject to research — they may change frequently and may not be publicly structured.
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Store in DB, update manually at election cycles | mla_name/mp_name columns on wards table; seeded from ECI/Vidhan Sabha | ✓ |
+| Link out to ECI/Vidhan Sabha website | No DB storage; always current; zero maintenance | |
+| Both — store names + show a link | DB display + verify link | |
+
+**User's choice:** Store in DB, update manually at election cycles
+
+### Decisions captured: D-24 (revised), D-43, D-44, D-45, D-46; D-21, D-23, D-25, D-28 updated
+
+---
+
+## Update Session 4 — 2026-05-25
+
+**Areas discussed:** KML files in project root — what they contain and how to use them
+
+### KML File Inventory
+
+**User's request (free text):** "I have also saved several .kml files into root of this project. Before the researcher agent starts, we can go through those and see what data they contain and how the data can be used or transferred to enable the app to have the most impact."
+
+7 KML files found. 5 are redundant with existing GeoJSON/PostGIS data. 2 are high value:
+
+| File | Content | Action |
+|------|---------|--------|
+| `53329777...kml` | GBA outer boundary (1 polygon) | Redundant |
+| `632f5209...kml` | 5 Corporation polygons | Redundant |
+| `790f6df1...kml` | 5 Corporation polygons (duplicate) | Redundant |
+| `e7ad0eac...kml` | 10 Zone polygons | Redundant |
+| `gba-369-wards...kml` | 369 ward boundaries | Already imported |
+| `bengaluru-road-centerline-map.kml` | 101,092 BBMP road segments, 14,599 km | **Phase 4** |
+| `bengaluru-road-width-map.kml` | 23,238 segments with planned vs built width | **Phase 4** |
+
+ChatGPT analysis already exists at `.planning/codex/road-network-kml-findings.md`
+
+### Road Data Capabilities Selected
+
+| Capability | Selected |
+|-----------|----------|
+| Snap reports to nearest road segment | ✓ |
+| Show ROW vs footpath gap per road | ✓ |
+| Corridor-aware clustering | ✓ |
+| Analytics normalized by road length (PWN foundation) | ✓ |
+
+### Phasing Decision
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Phase 4 — don't touch Phase 3 scope | Road data deferred to Phase 4 analytics/exports | ✓ |
+| New inserted phase between 3 and 4 | Phase 3.5 for road enrichment | |
+| Phase 3 — add it now while replanning | Include in current replanning | |
+
+**User's choice:** Phase 4 — Phase 3 scope unchanged
+
+### Key Technical Cautions (from analysis)
+
+- `KGISWardID` in centerline uses old 198-ward system, NOT 369 GBA wards — use PostGIS spatial query instead
+- Field codes (`Road_Class`, `RR_TP_HIER`, etc.) need codebook verification before public display
+- Only 9,472 road IDs overlap between centerline and width datasets — spatial matching required for rest
+- Road names present on only 1,043/101,092 segments — not reliable for UX
+
+Captured in CONTEXT.md `<deferred>` section for Phase 4 researcher.
+
+---
+
+## Context Check
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Update it | Load existing context and continue discussion | ✓ |
+| View it | Show current CONTEXT.md without changes | |
+| Skip | Exit — context already good | |
+
+**User's choice:** Update it
+**Notes:** Existing context (2026-03-14) predates Phase 02.5 completion and a key GBA stakeholder meeting that changed the entire scope of the phase.
+
+---
+
+## Plans Exist Warning
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Continue and replan after | Update context now, then replan | ✓ |
+| View existing plans | Show what plans already exist | |
+| Cancel | Exit without changes | |
+
+**User's choice:** Continue and replan after
+**Notes:** Plans 03-01 and 03-02 were written in March 2026 and do not reflect the GBA meeting outcome or the hierarchy data requirements. They will need replanning.
+
+---
+
+## GBA Scope Pivot (primary topic)
+
+**User's choice (free text):** "We had a meeting with the GBA Urban Design Cell and the IT Cell and they said that they have a lot of data coming in to their system from many many apps and do not have the bandwidth to integrate another app into their system. Therefore, for now, we have decided to change the administration of the reports to us only. We will administer through the existing admin UI. I want to discuss how to implement this. In addition, I also want to tag and show the hierarchy of who is responsible for fixing each complaint. Currently we are tagging the ward. I want to tag the city corporation also. Also I want to show the entire hierarchy (both bureaucratic and elected) from the bottom most officer to the Chief Commissioner of the GBA. I want to discuss how to do this as well. First check what data on the GBA we do have and in the .kml file in the repo, then we will have to do research to find all other verified information."
+
+**Notes:** This is the central pivot. The phase goal shifts from "GBA admins use the app" to "show who is bureaucratically responsible + Nammadaari manages internally." The KML/GeoJSON already has all 5 corporations, 10 zones, 15 RO divisions, ARO sub-divisions, and assembly constituencies.
+
+---
+
+## Corporation Tagging
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Auto-derive at query time | JOIN reports → wards at query time; no new column on reports | ✓ |
+| Add corporation_id to reports | Denormalize for query speed and filtering | |
+| Both — store + JOIN | Best for filtering but most migration work | |
+
+**User's choice:** Auto-derive at query time (Recommended)
+**Notes:** The `wards` table already has `corporation TEXT` (Central/North/East/South/West). A JOIN is sufficient and avoids denormalization.
+
+---
+
+## GBA Hierarchy Levels
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Ward → Zone → Corporation (top 3) | Clean, actionable — 3 levels only | |
+| Full bureaucratic chain incl. RO/ARO Divisions | Ward → ARO → RO → Zone → Corporation → GBA | ✓ |
+| Elected officials chain (Corporator → MLA) | Assembly Constituency from ward's `ac` field | ✓ |
+
+**User's choice:** Full bureaucratic chain + Elected officials chain (multi-select)
+**Notes:** User wants the complete picture — all 6 bureaucratic levels plus the elected representative chain. Data for both already exists in the GeoJSON.
+
+---
+
+## Hierarchy Display Locations
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Admin detail page only | Full chain in admin portal only | |
+| Public map popup (summary) | Corporation name in popup — citizens see who's responsible | |
+| Both admin detail (full) + public popup (summary) | Admin full; public popup summary | ✓ |
+
+**User's choice:** Both + new public report page
+**Notes (free text):** "In the frontend map, when someone taps on a report dot, it now opens a small pop up box with the photo and other small details. I want a 'Read More' link that will open that single report in a separate page which shows the entire hierarchy and full details of the report."
+
+**New surface identified:** Public single-report page `/reports/[id]` — not previously in scope.
+
+---
+
+## Public Single-Report Page Contents
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Report photo + category + severity + description | Core submission details | ✓ |
+| Current status + status history timeline | Full lifecycle history with dates | ✓ |
+| Full GBA hierarchy chain | 6-level bureaucratic + Assembly Constituency | ✓ |
+| Resolution photo + notes (when resolved) | After-photo and resolution notes | ✓ |
+
+**User's choice:** All four (multi-select)
+
+---
+
+## Researcher Data Task
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Org structure only (names of offices/designations) | Official designation titles at each level; no named individuals | ✓ |
+| Current officer names + contact info | Named individuals; changes frequently | |
+| Just 5 corporation names + official addresses | Minimal verified data | |
+
+**User's choice:** Org structure only (names of offices/designations)
+**Notes:** Researcher should find official designation titles (e.g., "Zone Assistant Executive Engineer") — NOT named individuals, which change frequently and require manual upkeep.
+
+---
+
+## Org Assignment (Internal Routing)
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Keep org assignment — for our own internal routing | Nammadaari tracks which corp they're coordinating with | ✓ |
+| Remove org assignment entirely | Corporation auto-tagged from ward; assignment adds no value | |
+| Simplify — just show corporation (auto-tagged) | Display only, no assign action | |
+
+**User's choice:** Keep org assignment for internal routing (Recommended)
+
+---
+
+## DB Approach for Hierarchy Columns
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Add columns to wards table | Add zone_name, ro_division, aro_sub_division, assembly_constituency to wards | ✓ |
+| Separate hierarchy lookup table | New ward_hierarchy table; more normalized | |
+
+**User's choice:** Add columns directly to wards table (Recommended)
+
+---
+
+## Phase 02.6 Sequencing
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Do 02.6 first (small, fast) then Phase 3 | Knock out version stamping, then Phase 3 on clean branch | ✓ |
+| Skip 02.6 for now, go straight to Phase 3 | Version stamping not blocking | |
+| Run them in parallel on separate branches | Different files, can proceed simultaneously | |
+
+**User's choice:** Do 02.6 first (small, fast) — then Phase 3
+
+---
+
+## Admin UI Design System
+
+**User's choice (free text):** "Can you please write details of what is required for the UI change in the admin portal and I will pass it to our AI design team?"
+
+**Notes:** The user will pass the UI requirements to their AI design team. Frontend plans 03-03 and 03-04 are blocked on receiving the design spec back. A detailed brief has been written in CONTEXT.md `<specifics>` covering both admin portal changes and public citizen UI changes.
+
+---
+
+## Claude's Discretion
+
+- StatusBadge color tone choices for 6 new status values (suggested semantics in CONTEXT.md)
+- Admin detail page layout for action buttons, org picker, and hierarchy panel
+- Resolution modal UX details (pending design spec)
+- Whether status history goes in existing `GET /api/reports/:id` or a new endpoint
+
+## Deferred Ideas
+
+- GBA-facing admin portal — deferred indefinitely pending renewed GBA engagement
+- Named officer lookup — too volatile for persistent storage; deferred to content management phase
+- SMS/WhatsApp notifications to GBA officers — deferred post-launch
+- Report social sharing — deferred to polish phase

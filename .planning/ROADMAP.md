@@ -7,6 +7,7 @@ The citizen-facing submission and admin dashboard already exist. This milestone 
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
@@ -19,22 +20,29 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 02.5: Admin Portal UI Redesign** - Implement the hybrid "B-voice × A-structure" design system for the admin portal at /admin — teal Console palette, JetBrains Mono chrome, A-pattern report cards, light+dark mode, full accessibility pass (INSERTED — visual polish before GBA handoff) (completed 2026-05-22)
 - [ ] **Phase 02.6: Build Metadata & Version Stamping** - Inject `package.json` version into both the citizen-facing UI footer and the admin console brand string at build time via `NEXT_PUBLIC_APP_VERSION`; auto-update on every release (INSERTED — polish before GBA handoff)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
+- [x] **Phase 3.1: Admin Report Detail — Split Layout** - Restructure /admin/reports/[id] into two-column split layout: fixed left column (photo + metadata) + independently-scrolling right rail (action panels + GBA hierarchy + history) — eliminates below-fold discoverability (F-07 / ISSUE-07 from Phase 03 UAT) (INSERTED — UAT polish after Phase 3 ships) (completed 2026-05-26)
+- [x] **Phase 3.2: Admin UAT Gap Fixes — Dashboard Chart Period Filter and Status History Attribution** - Wire up the 7D/14D/30D intake chart period filter buttons on the admin dashboard, implement real status_history timestamps and admin user attribution in the report detail view (INSERTED — UAT gap closure after Phase 3.1) (completed 2026-05-30)
+- [x] **Phase 3.3: Admin UAT Gap Fixes — Intake Chart Real Data and Attribution Fallback** - Replace dashboard INTAKE sparkbars stub data with a real per-day intake endpoint (GET /api/admin/stats/intake?days=N), and fix status history attribution to fall back to admin email when display_name is NULL (INSERTED — UAT gap closure after Phase 3.2) (completed 2026-05-30)
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
 ## Phase Details
 
 ### Phase 1: Ward Foundation
+
 **Goal**: Every report is automatically routed to the correct Bengaluru ward, and the flexible GBA organization hierarchy is in place so admins can be assigned to organizations
 **Depends on**: Nothing (existing codebase is the foundation)
 **Requirements**: WARD-01, WARD-02, WARD-03, WARD-04
 **Success Criteria** (what must be TRUE):
+
   1. A report submitted at any valid Bengaluru GPS coordinate automatically shows the correct ward name in the admin triage queue — no manual tagging required
   2. The organization hierarchy table exists and can represent GBA → corporation → ward office relationships without any code changes (data-only configuration)
   3. An admin user can be assigned to an organization, and that assignment controls which reports they see in the triage queue
   4. Ward boundary data is stored in PostGIS with SRID 4326 enforced, and a check constraint prevents mismatched spatial references
+
 **Plans**: 6 plans
 
 Plans:
+
 - [x] 01-01-PLAN.md — GBA ward KML download, GeoJSON conversion, wards + organizations migration SQL
 - [x] 01-02-PLAN.md — Ward and Organization Rust models, get_ward_for_point query, org CRUD API endpoints
 - [x] 01-03-PLAN.md — Admin dashboard ward column (reports queue) and org assignment UI (users page)
@@ -43,19 +51,23 @@ Plans:
 - [x] 01-06-PLAN.md — Gap closure: implement org-scoped report visibility (WARD-03 / ROADMAP SC#3)
 
 ### Phase 2: Anti-Abuse and Data Quality
+
 **Goal**: The platform can withstand anonymous public submissions without spam, bots, or duplicate flooding corrupting the dataset before GBA launch
 **Depends on**: Phase 1
 **Requirements**: ABUSE-01, ABUSE-02, ABUSE-03, ABUSE-04, ABUSE-05, ABUSE-06
 **Success Criteria** (what must be TRUE):
+
   1. A user who submits more than 5 reports in one hour from the same IP is silently throttled — they receive an error, legitimate users are unaffected
   2. A bot that fills all form fields (including the honeypot) has its submission silently discarded with no error or signal that detection occurred
   3. A report submitted within 50m of an existing open report of the same category is flagged as potential_duplicate — the original report's duplicate_count increments; both remain visible on the public map
   4. When multiple users report the same location within 50m (same category), the duplicate_confidence field is set to high — visible to admins as a severity signal
   5. An identical photo (same SHA256) submitted a second time is silently rejected without storing a duplicate image
   6. The admin triage queue shows duplicate_count on each report so high-count reports sort toward the top
+
 **Plans**: 3 plans
 
 Plans:
+
 - [x] 02-01-PLAN.md — Rate limiting (governor, IP+geohash-6 key) and honeypot (website field, CSS off-screen, fake 200) with migration 007 schema additions
 - [x] 02-02-PLAN.md — Photo hash dedup (SHA256 before EXIF strip), async proximity dedup job (ST_DWithin 50m, 5-min poll), admin queue duplicate signals
 - [x] 02-03-PLAN.md — Gap closure: fix duplicate sub-table rendering (ward_name, dates, StatusBadge, clickable rows) and create /admin/reports/[id] detail page
@@ -66,14 +78,17 @@ Plans:
 **Depends on:** Phase 2
 **Requirements**: BUG-01, BUG-02, UX-01, UX-02, UX-03
 **Success Criteria** (what must be TRUE):
+
   1. Admin reports table Category column shows "Damaged Footpath" (not "broken_footpath") using getCategoryLabel() from translations.ts
   2. On iOS Safari, "Take Photo" opens the camera directly and "Upload from Gallery" opens the photo library — no shared action sheet
   3. Admin reports table has a right-edge fade gradient on mobile indicating horizontal scroll
   4. A hamburger button is visible on mobile admin pages, opening a slide-in sidebar drawer with all nav links
   5. Map legend, map popup, and admin table all show identical category labels sourced from translations.ts
+
 **Plans**: 3 plans
 
 Plans:
+
 - [x] 02.3-01-PLAN.md — Admin category labels (BUG-01), table scroll gradient (UX-01), map label consolidation (UX-03)
 - [x] 02.3-02-PLAN.md — iOS camera UX label-wrapping fix (BUG-02)
 - [x] 02.3-03-PLAN.md — Admin sidebar extraction with mobile hamburger drawer (UX-02)
@@ -86,6 +101,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
+
 - [x] 02.3.2-01-PLAN.md — Branch setup + gallery escape hatch (ReportCTA.tsx) + CategoryGrid 2-col revert + privacy row + live count verification (page.tsx)
 - [x] 02.3.2-02-PLAN.md — ReportsMap.tsx prop extensions (categoryFilter, onReportsLoaded) + map/page.tsx chip strip + filter wiring + per-category counts
 - [x] 02.3.2-03-PLAN.md — Build/lint verification + visual checkpoint + PR readiness confirmation
@@ -96,14 +112,17 @@ Plans:
 **Depends on:** Phase 02.3.2
 **Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, INFRA-05
 **Success Criteria** (what must be TRUE):
+
   1. The Rust/Axum backend and PostGIS database run via docker compose on the Arch Linux desktop using docker-compose.yml + docker-compose.server.yml override (which removes the frontend container dependency from nginx)
   2. A Cloudflare tunnel (cloudflared systemd service) routes public HTTPS traffic to desktop nginx:80, and `curl https://<tunnel-url>/health` returns `{"status":"ok"}` from the internet
   3. A GitHub Actions self-hosted runner on the desktop executes the deploy job on every push to main — building and restarting services via docker compose — with zero manual SSH steps
   4. The Vercel-hosted Next.js frontend successfully calls the backend through the Cloudflare tunnel URL (NEXT_PUBLIC_API_URL updated, Vercel redeploy triggered)
   5. The full admin login + report submission flow works end-to-end across the Vercel frontend ↔ Cloudflare tunnel ↔ desktop backend boundary (cookies, CORS, HTTPS all verified)
+
 **Plans**: 4 plans
 
 Plans:
+
 - [x] 02.4-01-PLAN.md — nginx.server.conf + docker-compose.server.yml (backend-only compose override, stripped nginx config with no frontend upstream)
 - [x] 02.4-02-PLAN.md — Rewrite deploy.yml (remove Railway, add self-hosted runner deploy job + smoke test against Cloudflare tunnel URL)
 - [x] 02.4-03-PLAN.md — Desktop setup runbook (cloudflared install, tunnel creation, systemd service, self-hosted runner, first manual deploy)
@@ -115,6 +134,7 @@ Plans:
 **Depends on:** Phase 02.4
 **Requirements**: D-01..D-18 (CONTEXT.md decisions; no global REQUIREMENTS.md IDs — pre-launch security hardening pass)
 **Success Criteria** (what must be TRUE):
+
   1. POST /api/reports with a non-JPEG body returns HTTP 400 "Only JPEG images are accepted"; valid JPEG (FF D8) accepted
   2. admin_logout builds a removal cookie with SameSite=None + conditional Secure mirroring admin_login; browser actually clears admin_token cross-domain
   3. Both nginx configs append `add_header Content-Type "image/jpeg" always;` to the /uploads/ location block; curl -I on the deployed tunnel shows a single Content-Type: image/jpeg header
@@ -122,9 +142,11 @@ Plans:
   5. DEPLOYMENT.md gains §10 Secret Rotation (JWT_SECRET, POSTGRES_PASSWORD, ADMIN_SEED_PASSWORD) and §11 Backup and Restore (pg_dump restore + uploads volume restore)
   6. An external uptime monitor (UptimeRobot or Cloudflare Health Checks) polls `<tunnel-url>/health` on a 5-minute cadence with email alerts to amit@orbitak.com
   7. Tech debt cleanup: zero `TODO: implement` doc-comment lines in handlers/admin.rs or models/admin.rs; Bengaluru bounding-box constants exist exactly once at module level in handlers/reports.rs; stale Railway comment replaced with Cloudflare tunnel reference
+
 **Plans**: 3 plans
 
 Plans:
+
 - [x] 02.4.1-01-PLAN.md — Backend security + cleanup: JPEG magic-bytes guard + bbox dedup (handlers/reports.rs), logout cookie SameSite fix + TODO removal + Railway-reference fix (handlers/admin.rs, models/admin.rs)
 - [x] 02.4.1-02-PLAN.md — nginx Content-Type override on /uploads/ in both nginx.conf and nginx.server.conf + deployed-tunnel curl -I verification checkpoint
 - [x] 02.4.1-03-PLAN.md — Operational ops + docs: backup/backup.sh + 3 systemd units, DEPLOYMENT.md §10 Secret Rotation + §11 Backup and Restore, external uptime monitor checkpoint on /health
@@ -135,6 +157,7 @@ Plans:
 **Depends on:** Phase 02.4.1
 **Requirements**: ADMIN-UI-01..ADMIN-UI-08 (phase-local; design contract in 02.5-UI-SPEC.md)
 **Success Criteria** (what must be TRUE):
+
   1. All admin screens (Login, Dashboard, Reports list, Report detail, Map, Users, Organizations, Profile, Empty/Error states) render with the hybrid design system tokens — Direction B palette + Direction A card structure
   2. A `admin.css` CSS variable file exists at `frontend/app/admin/admin.css` and is the single source of truth for all admin-portal colors, fonts, radii, and shadows — no hardcoded hex/oklch values in component files
   3. Light mode and dark mode both work, toggled by a `.dark` class on the `<html>` element, with no flash-of-wrong-theme on reload
@@ -143,9 +166,11 @@ Plans:
   6. The offline/error state shows a pending-changes card with queued action descriptions and a reassurance copy string that does not use technical jargon
   7. Report cards on the reports list show: photo thumbnail, category label (human-readable, not API enum), status badge, ward · time meta line, duplicate badge when present
   8. `npm run build` passes with zero TypeScript errors and zero new ESLint warnings
+
 **Plans**: 4 plans
 
 Plans:
+
 - [x] 02.5-01-PLAN.md — Token layer + font setup + primitives (tokens.css → CSS vars, next/font for Inter + JetBrains Mono + Noto Sans Kannada, shared admin components)
 - [x] 02.5-02-PLAN.md — Login + Dashboard screens (mobile + desktop, light + dark)
 - [x] 02.5-03-PLAN.md — Reports list (card stream + compact rows) + Report detail screen
@@ -159,6 +184,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
+
 - [x] 02.3.1-01-PLAN.md — Branch setup + design-ref preservation + CSS variables + next/font + 5 UI primitives (Bi, Icon, Btn, Pill, SectionLabel) with tests
 - [x] 02.3.1-02-PLAN.md — Home page (`/`) redesign + Map page (`/map`) overlay redesign + updated home-page tests
 - [x] 02.3.1-03-PLAN.md — Report flow 2-step rewrite (Category → Confirm → Success) + CategoryGrid / SeverityGrid / SuccessCard components + updated report-page tests
@@ -170,14 +196,17 @@ Plans:
 **Depends on:** Phase 2
 **Requirements**: STAGING-01, STAGING-02, STAGING-03, STAGING-04, STAGING-05, STAGING-06
 **Success Criteria** (what must be TRUE):
+
   1. Admin login works on staging: navigating to staging-walkability.kinariwala.com/admin/login and entering credentials produces a valid session cookie on the Vercel domain
   2. Public report submission works on staging: a citizen can submit a photo with GPS coordinates via the staging URL
   3. The deploy.yml workflow triggers smoke tests after push-to-main that verify Railway backend health and Vercel frontend reachability
   4. A complete STAGING-SETUP.md exists with step-by-step provisioning for Railway, Vercel, DNS, and GitHub Actions secrets
   5. All existing cargo test and npm run build pass with the cross-domain auth changes
+
 **Plans**: 3 plans
 
 Plans:
+
 - [x] 02.2-01-PLAN.md — Backend SameSite cookie fix + Next.js admin API rewrites + split config for cross-domain auth
 - [x] 02.2-02-PLAN.md — CI/CD smoke test wiring in deploy.yml + Railway config-as-code (railway.toml)
 - [x] 02.2-03-PLAN.md — STAGING-SETUP.md operational guide with env var checklist and pre-UAT verification
@@ -188,6 +217,7 @@ Plans:
 **Depends on:** Phase 02
 **Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, SEC-06, SEC-07
 **Success Criteria** (what must be TRUE):
+
   1. Public API responses (GET /api/reports, GET /api/reports/:id) do not contain submitter_name PII
   2. All production handlers use the single canonical require_role from middleware (admin-is-superset semantics)
   3. No .unwrap() calls on serde_json::to_value in production handler paths
@@ -195,44 +225,116 @@ Plans:
   5. nginx.conf documents TLS termination expectations and CSP style-src has no unsafe-inline
   6. Login page and password validation are hardened against information leakage and threshold mismatch
   7. CI pipeline runs cargo audit and npm audit --audit-level=high on every PR
+
 **Plans**: 2 plans
 
 Plans:
+
 - [x] 02.1-01-PLAN.md — Backend hardening: strip submitter_name from public API, remove duplicate require_role, fix serde_json unwraps
 - [x] 02.1-02-PLAN.md — Config/frontend/CI hardening: COOKIE_SECURE default, TLS docs, CSP, login error, password threshold, dependency audits
 
 ### Phase 3: Government Triage Workflow
+
 **Goal**: GBA admins can move reports through a full status lifecycle, assign reports to the correct corporation or ward office, attach resolution evidence, and the public map reflects every status change in real time
 **Depends on**: Phase 2
 **Requirements**: WFLOW-01, WFLOW-02, WFLOW-03, WFLOW-04, WFLOW-05, MAP-01, MAP-03
 **Success Criteria** (what must be TRUE):
+
   1. An admin can transition a report through Open → Acknowledged → Assigned → In Progress → Resolved → Closed, and each transition is recorded in status_history with the acting admin's ID and timestamp
   2. An admin can assign a report to any organization in the hierarchy; the assigned organization's admins see that report in their queue
   3. An admin can add plain-text resolution notes when marking a report Resolved or Closed — notes are stored and visible in the admin detail view
   4. An admin can upload a resolution photo when marking a report Resolved — the after-photo is stored and linked to the report
   5. Public map pins display distinct colors for Open, In Progress, and Resolved — a citizen clicking any pin sees the current status in the popup
+
 **Plans**: 4 plans
+Plans:
+**Wave 1**
+
+- [x] 03-01-PLAN.md — DB migrations 008 (ENUM rename + reports columns, no-transaction) + 009 (wards hierarchy columns + 369-row backfill), Report/ReportResponse struct extension, validate_status + get_report_stats updates, Wave 0 test scaffolds
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-02-PLAN.md — Backend: resolve_report + assign_report_org DB fns, admin_resolve_report (multipart) + admin_assign_report_org (JSON) handlers, public GET /api/reports/:id extension (history + ward_hierarchy)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-03-PLAN.md — Admin frontend (Direction B): StatusBadge 6-value extension, StatusActionPanel + OrgAssignPanel + GbaHierarchyPanel + ResolveModal components, /admin/reports/[id] panel wiring, CORP column on reports list, adminApi extension
+- [ ] 03-04-PLAN.md — Public frontend (Direction A): ReportsMap STATUS_COLORS pin coloring, extended popup (corporation + ward + status + Read More), status-based map legend, NEW public /reports/[id] server component page
+
+### Phase 3.1: Admin Report Detail — Split Layout (INSERTED)
+
+**Goal**: Restructure `/admin/reports/[id]` into a two-column split layout where the left column (report photo + core metadata) is fixed/sticky and the right column (StatusActionPanel, OrgAssignPanel, GbaHierarchyPanel, status history) has its own independently-scrolling region. Eliminates the below-fold discoverability problem (F-07 / ISSUE-07) found in Phase 03 UAT. Follows the Figma inspect panel / VS Code editor+sidebar Option 4 pattern. Phase 3.1 also closes Phase 03 UAT ISSUE-01..06 (GbaHierarchyPanel display bugs and the status timeline dot color map) in the same coordinated pass — no separate micro-phase per CONTEXT.md D-07.
+**Depends on**: Phase 3
+**Requirements**: F-07 (Phase 03 UAT ISSUE-07; ISSUE-01..06 closed in the same plan)
+**Success Criteria** (what must be TRUE):
+
+  1. On desktop (≥768px), `/admin/reports/[id]` renders in two fixed-height columns — left column (photo + metadata) is sticky and does not scroll independently; right column has `overflow-y: auto` and scrolls within the viewport height so all action panels are reachable without scrolling the whole page
+  2. On mobile (<768px), the layout stacks to a single column, preserving the current mobile experience unchanged
+  3. No data or functionality is removed — all existing panels (StatusActionPanel, OrgAssignPanel, GbaHierarchyPanel, status history) remain present and fully functional
+  4. `npm run build` passes with zero TypeScript errors and all existing frontend tests remain green
+
+**Plans**: 1 plan
+Plans:
+
+- [x] 03.1-01-PLAN.md — Split layout restructure of `/admin/reports/[id]` (left flex-column photo + identity strip; right action rail with independent scroll) + 768px breakpoint + GbaHierarchyPanel ISSUE-01/03/04/05 fixes + status timeline ISSUE-06 dot color map fix
+
+### Phase 3.2: Admin UAT Gap Fixes — Dashboard Chart Period Filter and Status History Attribution (INSERTED)
+
+**Goal**: Fix the two confirmed UAT bugs from Phase 3.1: wire up the 7D/14D/30D intake chart period filter buttons on the admin dashboard so period selection updates the chart, and implement real status history timestamps and admin user attribution in the report detail view (replacing the "Invalid Date / BY · SYSTEM" placeholders)
+**Depends on**: Phase 3.1
+**Requirements**: BUG-03.1-B, BUG-03.1-C (phase-local; sourced from 03.1-UAT-ISSUES.md and 03.1-UAT.md gap analysis)
+**Success Criteria** (what must be TRUE):
+
+  1. On the admin dashboard, clicking 7D or 30D updates the INTAKE chart to show data for the selected period — the active button highlights and the chart re-renders
+  2. In the report detail view, status history entries show a real formatted timestamp (not "Invalid Date") and the name of the admin who changed the status (not "BY · SYSTEM")
+  3. `npm run build` passes with zero TypeScript errors and all existing tests remain green
+
+**Plans**: TBD
+
+Plans: *(not yet created — planning begins now)*
+
+### Phase 3.3: Admin UAT Gap Fixes — Intake Chart Real Data and Attribution Fallback (INSERTED)
+
+**Goal**: Fix the two confirmed UAT bugs from Phase 3.2: the dashboard INTAKE sparkbars render hardcoded STUB_SPARKBARS data unrelated to real reports (needs a new GET /api/admin/stats/intake?days=N endpoint + frontend data wiring), and status history attribution always shows "BY · —" because the seeded admin has display_name = NULL (one-liner COALESCE(au.display_name, au.email) fallback)
+**Depends on**: Phase 3.2
+**Requirements**: BUG-03.2-A, BUG-03.2-B (phase-local; sourced from 03.3-UAT-ISSUES.md)
+**Success Criteria** (what must be TRUE):
+
+  1. The dashboard INTAKE sparkbars reflect actual per-day report intake counts for the selected 7D/14D/30D window — empty days show height 0, and a system with 1 total report shows at most 1 bar with height > 0 (no STUB_SPARKBARS pattern)
+  2. GET /api/admin/stats/intake?days=N returns per-day report counts, clamps days to [1,90], and is behind admin auth
+  3. Status history entries on /admin/reports/[id] show "BY · <admin email>" when no display name is set (no longer "BY · —")
+  4. `cargo test` and the frontend intake + dashboard test suites pass; `npm run build` and `cargo check` succeed with no new dependency or migration
+
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — DB migrations 008/009 (ENUM rename + add values), Report/ReportResponse struct extension, get_report_stats fix
-- [ ] 03-02-PLAN.md — Backend: expanded validate_status, resolve_report and assign_report_org DB fns, two new handler routes
-- [ ] 03-03-PLAN.md — Admin frontend: StatusBadge expansion, ResolveModal, OrgPicker, detail page wiring
-- [ ] 03-04-PLAN.md — Public map: STATUS_COLORS pin colors, popup status label + after-photo, map legend update
+**Wave 1**
+
+- [x] 03.3-01-PLAN.md — BUG-03.2-B attribution COALESCE fallback in status history query + SQL-string test helper (backend admin_queries.rs)
+
+**Wave 2** *(blocked on Wave 1 — shared admin_queries.rs)*
+
+- [x] 03.3-02-PLAN.md — BUG-03.2-A intake endpoint: IntakeDayCount struct + get_intake_stats DB fn + admin_get_intake_stats handler (days clamp [1,90]) + route + getIntakeStats adminApi fn + dashboard useEffect wiring + Wave 0 tests
+
 
 ### Phase 4: Export and Public Analytics
+
 **Goal**: GBA planners can download actionable exports in their preferred format, citizens can see high-level progress statistics, and admins have ward-level analytics to identify where investment is most needed
 **Depends on**: Phase 3
 **Requirements**: MAP-02, EXPORT-01, EXPORT-02, EXPORT-03, ANALYTICS-01, ANALYTICS-02, ANALYTICS-03, ANALYTICS-04, ANALYTICS-05
 **Success Criteria** (what must be TRUE):
+
   1. An admin can click "Export CSV" with active filters and receive a streaming download with DD/MM/YYYY dates, ward name column, and Kannada category labels — the file opens correctly in Excel without truncation
   2. An admin can export filtered reports as a GeoJSON FeatureCollection that streams without buffering all rows in memory — the file is valid GeoJSON importable into QGIS
   3. A public unauthenticated GeoJSON endpoint returns all reports with coordinates rounded to 3 decimal places and zero PII fields
   4. A public stats page shows total report count, resolved count, and top 3 issue categories — data sourced from a materialized view so page load is fast
   5. The admin analytics view shows top 10 wards by unresolved report count, resolution rate per corporation, and a trend chart of reports per week over the last 12 weeks
   6. A heatmap layer on the public map shows issue density by geographic area and can be toggled on or off by the user
+
 **Plans**: TBD
 
 Plans: *(not yet created — Phase 4 has no plan files on disk; planning begins after Phase 3 ships)*
+
 - [ ] 04-01-PLAN.md — Streaming CSV and GeoJSON export endpoints (backend streaming handlers, admin export UI)
 - [ ] 04-02-PLAN.md — Public GeoJSON endpoint and public stats page (unauthenticated endpoint, materialized view, stats page)
 - [ ] 04-03-PLAN.md — Admin analytics dashboard (top wards, resolution rate, trend chart, recharts integration)
@@ -241,7 +343,7 @@ Plans: *(not yet created — Phase 4 has no plan files on disk; planning begins 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 2.4 → 2.4.1 → 2.5 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 2.4 → 2.4.1 → 2.5 → 3 → 3.1 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -255,5 +357,7 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.4 Self-Hosted Infrastructure | 4/4 | Complete | 2026-05-20 |
 | 2.4.1 Security Hardening | 3/3 | Complete   | 2026-05-20 |
 | 2.5 Admin Portal UI Redesign | 4/4 | Complete   | 2026-05-22 |
-| 3. Government Triage Workflow | 0/4 | Not started (03-01, 03-02 planned; 03-03, 03-04 not yet planned) | - |
+| 3. Government Triage Workflow | 1/4 | In Progress|  |
+| 3.1 Admin Report Detail — Split Layout | 1/1 | Complete   | 2026-05-26 |
+| 3.2 Admin UAT Gap Fixes | 2/2 | Complete   | 2026-05-30 |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |

@@ -31,6 +31,7 @@ import userEvent from "@testing-library/user-event";
 jest.mock("../lib/adminApi", () => ({
   getStats: jest.fn(),
   getAdminReports: jest.fn(),
+  getIntakeStats: jest.fn(),
   getUsers: jest.fn(),
   login: jest.fn(),
   logout: jest.fn(),
@@ -112,9 +113,11 @@ import * as adminApi from "../lib/adminApi";
 // Fixtures
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Phase 03 (D-03): by_status now uses 6-value lifecycle shape.
+// Mapping: open→submitted, acknowledged+assigned+in_progress→under_review, resolved+closed→resolved
 const STATS_FIXTURE = {
   total_reports: 142,
-  by_status: { submitted: 38, under_review: 61, resolved: 43 },
+  by_status: { open: 38, acknowledged: 21, assigned: 20, in_progress: 20, resolved: 43, closed: 0 },
   by_category: {
     no_footpath: 20,
     broken_footpath: 40,
@@ -128,7 +131,7 @@ const STATS_FIXTURE = {
 
 const ZERO_STATS_FIXTURE = {
   total_reports: 0,
-  by_status: { submitted: 0, under_review: 0, resolved: 0 },
+  by_status: { open: 0, acknowledged: 0, assigned: 0, in_progress: 0, resolved: 0, closed: 0 },
   by_category: {
     no_footpath: 0,
     broken_footpath: 0,
@@ -139,6 +142,18 @@ const ZERO_STATS_FIXTURE = {
   },
   by_severity: { low: 0, medium: 0, high: 0 },
 };
+
+// Default mock for getAdminReports — returns empty activity list unless overridden.
+// Required because page.tsx now fetches recent reports on mount alongside stats.
+// Default mock for getIntakeStats — returns empty array unless overridden (Pitfall 4 — missing mock throws "not a function").
+beforeEach(() => {
+  (adminApi.getAdminReports as jest.Mock).mockResolvedValue({ data: [], pagination: { page: 1, limit: 5, total_count: 0, total_pages: 0 } });
+  (adminApi.getIntakeStats as jest.Mock).mockResolvedValue([]);
+});
+
+afterEach(() => {
+  jest.clearAllMocks();
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // R-DASH-1 / AC-DASH-1-S1 — StatsCards rendered with live data
@@ -383,6 +398,134 @@ describe("EC-FE-6 — getStats() failure shows error state with retry button, no
       expect(screen.queryByTestId("stats-cards")).not.toBeInTheDocument(
         "Normal StatsCards with values must NOT render when getStats() fails"
       );
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 03.2 / BUG-03.1-B — Period filter buttons are clickable (D-01, D-02)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Phase 03.2 / BUG-03.1-B — Period filter buttons change active state", () => {
+  it("renders period buttons 7D, 14D, 30D", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+    await waitFor(() => {
+      expect(screen.getByText("7D")).toBeInTheDocument();
+      expect(screen.getByText("14D")).toBeInTheDocument();
+      expect(screen.getByText("30D")).toBeInTheDocument();
+    });
+  });
+
+  it("14D button is active (data-tone=accent) by default", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+    await waitFor(() => {
+      const pill14D = screen.getByText("14D").closest("[data-component='pill']") as HTMLElement | null;
+      expect(pill14D?.getAttribute("data-tone")).toBe("accent");
+    });
+  });
+
+  it("clicking 7D button changes active period: 7D pill gets data-tone=accent", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("7D")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      const btn7D = screen.getByText("7D").closest("button");
+      if (btn7D) {
+        await userEvent.click(btn7D);
+      }
+    });
+
+    await waitFor(() => {
+      const pill7D = screen.getByText("7D").closest("[data-component='pill']") as HTMLElement | null;
+      expect(pill7D?.getAttribute("data-tone")).toBe("accent");
+      // 14D should no longer be accent
+      const pill14D = screen.getByText("14D").closest("[data-component='pill']") as HTMLElement | null;
+      expect(pill14D?.getAttribute("data-tone")).toBe("outline");
+    });
+  });
+
+  it("clicking 30D button changes active period: 30D pill gets data-tone=accent", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("30D")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      const btn30D = screen.getByText("30D").closest("button");
+      if (btn30D) {
+        await userEvent.click(btn30D);
+      }
+    });
+
+    await waitFor(() => {
+      const pill30D = screen.getByText("30D").closest("[data-component='pill']") as HTMLElement | null;
+      expect(pill30D?.getAttribute("data-tone")).toBe("accent");
+      // 14D should no longer be accent
+      const pill14D = screen.getByText("14D").closest("[data-component='pill']") as HTMLElement | null;
+      expect(pill14D?.getAttribute("data-tone")).toBe("outline");
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG-03.2-A — Intake stats fetched on mount and on period change
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("BUG-03.2-A — Dashboard fetches real intake data on period change", () => {
+  it("on mount (default 14D), calls getIntakeStats(14)", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+
+    await waitFor(() => {
+      expect(adminApi.getIntakeStats).toHaveBeenCalledWith(14);
+    });
+  });
+
+  it("clicking 7D calls getIntakeStats(7)", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("7D")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      const btn7D = screen.getByText("7D").closest("button");
+      if (btn7D) {
+        await userEvent.click(btn7D);
+      }
+    });
+
+    await waitFor(() => {
+      expect(adminApi.getIntakeStats).toHaveBeenCalledWith(7);
+    });
+  });
+
+  it("clicking 30D calls getIntakeStats(30)", async () => {
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("30D")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      const btn30D = screen.getByText("30D").closest("button");
+      if (btn30D) {
+        await userEvent.click(btn30D);
+      }
+    });
+
+    await waitFor(() => {
+      expect(adminApi.getIntakeStats).toHaveBeenCalledWith(30);
     });
   });
 });

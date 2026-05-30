@@ -229,6 +229,41 @@ export default function MapPage() {
         })}
       </div>
 
+      {/* Status legend (UI-SPEC §H) — replaces old category-based legend */}
+      <div
+        role="region"
+        aria-label="Status legend"
+        style={{
+          position: "absolute",
+          top: 108,
+          left: 12,
+          zIndex: 500,
+          background: "rgba(255,255,255,0.95)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--r-md)",
+          padding: "8px 12px",
+          fontSize: 10,
+          fontWeight: 400,
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", flexShrink: 0 }} />
+          <span>Open</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--warn)", flexShrink: 0 }} />
+          <span>In progress</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }} />
+          <span>Resolved</span>
+        </div>
+      </div>
+
       {/* Floating Report here CTA */}
       <Link
         href="/report"

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getStats, type AdminStats } from "./lib/adminApi";
+import { getStats, getAdminReports, getIntakeStats, type AdminStats, type AdminReport, type IntakeDayCount } from "./lib/adminApi";
 import { useOnlineStatus } from "./lib/useOnlineStatus";
 import { getCategoryLabel } from "@/app/lib/translations";
 import StatsCards from "./components/StatsCards";
@@ -15,19 +15,16 @@ import { Sparkbars } from "./components/Sparkbars";
 import { Icon } from "./components/Icon";
 import { ThemeToggleButton } from "./components/ThemeToggleButton";
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Stub data for activity feed (wired to real data in Plan 03)
-// ──────────────────────────────────────────────────────────────────────────────
+function formatActivityTime(isoString: string): string {
+  const d = new Date(isoString);
+  return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
 
-const STUB_ACTIVITY: { time: string; action: string; category: string }[] = [
-  { time: "09:42", action: "New", category: "broken_footpath" },
-  { time: "09:11", action: "Under review", category: "no_footpath" },
-  { time: "08:55", action: "New", category: "unsafe_crossing" },
-  { time: "08:30", action: "Resolved", category: "poor_lighting" },
-];
-
-// Stub sparkbars data — 14-day intake
-const STUB_SPARKBARS = [3, 5, 2, 8, 6, 4, 9, 7, 5, 3, 6, 8, 4, 5];
+function statusActionLabel(status: string): string {
+  if (status === "resolved") return "Resolved";
+  if (status === "under_review") return "Under review";
+  return "New";
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -35,7 +32,12 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [recentReports, setRecentReports] = useState<AdminReport[]>([]);
   const isOnline = useOnlineStatus();
+  // Phase 03.2 (D-01): Active period state for the intake sparkbars chart
+  const [activePeriod, setActivePeriod] = useState<"7D" | "14D" | "30D">("14D");
+  // BUG-03.2-A: Real intake data — replaces the former hardcoded stub (removed)
+  const [intakeData, setIntakeData] = useState<number[]>([]);
 
   const fetchStats = useCallback(async () => {
     setIsLoading(true);
@@ -52,6 +54,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     void fetchStats();
+    getAdminReports({ limit: 5, page: 1 })
+      .then((res) => setRecentReports(res.data ?? []))
+      .catch(() => { /* non-critical — activity feed stays empty on error */ });
   }, [fetchStats]);
 
   // Responsive switching: desktop layout at ≥1024px
@@ -65,13 +70,48 @@ export default function AdminDashboard() {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  // BUG-03.2-A: Fetch real per-day intake counts whenever the active period changes.
+  // Zero-fills sparse days (days with no submissions) oldest→newest.
+  // On fetch error, falls back to an all-zero array of the correct length (no crash).
+  // IMPORTANT: Do NOT call setActivePeriod inside this effect — infinite loop risk.
+  useEffect(() => {
+    const dayCount = activePeriod === "7D" ? 7 : activePeriod === "30D" ? 30 : 14;
+
+    getIntakeStats(dayCount)
+      .then((rows: IntakeDayCount[]) => {
+        // Build a dense number[] of length dayCount, ordered oldest→newest.
+        // Days absent from the API response are zero-filled.
+        const rowMap: Record<string, number> = {};
+        for (const r of rows) {
+          rowMap[r.day] = r.count;
+        }
+
+        const dense: number[] = [];
+        const now = new Date();
+        for (let i = dayCount - 1; i >= 0; i--) {
+          const d = new Date(now);
+          d.setUTCDate(d.getUTCDate() - i);
+          const key = d.toISOString().slice(0, 10);
+          dense.push(rowMap[key] ?? 0);
+        }
+        setIntakeData(dense);
+      })
+      .catch(() => {
+        // Non-critical: show flat-zero bars on error rather than crashing
+        const dayCount2 = activePeriod === "7D" ? 7 : activePeriod === "30D" ? 30 : 14;
+        setIntakeData(Array(dayCount2).fill(0) as number[]);
+      });
+  }, [activePeriod]);
+
   // Derive the stats shape expected by StatsCards
+  // Phase 03 (D-03): by_status now uses 6-value lifecycle shape
   const statsForCards = stats
     ? {
         total: stats.total_reports,
-        submitted: stats.by_status.submitted,
-        under_review: stats.by_status.under_review,
-        resolved: stats.by_status.resolved,
+        // Map new 6-value shape to legacy StatsCards expectations
+        submitted: stats.by_status.open,
+        under_review: stats.by_status.acknowledged + stats.by_status.assigned + stats.by_status.in_progress,
+        resolved: stats.by_status.resolved + stats.by_status.closed,
       }
     : null;
 
@@ -88,6 +128,14 @@ export default function AdminDashboard() {
   const highPct = Math.round((highCount / totalSeverity) * 100);
   const mediumPct = Math.round((mediumCount / totalSeverity) * 100);
   const lowPct = 100 - highPct - mediumPct;
+
+  // BUG-03.2-A: Derive the Sparkbars window size from the active period.
+  // intakeData is populated by the [activePeriod] useEffect above.
+  // Show flat-zero bars during first load (before the first fetch resolves) rather
+  // than a blank chart — RESEARCH.md Pitfall 5.
+  const intakeDayCount = activePeriod === "7D" ? 7 : activePeriod === "30D" ? 30 : 14;
+  const sparkbarsValues: number[] =
+    intakeData.length > 0 ? intakeData : (Array(intakeDayCount).fill(0) as number[]);
 
   // ─── Offline banner ─────────────────────────────────────────────────────────
   const offlineBanner = !isOnline ? (
@@ -193,42 +241,45 @@ export default function AdminDashboard() {
   const activityFeed = (
     <Card>
       <SectionLabel style={{ marginBottom: 14 }}>Recent Activity</SectionLabel>
-      {STUB_ACTIVITY.length === 0 ? (
+      {recentReports.length === 0 ? (
         <p style={{ color: "var(--muted)", fontSize: 13 }}>No recent activity.</p>
       ) : (
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-          {STUB_ACTIVITY.map((item, i) => (
-            <li
-              key={i}
-              style={{ display: "flex", alignItems: "center", gap: 10 }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 10,
-                  color: "var(--muted)",
-                  minWidth: 36,
-                }}
+          {recentReports.map((report) => {
+            const action = statusActionLabel(report.status);
+            return (
+              <li
+                key={report.id}
+                style={{ display: "flex", alignItems: "center", gap: 10 }}
               >
-                {item.time}
-              </span>
-              <Pill
-                tone={
-                  item.action === "Resolved"
-                    ? "accent"
-                    : item.action === "Under review"
-                    ? "info"
-                    : "neutral"
-                }
-                size="sm"
-              >
-                {item.action}
-              </Pill>
-              <span style={{ fontSize: 12, color: "var(--ink-2)" }}>
-                {getCategoryLabel(item.category).en}
-              </span>
-            </li>
-          ))}
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    color: "var(--muted)",
+                    minWidth: 36,
+                  }}
+                >
+                  {formatActivityTime(report.created_at)}
+                </span>
+                <Pill
+                  tone={
+                    action === "Resolved"
+                      ? "accent"
+                      : action === "Under review"
+                      ? "info"
+                      : "neutral"
+                  }
+                  size="sm"
+                >
+                  {action}
+                </Pill>
+                <span style={{ fontSize: 12, color: "var(--ink-2)" }}>
+                  {getCategoryLabel(report.category).en}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Card>
@@ -411,7 +462,7 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* 14-day intake sparkbars */}
+      {/* Intake sparkbars with period filter — Phase 03.2 (D-01, D-02) */}
       <Card style={{ marginBottom: 24 }}>
         <div
           style={{
@@ -421,21 +472,36 @@ export default function AdminDashboard() {
             marginBottom: 12,
           }}
         >
-          <SectionLabel>Intake · 14_Day</SectionLabel>
+          <SectionLabel>
+            {activePeriod === "7D" ? "Intake · 7_Day" : activePeriod === "30D" ? "Intake · 30_Day" : "Intake · 14_Day"}
+          </SectionLabel>
           <div style={{ display: "flex", gap: 6 }}>
             {(["7D", "14D", "30D"] as const).map((label) => (
-              <Pill
+              <button
                 key={label}
-                tone={label === "14D" ? "accent" : "outline"}
-                size="sm"
+                type="button"
+                onClick={() => setActivePeriod(label)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                }}
+                aria-pressed={label === activePeriod}
               >
-                {label}
-              </Pill>
+                <Pill
+                  tone={label === activePeriod ? "accent" : "outline"}
+                  size="sm"
+                >
+                  {label}
+                </Pill>
+              </button>
             ))}
           </div>
         </div>
         <Sparkbars
-          values={STUB_SPARKBARS}
+          values={sparkbarsValues}
           color="var(--ink-2)"
           height={48}
           width={600}

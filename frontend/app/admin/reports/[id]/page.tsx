@@ -8,6 +8,7 @@ import {
   updateReportStatus,
   getMe,
   type AdminReport,
+  type StatusHistoryEntry,
 } from "../../lib/adminApi";
 import { getCategoryLabel } from "@/app/lib/translations";
 import StatusBadge from "../../components/StatusBadge";
@@ -15,13 +16,17 @@ import { SeverityIndicator } from "../../components/SeverityIndicator";
 import { Card } from "../../components/Card";
 import { Btn } from "../../components/Btn";
 import { Pill } from "../../components/Pill";
-import { PhotoTile } from "../../components/PhotoTile";
 import { SectionLabel } from "../../components/SectionLabel";
 import { ConfidencePill } from "../../components/ConfidencePill";
+// Phase 03 (WFLOW-01, WFLOW-03, WFLOW-04, WFLOW-05): New admin lifecycle components
+import StatusActionPanel from "../../components/StatusActionPanel";
+import OrgAssignPanel from "../../components/OrgAssignPanel";
+import GbaHierarchyPanel from "../../components/GbaHierarchyPanel";
+import ResolveModal from "../../components/ResolveModal";
 
 // ─── Status timeline constants ─────────────────────────────────────────────────
 
-const STATUS_HISTORY = "STATUS_HISTORY · TAIL";
+const STATUS_HISTORY = "Status History";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,6 +37,108 @@ function getSevLevel(severity: string): "high" | "medium" | "low" {
 
 function formatDate(isoString: string): string {
   return new Date(isoString).toLocaleDateString();
+}
+
+// Phase 03.2 (D-07): Extract status dot color mapping into a reusable helper.
+// Returns the CSS variable reference for the given status string.
+// data-status-token attribute carries the same value for JSDOM testability
+// (JSDOM cannot resolve background: var() in inline styles).
+function statusDotColor(status: string): string {
+  switch (status) {
+    case "open":         return "var(--status-open)";
+    case "acknowledged": return "var(--status-acknowledged)";
+    case "assigned":     return "var(--status-assigned)";
+    case "in_progress":  return "var(--status-in-progress)";
+    case "resolved":     return "var(--status-resolved)";
+    case "closed":       return "var(--status-closed)";
+    default:             return "var(--status-open)";
+  }
+}
+
+// ─── PhotoHero ────────────────────────────────────────────────────────────────
+// Shared photo/fallback rendering used in both mobile and desktop layouts.
+// `showOverlays` controls the overlay chips (SHA, EXIF, zoom icon) — shown on
+// mobile, hidden on desktop where the left column uses a full-height flex layout.
+
+interface PhotoHeroProps {
+  report: AdminReport;
+  categoryLabel: string;
+  showOverlays?: boolean;
+}
+
+function PhotoHero({ report, categoryLabel, showOverlays = false }: PhotoHeroProps) {
+  return (
+    <>
+      {(report.image_url || report.image_path) ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={report.image_url || `/uploads/${report.image_path}`}
+          alt={`Citizen-submitted photo of ${categoryLabel} at ${report.ward_name ?? "unknown ward"}`}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      ) : (
+        <div style={{
+          width: "100%",
+          height: "100%",
+          background: "linear-gradient(135deg, var(--surface-2), var(--surface-3))",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: showOverlays ? undefined : 400,
+        }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", textTransform: "uppercase" }}>
+            NO PHOTO
+          </span>
+        </div>
+      )}
+
+      {showOverlays && (
+        <>
+          {/* Top-left: photo count chip */}
+          <div style={{ position: "absolute", top: 8, left: 8 }}>
+            <Pill tone="outline" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
+              1 PHOTO
+            </Pill>
+          </div>
+
+          {/* Top-right: EXIF chip */}
+          <div style={{ position: "absolute", top: 8, right: 8 }}>
+            {report.location_source === "exif" && (
+              <Pill tone="accent" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
+                EXIF_OK
+              </Pill>
+            )}
+          </div>
+
+          {/* Bottom-left: SHA chip */}
+          <div style={{ position: "absolute", bottom: 8, left: 8 }}>
+            <Pill tone="neutral" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
+              SHA: {report.id.slice(0, 5).toUpperCase()}…
+            </Pill>
+          </div>
+
+          {/* Bottom-right: zoom icon — hidden from a11y until lightbox is implemented */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              bottom: 8,
+              right: 8,
+              background: "rgba(10,10,10,0.5)",
+              borderRadius: "var(--r-sm)",
+              color: "var(--on-danger)",
+              padding: "6px 8px",
+              fontSize: 12,
+              fontFamily: "var(--font-mono)",
+              fontWeight: 600,
+            }}
+          >
+            ⌕
+          </div>
+        </>
+      )}
+    </>
+  );
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
@@ -49,13 +156,19 @@ export default function ReportDetailPage({
   const [role, setRole] = useState<"admin" | "reviewer">("admin");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [statusUpdateLoading, setStatusUpdateLoading] = useState(false);
   const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
+  // Phase 03: ResolveModal state (WFLOW-04, WFLOW-05)
+  const [resolveModalState, setResolveModalState] = useState<{open: boolean; mode: "resolve" | "close"}>({
+    open: false,
+    mode: "resolve",
+  });
 
   useEffect(() => {
     if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-      const mq = window.matchMedia("(min-width: 1024px)");
+      const mq = window.matchMedia("(min-width: 768px)");  // D-04: changed from 1024px to 768px
       setIsDesktop(mq.matches);
       const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
       mq.addEventListener("change", handler);
@@ -63,16 +176,13 @@ export default function ReportDetailPage({
     }
   }, []);
 
+
   useEffect(() => {
-    const promise = getMe();
-    // getMe() may return undefined in test environments (jest.fn() without mockResolvedValue)
-    if (promise && typeof promise.then === "function") {
-      promise
-        .then((user: { role?: string }) => {
-          setRole(user.role === "reviewer" ? "reviewer" : "admin");
-        })
-        .catch(() => {/* keep default admin */});
-    }
+    getMe()
+      .then((user) => {
+        setRole(user.role === "reviewer" ? "reviewer" : "admin");
+      })
+      .catch(() => {/* keep default role */});
   }, []);
 
   useEffect(() => {
@@ -94,6 +204,11 @@ export default function ReportDetailPage({
 
   async function handleStatusMove(newStatus: string) {
     if (!report) return;
+    // Phase 03: resolved/closed transitions flow through ResolveModal (D-13, D-16)
+    if (newStatus === "resolved" || newStatus === "closed") {
+      setResolveModalState({ open: true, mode: newStatus === "resolved" ? "resolve" : "close" });
+      return;
+    }
     setStatusUpdateLoading(true);
     setStatusUpdateError(null);
     try {
@@ -109,11 +224,13 @@ export default function ReportDetailPage({
   async function handleDelete() {
     if (!report) return;
     setIsDeleting(true);
+    setDeleteError(null);
     try {
       await deleteReport(report.id);
       setShowDeleteModal(false);
       router.push("/admin/reports");
     } catch {
+      setDeleteError("Failed to delete report. Please try again.");
       setIsDeleting(false);
     }
   }
@@ -181,74 +298,17 @@ export default function ReportDetailPage({
   const sevValue = getSevLevel(report.severity);
   const dupCount = report.duplicate_count ?? 0;
 
-  // ── Photo section ─────────────────────────────────────────────────────────────
+  // ── Photo section (mobile) ────────────────────────────────────────────────────
   const photoSection = (
     <div style={{ position: "relative", height: 280, background: "var(--surface-2)", overflow: "hidden" }}>
-      {(report.image_url || report.image_path) ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={report.image_url || `/uploads/${report.image_path}`}
-          alt={`Citizen-submitted photo of ${categoryLabel} at ${report.ward_name ?? "unknown ward"}`}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-      ) : (
-        <PhotoTile
-          size={undefined as unknown as number}
-          style={{ width: "100%", height: "100%", display: "block", borderRadius: 0 }}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Overlays — positioned over the photo */}
-      {/* Top-left: photo count chip */}
-      <div style={{ position: "absolute", top: 8, left: 8 }}>
-        <Pill tone="outline" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
-          1 PHOTO
-        </Pill>
-      </div>
-
-      {/* Top-right: EXIF chip */}
-      <div style={{ position: "absolute", top: 8, right: 8 }}>
-        {report.location_source === "exif" && (
-          <Pill tone="accent" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
-            EXIF_OK
-          </Pill>
-        )}
-      </div>
-
-      {/* Bottom-left: SHA chip */}
-      <div style={{ position: "absolute", bottom: 8, left: 8 }}>
-        <Pill tone="neutral" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
-          SHA: {report.id.slice(0, 5).toUpperCase()}…
-        </Pill>
-      </div>
-
-      {/* Bottom-right: zoom button */}
-      <button
-        aria-label="Zoom photo"
-        style={{
-          position: "absolute",
-          bottom: 8,
-          right: 8,
-          background: "rgba(10,10,10,0.5)",
-          border: "none",
-          borderRadius: "var(--r-sm)",
-          color: "var(--on-danger)",
-          padding: "6px 8px",
-          cursor: "pointer",
-          fontSize: 12,
-          fontFamily: "var(--font-mono)",
-          fontWeight: 600,
-        }}
-      >
-        ⌕
-      </button>
+      <PhotoHero report={report} categoryLabel={categoryLabel} showOverlays />
     </div>
   );
 
-  // ── Right panel content (shared mobile + desktop) ─────────────────────────────
-  const rightPanel = (
-    <div style={{ padding: isDesktop ? "0 0 0 24px" : "16px" }}>
+  // ── Identity strip content (status badges + category + telemetry) — D-02 ────────
+  // Placed in the left column identity strip on desktop; rendered inline on mobile.
+  const identityStripContent = (
+    <>
       {/* Status badges row */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
         <StatusBadge status={report.status} />
@@ -275,7 +335,7 @@ export default function ReportDetailPage({
       </div>
 
       {/* Telemetry block — 2-column grid */}
-      <Card padded={false} style={{ marginBottom: 16, overflow: "hidden" }}>
+      <Card padded={false} style={{ marginBottom: 0, overflow: "hidden" }}>
         <div style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
@@ -312,41 +372,41 @@ export default function ReportDetailPage({
           ))}
         </div>
       </Card>
+    </>
+  );
 
-      {/* Action buttons — 2-column grid, min-height 44px (accessibility) */}
-      {!isDesktop && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 8,
-          marginBottom: 16,
-        }}>
-          <Btn
-            variant="accent"
-            size="md"
-            style={{ minHeight: 44, width: "100%", justifyContent: "center" }}
-            onClick={() => handleStatusMove("under_review")}
-            disabled={statusUpdateLoading || report.status === "under_review"}
-          >
-            Move to review
-          </Btn>
-          <Btn
-            variant="secondary"
-            size="md"
-            style={{ minHeight: 44, width: "100%", justifyContent: "center" }}
-            onClick={() => handleStatusMove("resolved")}
-            disabled={statusUpdateLoading || report.status === "resolved"}
-          >
-            Mark resolved
-          </Btn>
-        </div>
-      )}
+  // ── Action rail content (action panels) — D-05 ───────────────────────────────
+  // Placed in the right scrolling column on desktop; rendered inline on mobile.
+  const actionRailContent = (
+    <div style={{ padding: isDesktop ? "0" : "16px" }}>
+      {/* Phase 03: StatusActionPanel — replaces inline status PATCH buttons (WFLOW-01) */}
+      <StatusActionPanel
+        report={report}
+        onStatusChange={handleStatusMove}
+        onResolveClick={() => setResolveModalState({ open: true, mode: "resolve" })}
+        onCloseClick={() => setResolveModalState({ open: true, mode: "close" })}
+        onAssignClick={() => {
+          document.getElementById("org-assign-panel")?.scrollIntoView({ behavior: "smooth" });
+        }}
+        disabled={statusUpdateLoading}
+      />
 
       {statusUpdateError && (
         <p role="alert" style={{ fontSize: 13, color: "var(--danger-ink)", marginBottom: 12 }}>
           {statusUpdateError}
         </p>
       )}
+
+      {/* Phase 03: OrgAssignPanel (WFLOW-03, D-08, D-09) */}
+      <div id="org-assign-panel">
+        <OrgAssignPanel
+          report={report}
+          onAssigned={(updated) => setReport(updated)}
+        />
+      </div>
+
+      {/* Phase 03: GbaHierarchyPanel (D-23, D-42, D-43, D-44) */}
+      <GbaHierarchyPanel hierarchy={report.ward_hierarchy ?? null} />
 
       {/* Citizen description */}
       <Card style={{ marginBottom: 16 }}>
@@ -386,20 +446,26 @@ export default function ReportDetailPage({
               {report.latitude?.toFixed(4)}, {report.longitude?.toFixed(4)}
             </span>
           </div>
-          <a
-            href={`https://www.google.com/maps?q=${report.latitude},${report.longitude}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              color: "var(--accent-ink)",
-              textDecoration: "none",
-              fontWeight: 600,
-            }}
-          >
-            Open in Maps ↗
-          </a>
+          {(report.latitude != null && report.longitude != null) ? (
+            <a
+              href={`https://www.google.com/maps?q=${report.latitude},${report.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                color: "var(--accent-ink)",
+                textDecoration: "none",
+                fontWeight: 600,
+              }}
+            >
+              Open in Maps ↗
+            </a>
+          ) : (
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+              No coordinates
+            </span>
+          )}
         </div>
       </Card>
 
@@ -407,38 +473,77 @@ export default function ReportDetailPage({
       <Card>
         <SectionLabel style={{ marginBottom: 12 }}>{STATUS_HISTORY}</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Current status as fallback timeline entry (API doesn't expose status_history yet) */}
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <span
-              aria-hidden="true"
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 999,
-                background:
-                  report.status === "submitted" ? "var(--status-submitted)" :
-                  report.status === "under_review" ? "var(--status-review)" :
-                  "var(--status-resolved)",
-                flexShrink: 0,
-                marginTop: 2,
-              }}
-            />
-            <div>
-              <div style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                fontWeight: 600,
-                color: "var(--ink)",
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}>
-                {report.status.replace("_", " ")}
-              </div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
-                {formatDate(report.updated_at)} · BY · SYSTEM
-              </div>
-            </div>
-          </div>
+          {/* Phase 03.2 (D-07): Render real status_history entries when available */}
+          {(report.status_history && report.status_history.length > 0)
+            ? report.status_history.map((entry: StatusHistoryEntry) => (
+                <div key={entry.id} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span
+                    aria-hidden="true"
+                    data-status-token={statusDotColor(entry.new_status)}
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background: statusDotColor(entry.new_status),
+                      flexShrink: 0,
+                      marginTop: 2,
+                    }}
+                  />
+                  <div>
+                    <div style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "var(--ink)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}>
+                      {entry.new_status.replace(/_/g, " ")}
+                    </div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
+                      {formatDate(entry.changed_at)} · BY · {entry.changed_by_name || "—"}
+                    </div>
+                    {entry.note && (
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", marginTop: 2, fontStyle: "italic" }}>
+                        {entry.note}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            : (
+                /* Fallback: empty or undefined status_history — show current status with updated_at */
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span
+                    aria-hidden="true"
+                    data-status-token={statusDotColor(report.status)}
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background: statusDotColor(report.status),
+                      flexShrink: 0,
+                      marginTop: 2,
+                    }}
+                  />
+                  <div>
+                    <div style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "var(--ink)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}>
+                      {report.status.replace(/_/g, " ")}
+                    </div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
+                      {formatDate(report.updated_at)} · BY · —
+                    </div>
+                  </div>
+                </div>
+              )
+          }
         </div>
       </Card>
     </div>
@@ -485,15 +590,7 @@ export default function ReportDetailPage({
             Delete
           </Btn>
         )}
-        <Btn
-          variant="accent"
-          size="sm"
-          style={{ minHeight: 40 }}
-          onClick={() => handleStatusMove("resolved")}
-          disabled={statusUpdateLoading || report.status === "resolved"}
-        >
-          Resolve
-        </Btn>
+        {/* Phase 03: Resolve button moved to StatusActionPanel — removed from desktop top bar */}
       </div>
     </div>
   ) : null;
@@ -501,46 +598,40 @@ export default function ReportDetailPage({
   return (
     <div
       data-testid="report-detail"
-      style={{ padding: "24px 32px", maxWidth: 1400, marginLeft: "auto", marginRight: "auto", paddingBottom: 80 }}
+      style={{ padding: "24px 32px", maxWidth: 1400, marginLeft: "auto", marginRight: "auto", paddingBottom: isDesktop ? 0 : 80, ...(isDesktop ? { height: "100%", overflow: "hidden" } : {}) }}
     >
       {desktopActionBar}
 
       {/* Layout: desktop split panel | mobile single column */}
       {isDesktop ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 0, minHeight: "calc(100vh - 120px)" }}>
-          {/* Left panel: large photo */}
-          <div style={{ background: "var(--surface-2)", borderRadius: "var(--r-lg)", overflow: "hidden" }}>
-            {(report.image_url || report.image_path) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={report.image_url || `/uploads/${report.image_path}`}
-                alt={`Citizen-submitted photo of ${categoryLabel} at ${report.ward_name ?? "unknown ward"}`}
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              />
-            ) : (
-              <div style={{
-                width: "100%",
-                height: "100%",
-                background: "linear-gradient(135deg, var(--surface-2), var(--surface-3))",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: 400,
-              }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", textTransform: "uppercase" }}>
-                  NO PHOTO
-                </span>
-              </div>
-            )}
+        <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 0, height: "calc(100vh - 120px)", overflow: "hidden" }}>
+          {/* Left column — D-01, D-03: flex column, photo hero fills height, identity strip anchored below */}
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            height: "calc(100vh - 120px)",
+            overflow: "hidden",
+            background: "var(--surface-2)",
+            borderRadius: "var(--r-lg)",
+          }}>
+            {/* Photo hero — flex: 1 so it fills remaining height */}
+            <div style={{ flex: 1, overflow: "hidden", minHeight: 200 }}>
+              <PhotoHero report={report} categoryLabel={categoryLabel} />
+            </div>
+
+            {/* Identity strip — D-02: flex-shrink: 0, anchored below photo, never scrolls */}
+            <div style={{ flexShrink: 0, padding: "12px 16px", borderTop: "1px solid var(--border)", overflow: "hidden" }}>
+              {identityStripContent}
+            </div>
           </div>
 
-          {/* Right panel: scrollable detail content */}
+          {/* Right column — D-06: independent scroll, action panels only */}
           <div style={{ overflowY: "auto", maxHeight: "calc(100vh - 120px)", borderLeft: "1px solid var(--border)" }}>
-            {rightPanel}
+            {actionRailContent}
           </div>
         </div>
       ) : (
-        /* Mobile: single column */
+        /* Mobile: single column — Pitfall 1 fix: render both identityStripContent and actionRailContent */
         <div>
           {/* Mobile back button */}
           <button
@@ -573,9 +664,22 @@ export default function ReportDetailPage({
           )}
 
           {photoSection}
-          {rightPanel}
+          {identityStripContent}
+          {actionRailContent}
         </div>
       )}
+
+      {/* Phase 03: ResolveModal (WFLOW-04, WFLOW-05) — mounted at root to overlay full page */}
+      <ResolveModal
+        open={resolveModalState.open}
+        mode={resolveModalState.mode}
+        report={report}
+        onClose={() => setResolveModalState({ open: false, mode: resolveModalState.mode })}
+        onResolved={(updated) => {
+          setReport(updated);
+          setResolveModalState({ open: false, mode: resolveModalState.mode });
+        }}
+      />
 
       {/* Delete confirmation modal — inline modal per UI-SPEC */}
       {showDeleteModal && (
@@ -612,6 +716,11 @@ export default function ReportDetailPage({
               {/* EXACT UI-SPEC string */}
               Delete this report? This cannot be undone.
             </h2>
+            {deleteError && (
+              <p role="alert" style={{ fontSize: 13, color: "var(--danger-ink)", marginBottom: 12 }}>
+                {deleteError}
+              </p>
+            )}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <Btn
                 variant="ghost"

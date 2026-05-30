@@ -10,6 +10,7 @@ import { Card } from "./Card";
 import { Input } from "./Input";
 import { getDuplicatesForReport, type AdminReport } from "../lib/adminApi";
 import { getCategoryLabel } from "@/app/lib/translations";
+import { API_BASE_URL } from "@/app/lib/config";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -51,7 +52,8 @@ interface ReportsTableProps {
 type ViewMode = "card-stream" | "compact-rows" | "table";
 
 // Number of columns in the main table — used for colSpan on expanded rows
-const COLUMN_COUNT = 8;
+// Phase 03: Updated from 8 to 9 to include CORP column (UI-SPEC §F)
+const COLUMN_COUNT = 9;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -288,7 +290,7 @@ function CardStreamRow({ report, role, onStatusChange, onDelete, onUpdateStatus,
           <PhotoTile
             size={64}
             radius="var(--r-xs)"
-            src={report.image_url || (report.image_path ? `/uploads/${report.image_path}` : undefined)}
+            src={report.image_path ? `${API_BASE_URL}/uploads/${report.image_path}` : undefined}
             alt={`Citizen-submitted photo of ${categoryLabel} at ${report.ward_name ?? "unknown ward"}`}
             style={{ flexShrink: 0 }}
           />
@@ -423,6 +425,7 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
       <div style={{
         display: "flex",
         alignItems: "center",
+        flexWrap: "wrap",
         gap: 10,
         padding: "8px 0",
         borderBottom: "1px solid var(--border)",
@@ -430,7 +433,7 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
         <PhotoTile
           size={44}
           radius="var(--r-xs)"
-          src={report.image_url || (report.image_path ? `/uploads/${report.image_path}` : undefined)}
+          src={report.image_path ? `${API_BASE_URL}/uploads/${report.image_path}` : undefined}
           alt={`Photo of ${categoryLabel}`}
           style={{ flexShrink: 0 }}
         />
@@ -889,7 +892,8 @@ export default function ReportsTable({
         >
           <thead style={{ background: "var(--surface-2)" }}>
             <tr>
-              {["ID", "TIME", "CATEGORY", "WARD", "SEV", "STATUS", "DUP", "ACTIONS"].map((col) => (
+              {/* Phase 03: CORP column added between WARD and SEV (UI-SPEC §F) */}
+              {["ID", "TIME", "CATEGORY", "WARD", "CORP", "SEV", "STATUS", "DUP", "ACTIONS"].map((col) => (
                 <th
                   key={col}
                   scope="col"
@@ -923,21 +927,28 @@ export default function ReportsTable({
                     {/* ID + thumbnail */}
                     <td style={{ padding: "10px 12px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <PhotoTile
-                          size={32}
-                          radius="var(--r-xs)"
-                          src={report.image_url || (report.image_path ? `/uploads/${report.image_path}` : undefined)}
-                          alt=""
-                        />
-                        <span style={{
-                          fontFamily: "var(--font-mono)",
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: "var(--ink-2)",
-                          whiteSpace: "nowrap",
-                        }}>
+                        <a href={`/admin/reports/${report.id}`} style={{ lineHeight: 0 }}>
+                          <PhotoTile
+                            size={32}
+                            radius="var(--r-xs)"
+                            src={report.image_path ? `${API_BASE_URL}/uploads/${report.image_path}` : undefined}
+                            alt=""
+                          />
+                        </a>
+                        <a
+                          href={`/admin/reports/${report.id}`}
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: "var(--ink-2)",
+                            whiteSpace: "nowrap",
+                            textDecoration: "underline",
+                            textDecorationColor: "var(--muted)",
+                          }}
+                        >
                           WLK-{report.id.slice(0, 5).toUpperCase()}
-                        </span>
+                        </a>
                         {/* ABUSE-06: Duplicate label for reports that are duplicates */}
                         {report.duplicate_of_id && (
                           <span
@@ -1007,6 +1018,20 @@ export default function ReportsTable({
                       whiteSpace: "nowrap",
                     }}>
                       {report.ward_name ?? "—"}
+                    </td>
+
+                    {/* CORP — Phase 03 (UI-SPEC §F): corporation from ward JOIN */}
+                    <td style={{
+                      padding: "10px 12px",
+                      fontSize: 11,
+                      fontFamily: "var(--font-mono)",
+                      color: "var(--ink-2)",
+                      whiteSpace: "nowrap",
+                      textTransform: "uppercase",
+                    }}>
+                      {(report as unknown as {corporation?: string | null}).corporation
+                        ?? (report as unknown as {ward_hierarchy?: {corporation?: string | null}}).ward_hierarchy?.corporation
+                        ?? "—"}
                     </td>
 
                     {/* SEV */}

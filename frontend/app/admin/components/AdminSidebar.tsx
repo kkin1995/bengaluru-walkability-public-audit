@@ -23,6 +23,7 @@ const MOBILE_TABS = [
   { key: "reports",   href: "/admin/reports",  icon: "inbox"    as const, label: "QUEUE" },
   { key: "map",       href: "/admin/reports/map", icon: "map"   as const, label: "MAP"   },
   { key: "users",     href: "/admin/users",    icon: "users"    as const, label: "USERS", roleGated: true },
+  { key: "logout",    href: "/api/admin/auth/logout", icon: "logout" as const, label: "OUT" },
 ];
 
 function isActive(href: string, pathname: string): boolean {
@@ -271,7 +272,7 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
       role="navigation"
       style={{
         display: isDesktop ? "none" : "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
+        gridTemplateColumns: "repeat(5, 1fr)",
         gap: 2,
         position: "fixed",
         bottom: 0,
@@ -280,7 +281,7 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
         padding: "8px 10px 14px",
         background: "var(--surface)",
         borderTop: "1px solid var(--border)",
-        zIndex: 40,
+        zIndex: 1000,
       }}
     >
       {MOBILE_TABS.map((tab) => {

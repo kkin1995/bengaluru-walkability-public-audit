@@ -117,4 +117,4 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 | PWN algorithm deferred | Need minimum 6–12 months of real report data to make algorithm meaningful | — Pending |
 
 ---
-*Last updated: 2026-04-25 — Phase 02.3.1 merged to main (UI redesign: CSS variables, UI primitives, redesigned home/map/report flow); PR #2 added browser geolocation fallback + ward lookup display + unconditional MapContainer; PR #3 added total count to public reports API, fixed honeypot type=hidden*
+*Last updated: 2026-05-31 — Phase 03.3 complete: fixed BUG-03.2-A (intake sparkbars now fetch real per-day data via GET /api/admin/stats/intake?days=N; STUB_SPARKBARS removed) and BUG-03.2-B (status history attribution uses COALESCE(au.display_name, au.email) so seeded admin shows email instead of "—")*

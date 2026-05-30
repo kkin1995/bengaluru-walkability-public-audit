@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 02.5 complete (4/4) — ready to discuss Phase 03
-last_updated: 2026-05-22T10:36:40.808Z
-last_activity: 2026-05-22 -- Phase 02.5 execution started
+status: "Phase 3 shipped — PR #12"
+last_updated: "2026-05-30T18:49:24.965Z"
+last_activity: 2026-05-31
 progress:
-  total_phases: 12
-  completed_phases: 9
-  total_plans: 37
-  completed_plans: 35
+  total_phases: 16
+  completed_phases: 12
+  total_plans: 44
+  completed_plans: 42
   percent: 75
 ---
 
@@ -21,22 +20,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase 03 — government triage workflow
+**Current focus:** Phase 4 — export and public analytics
 
 ## Current Position
 
-Phase: 03
+Phase: 4
 Plan: Not started
-Status: Phase 02.5 shipped — PR #9
-Last activity: 2026-05-23
+Status: Phase 3 shipped — PR #12
+Last activity: 2026-05-31
 
-Progress: [█████████░] 94%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 4
+- Total plans completed: 6
 - Average duration: -
 - Total execution time: 0 hours
 
@@ -45,6 +44,7 @@ Progress: [█████████░] 94%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 02.5 | 4 | - | - |
+| 03.3 | 2 | - | - |
 
 **Recent Trend:**
 
@@ -76,6 +76,8 @@ Progress: [█████████░] 94%
 | Phase 02.3.2 P03 | 10min | 2 tasks | 0 files |
 | Phase 02.4.1-security-hardening P02 | 15min | 2 tasks | 2 files |
 | Phase 02.4.1-security-hardening P03 | 2d | 3 tasks | 5 files |
+| Phase 03-government-triage-workflow P01 | 120 | 4 tasks | 16 files |
+| Phase 03-government-triage-workflow P02 | 35min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -139,6 +141,10 @@ Progress: [█████████░] 94%
 - [Phase 02.4.1-03]: docker exec used for pg_dump (not docker run --network) — avoids auto-generated Compose network name ambiguity; established pattern for all future backup tooling
 - [Phase 02.4.1-03]: Persistent=true on walkability-backup.timer — catches missed weekly runs after host reboot without operator intervention
 - [Phase 02.4.1-03]: UptimeRobot free tier chosen for /health monitoring — HTTP/s keyword monitor, 5-min interval, no paid plan required; monitor green on https://api-walkability.nammadaari.com/health
+- [Phase ?]: 6-value status lifecycle via RENAME VALUE + ADD VALUE in migration 008; validate_resolve_request gates photo requirement
+- [Phase 03-government-triage-workflow]: Named new report-org request struct ReportAssignOrgRequest (not AssignOrgRequest) to avoid conflict with existing user-org AssignOrgRequest; documented in handler
+- [Phase 03-government-triage-workflow]: strip_exif visibility expanded to pub(crate) so admin handlers can reuse without duplication
+- [Phase 03-government-triage-workflow]: get_report_by_id retained with #[allow(dead_code)] since it may be useful for future admin detail enhancement
 
 ### Roadmap Evolution
 
@@ -148,6 +154,8 @@ Progress: [█████████░] 94%
 - Phase 02.3.1 inserted after Phase 02.3: Implement Walkable BLR UI redesign from design file on separate branch (URGENT)
 - Phase 02.4 inserted after Phase 02.3.2: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel: decommission Railway, host backend on desktop via Cloudflare tunnel (URGENT)
 - Phase 02.4.1 inserted after Phase 02.4: Security Hardening (URGENT)
+- Phase 05 added: Coming Soon Homepage + Branching Workflow Setup — persistent staging branch, GSD branching config, coming soon page for nammadaari.com (design matching citizen portal, @nammadaariblr Instagram CTA), Cloudflare Tunnel deployment for production domain
+- Phase 3.1 inserted after Phase 3: Admin Report Detail — Split Layout (INSERTED) — UAT-identified below-fold discoverability issue (F-07 / ISSUE-07) on /admin/reports/[id]; Option 4 two-column split layout with independent right-rail scroll
 
 ### Pending Todos
 
@@ -160,8 +168,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-21T18:54:01.725Z
-Stopped at: Phase 02.5 context gathered
-Resume file: .planning/phases/02.5-admin-portal-ui-redesign/02.5-CONTEXT.md
+Last session: 2026-05-26T12:14:25.071Z
+Stopped at: Phase 3.1 context gathered
+Resume file: .planning/phases/03.1-admin-report-detail-split-layout/03.1-CONTEXT.md
 
 **Planned Phase:** 02.3.1 (implement-walkable-blr-ui-redesign-from-design-file-on-separate-branch) — 4 plans — 2026-04-24T20:47:49.668Z

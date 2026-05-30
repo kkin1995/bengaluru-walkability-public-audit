@@ -96,6 +96,7 @@ export default function UserManagementTable({
             </th>
             <th
               scope="col"
+              className="user-table-col-org"
               style={{
                 padding: "10px 16px",
                 textAlign: "left",
@@ -128,6 +129,7 @@ export default function UserManagementTable({
             </th>
             <th
               scope="col"
+              className="user-table-col-lastlogin"
               style={{
                 padding: "10px 16px",
                 textAlign: "left",
@@ -228,7 +230,7 @@ export default function UserManagementTable({
                 </td>
 
                 {/* ORG */}
-                <td style={{ padding: "12px 16px" }}>
+                <td className="user-table-col-org" style={{ padding: "12px 16px" }}>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-2)" }}>
                     {user.org_id ? "—" : "UNASSIGNED"}
                   </span>
@@ -264,7 +266,7 @@ export default function UserManagementTable({
                 </td>
 
                 {/* LAST_LOGIN */}
-                <td style={{ padding: "12px 16px" }}>
+                <td className="user-table-col-lastlogin" style={{ padding: "12px 16px" }}>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
                     {formatLastLogin(user.last_login_at)}
                   </span>

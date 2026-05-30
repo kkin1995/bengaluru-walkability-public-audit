@@ -12,6 +12,8 @@ use crate::{
     models::report::{CreateReportRequest, ListReportsQuery, ReportResponse},
     AppState,
 };
+// Note: ReportResponse is used in create_report (fake_success_response) and get_report_by_id.
+// list_reports now uses list_reports_enriched which returns serde_json::Value directly.
 
 // ── Bengaluru bounding box constants ────────────────────────────────────────
 //
@@ -84,9 +86,10 @@ fn fake_success_response() -> ReportResponse {
         category: "no_footpath".to_string(),
         severity: "medium".to_string(),
         description: None,
-        status: "submitted".to_string(),
+        status: "open".to_string(),
         location_source: "manual_pin".to_string(),
         ward_name: None,
+        resolution_photo_url: None,
     }
 }
 
@@ -297,30 +300,30 @@ pub async fn list_reports(
     };
     let page = params.page.max(1);
 
-    // Run the paginated list and the total count concurrently.
+    // Run the paginated list (enriched with ward data for popup) and total count concurrently.
     // count_reports is non-fatal: if it fails, we omit `total` from the response
     // rather than failing the whole request.
+    // MAP-03 / D-31: list_reports_enriched includes ward_name + corporation via LEFT JOIN
+    // so the public map popup can display the GBA jurisdiction line.
     let (reports_result, total_result) = tokio::join!(
-        queries::list_reports(
+        queries::list_reports_enriched(
             &state.pool,
             page,
             limit,
             params.category.as_deref(),
             params.status.as_deref(),
+            &state.api_base_url,
         ),
         queries::count_reports(&state.pool),
     );
 
-    let reports = reports_result?;
-    let items: Vec<ReportResponse> = reports
-        .into_iter()
-        .map(|r| r.into_response(&state.api_base_url))
-        .collect();
+    let items = reports_result?;
+    let count = items.len();
 
     let mut response = json!({
         "page": page,
         "limit": limit,
-        "count": items.len(),
+        "count": count,
         "items": items,
     });
 
@@ -334,16 +337,19 @@ pub async fn list_reports(
 pub async fn get_report(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<ReportResponse>, AppError> {
-    let report = queries::get_report_by_id(&state.pool, id).await?;
-    Ok(Json(report.into_response(&state.api_base_url)))
+) -> Result<Json<serde_json::Value>, AppError> {
+    let v = queries::get_report_with_detail(&state.pool, id, &state.api_base_url).await?;
+    Ok(Json(v))
 }
 
 /// Strip all EXIF metadata from JPEG bytes using img-parts.
 /// Returns an error if parsing fails — the SOI magic-byte check is necessary
 /// but not sufficient; a polyglot file starting with 0xFF 0xD8 but otherwise
 /// malformed would reach disk verbatim with the old fallback (WR-02).
-fn strip_exif(bytes: &[u8]) -> Result<Vec<u8>, crate::errors::AppError> {
+///
+/// Visibility expanded to pub(crate) so admin handlers (admin.rs) can reuse
+/// the same EXIF stripping logic for resolution photos (plan 03-02 WFLOW-05).
+pub(crate) fn strip_exif(bytes: &[u8]) -> Result<Vec<u8>, crate::errors::AppError> {
     use img_parts::{jpeg::Jpeg, ImageEXIF};
     Jpeg::from_bytes(bytes.to_vec().into())
         .map(|mut jpeg| {
