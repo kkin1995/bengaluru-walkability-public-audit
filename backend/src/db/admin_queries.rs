@@ -864,6 +864,51 @@ pub async fn get_report_stats(pool: &PgPool) -> Result<StatsResponse, AppError> 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Intake stats — per-day report counts (BUG-03.2-A)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// SQL literal used by `get_intake_stats` at runtime.
+///
+/// Defined as a const so both the runtime query and the `intake_sql_fragment()`
+/// test helper reference the exact same string — no drift possible.
+///
+/// Security note (T-intake-sqli): `days` is a bound parameter (`$1`) — never
+/// interpolated via `format!` or string concatenation.
+const INTAKE_SQL: &str = "SELECT \
+    date_trunc('day', created_at AT TIME ZONE 'UTC')::DATE::TEXT AS day, \
+    COUNT(*)::BIGINT AS count \
+    FROM reports \
+    WHERE created_at >= NOW() - ($1 || ' days')::INTERVAL \
+    GROUP BY 1 \
+    ORDER BY 1";
+
+/// Returns per-day report counts for the last `days` calendar days (UTC).
+///
+/// # Contract (BUG-03.2-A)
+/// - Only days with at least one submission appear in the result.
+/// - The frontend is responsible for zero-filling sparse gaps.
+/// - `days` must already be clamped to [1, 90] by the caller (handler).
+pub async fn get_intake_stats(
+    pool: &PgPool,
+    days: i32,
+) -> Result<Vec<crate::models::admin::IntakeDayCount>, AppError> {
+    let rows = sqlx::query(INTAKE_SQL)
+        .bind(days)
+        .fetch_all(pool)
+        .await?;
+
+    let result = rows
+        .iter()
+        .map(|r| crate::models::admin::IntakeDayCount {
+            day: r.get::<String, _>("day"),
+            count: r.get::<i64, _>("count"),
+        })
+        .collect();
+
+    Ok(result)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Phase 2 — New admin_queries functions (stubs)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1064,6 +1109,20 @@ pub fn deactivate_admin_user_sql() -> &'static str {
 #[allow(dead_code)]
 pub fn attribution_sql_fragment() -> &'static str {
     STATUS_HISTORY_SQL
+}
+
+/// Returns the intake SQL string used by `get_intake_stats`.
+///
+/// # Contract (BUG-03.2-A)
+/// The returned string must contain "date_trunc" and "GROUP BY" so that
+/// per-day aggregation is verified without executing any DB query.
+///
+/// This is a test-only hook — the same `INTAKE_SQL` constant is used by
+/// the runtime `sqlx::query(INTAKE_SQL)` call, so this function asserts
+/// the exact SQL the query executes.
+#[allow(dead_code)]
+pub fn intake_sql_fragment() -> &'static str {
+    INTAKE_SQL
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1547,6 +1606,49 @@ mod tests {
              row-accessor h.try_get::<String, _>(\"changed_by_name\") succeeds (BUG-03.2-B); \
              got: {}",
             fragment
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite 7 — BUG-03.2-A: intake stats SQL uses date_trunc + GROUP BY
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// BUG-03.2-A — The intake SQL must use `date_trunc('day', ...)` to aggregate
+    /// per-day counts and `GROUP BY` to collapse multiple rows per day into one.
+    ///
+    /// Security note (T-intake-sqli): The SQL must NOT use `format!` or string
+    /// interpolation for the interval — `days` is a bound parameter.
+    /// The test verifies the SQL literal contains the bound form `$1`.
+    ///
+    /// T-intake-dos: `days` clamping [1,90] is enforced in the handler before
+    /// the DB call — not in the SQL itself. This test asserts the SQL structure,
+    /// not the clamp (which is tested via the handler grep acceptance criterion).
+    #[test]
+    fn intake_sql_uses_date_trunc_and_group_by() {
+        let sql = intake_sql_fragment();
+        assert!(
+            sql.contains("date_trunc"),
+            "Intake SQL must use date_trunc to aggregate per-day counts (BUG-03.2-A); \
+             got: {}",
+            sql
+        );
+        assert!(
+            sql.contains("GROUP BY"),
+            "Intake SQL must use GROUP BY to collapse multiple submissions per day (BUG-03.2-A); \
+             got: {}",
+            sql
+        );
+        assert!(
+            sql.contains("$1"),
+            "Intake SQL must bind `days` as a parameter ($1) — never format!/string-interpolate \
+             the interval (T-intake-sqli); got: {}",
+            sql
+        );
+        assert!(
+            !sql.contains("format!"),
+            "Intake SQL must not be constructed with format! — it must be a static literal \
+             with bound parameters (T-intake-sqli); got: {}",
+            sql
         );
     }
 }

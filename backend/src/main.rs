@@ -159,9 +159,10 @@ async fn main() {
 
     use handlers::admin::{
         admin_assign_report_org, admin_assign_user_org, admin_change_password, admin_create_user,
-        admin_deactivate_user, admin_delete_report, admin_get_report, admin_get_stats,
-        admin_list_organizations, admin_list_reports, admin_list_users, admin_login, admin_logout,
-        admin_me, admin_resolve_report, admin_update_profile, admin_update_report_status,
+        admin_deactivate_user, admin_delete_report, admin_get_intake_stats, admin_get_report,
+        admin_get_stats, admin_list_organizations, admin_list_reports, admin_list_users,
+        admin_login, admin_logout, admin_me, admin_resolve_report, admin_update_profile,
+        admin_update_report_status,
     };
     use middleware::auth::require_auth;
 
@@ -198,6 +199,7 @@ async fn main() {
         )
         .route("/api/admin/reports/:id", delete(admin_delete_report))
         .route("/api/admin/stats", get(admin_get_stats))
+        .route("/api/admin/stats/intake", get(admin_get_intake_stats))
         .route(
             "/api/admin/users",
             get(admin_list_users).post(admin_create_user),

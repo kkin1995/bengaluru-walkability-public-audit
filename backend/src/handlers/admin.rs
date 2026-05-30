@@ -785,6 +785,27 @@ pub async fn admin_get_stats(
     ))
 }
 
+/// Query parameters for GET /api/admin/stats/intake.
+#[derive(serde::Deserialize)]
+pub struct IntakeParams {
+    pub days: Option<i32>,
+}
+
+/// GET /api/admin/stats/intake?days=N — per-day report counts for the last N days.
+///
+/// `days` is clamped to [1, 90] (T-intake-dos mitigation) before the DB call.
+/// Defaults to 14 when absent or invalid.
+/// Route is inside admin_protected_router so require_auth middleware applies (T-intake-authz).
+pub async fn admin_get_intake_stats(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<IntakeParams>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let days = params.days.unwrap_or(14).clamp(1, 90);
+    let rows = admin_queries::get_intake_stats(&state.pool, days).await?;
+    Ok(Json(serde_json::json!(rows)))
+}
+
 // ── Admin user management handlers ───────────────────────────────────────────
 
 /// GET /api/admin/users — list all admin users. Admin role required.

@@ -250,6 +250,22 @@ pub struct StatsResponse {
     pub by_severity: HashMap<String, i64>,
 }
 
+/// Body returned by GET /api/admin/stats/intake?days=N.
+///
+/// `day` is an ISO date string "YYYY-MM-DD" (UTC).
+/// `count` is the number of reports submitted on that day.
+/// Only days with at least one submission are returned — the frontend
+/// zero-fills sparse gaps before passing the dense array to Sparkbars.
+///
+/// # Contract (BUG-03.2-A)
+/// - Each element represents one calendar day in UTC
+/// - `count` is always >= 1 (days with zero submissions are omitted by the query)
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IntakeDayCount {
+    pub day: String,
+    pub count: i64,
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure validation helpers
 // ─────────────────────────────────────────────────────────────────────────────
