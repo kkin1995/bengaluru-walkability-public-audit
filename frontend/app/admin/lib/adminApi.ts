@@ -33,6 +33,17 @@ export interface ChangePasswordPayload {
   new_password: string;
 }
 
+// Phase 03.2 (D-08): Status history entry — matches backend status_history JSON shape exactly
+export interface StatusHistoryEntry {
+  id: string;
+  old_status: string | null;
+  new_status: string;
+  changed_at: string;
+  note: string | null;
+  changed_by: string | null;
+  changed_by_name: string | null;
+}
+
 // Phase 03 (D-21, D-42, D-43, D-44): Ward hierarchy from wards table migration
 export interface WardHierarchy {
   ward_name: string | null;
@@ -75,6 +86,8 @@ export interface AdminReport {
   duplicate_count?: number;
   duplicate_of_id?: string | null;
   duplicate_confidence?: string | null;
+  // Phase 03.2 (D-07, D-08): Audit trail — status change history from backend
+  status_history?: StatusHistoryEntry[];
 }
 
 export interface Organization {
