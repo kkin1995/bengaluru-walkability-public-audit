@@ -83,7 +83,7 @@ Frontend is served at `http://localhost:3000`, the Rust API at `http://localhost
 
 ## Adding a New API Route (Rust / Axum)
 
-The backend follows a layered pattern: `main.rs` (router) → `handlers/` (Axum fns) → `db/queries.rs` (SQLx) → `models/` (types).
+The backend follows a layered pattern: `main.rs` (router) → `handlers/` (Axum fns) → `db/queries.rs` or `db/admin_queries.rs` (SQLx) → `models/` (types).
 
 ### 1. Add the model type
 
@@ -100,9 +100,9 @@ pub struct ReportResponse { /* public-facing fields only */ }
 
 Never include private fields (submitter contact, IP) in the response struct — privacy is enforced at compile time by simply omitting those fields from `ReportResponse`.
 
-### 2. Write the query in `db/queries.rs`
+### 2. Write the query in `db/queries.rs` or `db/admin_queries.rs`
 
-Use `sqlx::query_as::<_, TargetType>(SQL)` with positional `$1`, `$2`, ... placeholders. SQLx validates the SQL against a live database at compile time.
+Public-facing queries go in `db/queries.rs`; admin-only queries go in `db/admin_queries.rs`. Use `sqlx::query_as::<_, TargetType>(SQL)` with positional `$1`, `$2`, ... placeholders. SQLx validates the SQL against a live database at compile time.
 
 ```rust
 pub async fn get_my_thing(pool: &PgPool, id: Uuid) -> Result<MyModel, AppError> {
@@ -123,35 +123,35 @@ The `?` operator converts `sqlx::Error` to `AppError::Database` automatically vi
 Handlers are `async fn` receiving Axum extractors and returning `Result<Json<T>, AppError>`. Extract `AppState` with `State(state): State<AppState>`.
 
 ```rust
-// backend/src/handlers/reports.rs (pattern)
-pub async fn get_my_thing(
+// backend/src/handlers/admin.rs (pattern)
+pub async fn admin_my_action(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<MyResponse>, AppError> {
-    let item = queries::get_my_thing(&state.pool, id).await?;
+    let item = admin_queries::get_my_thing(&state.pool, id).await?;
     Ok(Json(item.into_response()))
 }
 ```
 
-Extract pure logic from handlers into standalone functions (no `async`, no `State`) so they can be unit tested without a database. See the `is_honeypot_triggered` and `build_rate_limit_key` helpers in `handlers/reports.rs` as the reference pattern.
+Extract pure logic from handlers into standalone functions (no `async`, no `State`) so they can be unit tested without a database. See `validate_status` and `validate_resolve_request` in `handlers/admin.rs` as the Phase 03 reference pattern.
 
 ### 4. Register the route in `main.rs`
 
-Add `use handlers::mymodule::my_handler;` and wire it into the correct `Router`:
+Add the handler to the correct `use handlers::admin::*;` import and wire it into the correct `Router`:
 
 ```rust
+// Protected admin route — add to `admin_protected_router`
+.route("/api/admin/reports/:id/my-action", post(admin_my_action))
+
 // Public route — add to the main `app` Router
 .route("/api/my-resource", get(my_handler))
-
-// Protected admin route — add to `admin_protected_router`
-.route("/api/admin/my-resource", get(my_admin_handler))
 ```
 
 Protected admin routes automatically receive JWT validation via the `require_auth` middleware layer applied to `admin_protected_router`.
 
 ### 5. Update `handlers/mod.rs`
 
-Add `pub mod my_handler_module;` to `backend/src/handlers/mod.rs`.
+Add `pub mod my_handler_module;` to `backend/src/handlers/mod.rs` if adding a new handler file. For routes added to the existing `handlers/admin.rs`, no `mod.rs` change is required.
 
 ### Error handling
 
@@ -162,11 +162,59 @@ Return `AppError` variants — they map to HTTP status codes automatically:
 | `AppError::NotFound` | 404 |
 | `AppError::BadRequest(msg)` | 400 |
 | `AppError::Unauthorized` | 401 |
-| `AppError::Forbidden` | 403 |
+| `AppError::Forbidden(msg)` | 403 |
 | `AppError::Conflict(msg)` | 409 |
 | `AppError::RateLimited(msg)` | 429 |
 | `AppError::Database(_)` | 500 |
 | `AppError::Io(_)` | 500 |
+
+---
+
+## Phase 03 Workflow Handlers
+
+Migration `008_workflow.sql` introduced a six-value report status lifecycle and three new admin handler patterns. These are documented here as the canonical pattern for future triage-workflow additions.
+
+### Status enum values
+
+The `report_status` enum now has six active values (two were renamed in migration 008):
+
+| Value | Meaning |
+|---|---|
+| `open` | Newly submitted (was `submitted`) |
+| `acknowledged` | Admin has seen the report (was `under_review`) |
+| `assigned` | Report routed to an organisation |
+| `in_progress` | Organisation is actively working on it |
+| `resolved` | Fixed; after-photo mandatory |
+| `closed` | Archived; after-photo mandatory |
+
+When writing SQL predicates or frontend conditionals against the status column, use these values. The legacy values `submitted` and `under_review` exist only as backward-compat stubs in `StatusBadge.tsx` for sessions created before migration 008 was applied.
+
+**Public 3-state mapping (citizens):** `publicStatusLabel()` and `publicStatusColor()` in `frontend/app/lib/translations.ts` collapse the six admin states into three for the public-facing UI: `open/acknowledged/assigned` → "Open", `in_progress` → "In progress", `resolved/closed` → "Resolved".
+
+### Resolve handler pattern (`POST /api/admin/reports/:id/resolve`)
+
+`admin_resolve_report` in `handlers/admin.rs` demonstrates the multipart-with-photo handler pattern. Key aspects:
+
+- Accepts `multipart/form-data` with `status` ("resolved" or "closed") and an optional `photo` file.
+- `validate_resolve_request(new_status, photo_bytes_len)` is a pure function that enforces the rule that a resolution photo is mandatory when transitioning to `resolved` or `closed`. Write tests against this function, not the async handler.
+- Saves the after-photo via the same `UPLOADS_DIR` path used for submission photos.
+- Calls `admin_queries::resolve_report(pool, id, status, photo_path, notes)` atomically.
+
+### Org assignment handler pattern (`POST /api/admin/reports/:id/assign-org`)
+
+`admin_assign_report_org` in `handlers/admin.rs` demonstrates org-routing. Key aspects:
+
+- Accepts `{ org_id: UUID | null }` JSON body (`ReportAssignOrgRequest`).
+- Passing `null` clears the assignment; passing a UUID sets `assigned_org_id`.
+- The server auto-advances status to `assigned` when a non-null org is set (handled in `admin_queries::assign_report_org`).
+
+### Intake stats handler (`GET /api/admin/stats/intake?days=N`)
+
+`admin_get_intake_stats` returns a `Vec<IntakeDayCount>` with one row per day for the last `N` days (default 30). The `get_intake_stats` query in `admin_queries.rs` uses the `intake_sql_fragment()` helper exposed as a `pub fn` for unit-testability.
+
+### Organizations listing (`GET /api/admin/organizations`)
+
+`admin_list_organizations` returns all rows from the `organizations` table as `Vec<Organization>`. The org tree (`gba` → `corporation` → `ward_office`) is seeded by migration `010_org_seed.sql`. Org assignment (both report-to-org and user-to-org) is managed through separate endpoints.
 
 ---
 
@@ -182,17 +230,19 @@ cd backend
 cargo sqlx prepare --database-url "postgres://walkability:secret@localhost:5432/walkability"
 ```
 
-This writes `.sqlx/query-*.json` files that allow offline compilation. Commit these files alongside query changes. The `backend/.sqlx/` directory does not exist in the repository yet — it must be generated by running `cargo sqlx prepare` against a live database before CI offline builds will succeed.
+This writes `.sqlx/query-*.json` files that allow offline compilation. Commit these files alongside query changes.
 
 ### Adding a new migration
 
 Place a new file in `backend/migrations/` following the numbered naming convention:
 
 ```
-008_my_feature.sql
+011_my_feature.sql
 ```
 
 Migrations run automatically on server startup via `sqlx::migrate!("./migrations")`. They are applied in filename order and are irreversible — always add new `ALTER TABLE` statements rather than modifying existing migrations.
+
+**Important — `ALTER TYPE ADD VALUE` restriction:** Postgres 10+ does not allow `ALTER TYPE ADD VALUE` inside a transaction block. If your migration adds a new enum variant, add `-- no-transaction` as the very first line of the SQL file. `sqlx::migrate!` respects this annotation and will not wrap the file in a transaction. See `008_workflow.sql` for the canonical example.
 
 After adding a migration:
 1. Start the database and apply: `cargo run` (migrations apply on boot).
@@ -210,7 +260,15 @@ Create a new directory under `frontend/app/` with a `page.tsx`:
 frontend/app/my-page/page.tsx
 ```
 
-Use `"use client"` at the top for interactive pages that need browser APIs. Omit it for server components that can fetch data on the server (like `app/page.tsx`).
+Use `"use client"` at the top for interactive pages that need browser APIs. Omit it for server components that can fetch data on the server (like `app/reports/[id]/page.tsx`, which is a server component that uses `INTERNAL_API_URL`).
+
+**Phase 03 pages added:**
+
+| Page | Path | Notes |
+|---|---|---|
+| Public report detail | `frontend/app/reports/[id]/page.tsx` | Server component; fetches via `INTERNAL_API_URL`; admin-only fields never rendered |
+| Admin report detail | `frontend/app/admin/reports/[id]/page.tsx` | Client component; mounts `StatusActionPanel`, `OrgAssignPanel`, `GbaHierarchyPanel`, `ResolveModal` |
+| Admin organizations | `frontend/app/admin/organizations/page.tsx` | Client component; displays org tree and online status banner |
 
 ### Environment-aware API calls
 
@@ -240,6 +298,36 @@ Never import Leaflet components directly at the top of a server component or pag
 ### UI components
 
 Reusable UI primitives live in `frontend/app/components/ui/`. Check this directory before building a new component — `Icon`, `Pill`, `SectionLabel`, `Bi`, and `Btn` are already available. Feature-specific components go directly in `frontend/app/components/`.
+
+Redesigned public-facing components live in `frontend/app/components/redesign/` (`CategoryGrid`, `SeverityGrid`, `SuccessCard`) — use these for new public wizard pages rather than re-implementing from scratch.
+
+---
+
+## Admin Dashboard Components (Phase 03)
+
+The admin dashboard gained a set of Phase 03 components in `frontend/app/admin/components/`. When building new admin features, prefer composing these before writing new ones.
+
+| Component | File | Purpose |
+|---|---|---|
+| `StatusBadge` | `StatusBadge.tsx` | Renders status chip with tone, dot, and pulse for all six status values |
+| `StatusActionPanel` | `StatusActionPanel.tsx` | Contextual action buttons per-status (WFLOW-01); calls `onStatusChange`, `onResolveClick`, `onAssignClick`, `onCloseClick` |
+| `OrgAssignPanel` | `OrgAssignPanel.tsx` | Cascading corporation → ward-office picker (WFLOW-03); calls `listOrganizations()` and `assignReportOrg()` from `adminApi.ts` |
+| `ResolveModal` | `ResolveModal.tsx` | Photo-upload modal for resolve/close transitions (WFLOW-04/05); calls `resolveReport()` from `adminApi.ts` |
+| `GbaHierarchyPanel` | `GbaHierarchyPanel.tsx` | Read-only bureaucratic + elected chain display from ward hierarchy data (D-23, D-42, D-45) |
+| `Sparkbars` | `Sparkbars.tsx` | Inline bar-chart primitive for intake-trend visualisation |
+| `StatsCards` | `StatsCards.tsx` | Aggregate stats display used on the admin dashboard |
+| `ReportsTable` | `ReportsTable.tsx` | Paginated, filterable reports list with dedup signals |
+| `ConfidencePill` | `ConfidencePill.tsx` | Dedup confidence indicator (`low`/`high`) |
+| `SeverityIndicator` | `SeverityIndicator.tsx` | Severity level display |
+
+All new admin Phase 03 functions are exported from `frontend/app/admin/lib/adminApi.ts`:
+
+| Function | Endpoint |
+|---|---|
+| `getIntakeStats(days)` | `GET /api/admin/stats/intake?days=N` |
+| `resolveReport(id, formData)` | `POST /api/admin/reports/:id/resolve` |
+| `assignReportOrg(id, orgId)` | `POST /api/admin/reports/:id/assign-org` |
+| `listOrganizations()` | `GET /api/admin/organizations` |
 
 ---
 
@@ -426,6 +514,7 @@ Add a test file in `backend/src/migrations_tests/` when a migration:
 - Creates a table with non-obvious column constraints (e.g. nullable self-referential FK, GEOGRAPHY type)
 - Adds a PostGIS spatial index or trigger
 - Introduces a new enum variant that affects application logic
+- Adds a `-- no-transaction` annotation (verify the annotation is present so future editors do not accidentally remove it)
 - Contains a SQL constant shared with application code (e.g. the dedup job's radius)
 
 Register the new module in `backend/src/migrations_tests/mod.rs` and in `backend/src/main.rs` (`mod migrations_tests;` is already present).
@@ -511,6 +600,7 @@ The older `BilingualText` component (`frontend/app/components/BilingualText.tsx`
 - Never hardcode English-only strings in JSX that a citizen would read. Admin-only UI strings (dashboard labels, error messages) may be English-only.
 - The Kannada translation (`kn` prop on `Bi`) is optional — if omitted, only the English span is rendered.
 - Do not use `getCategoryLabel()` from `translations.ts` inside `CategoryGrid` or `SeverityGrid` — those components use shorter inline labels intentionally (per UI spec).
+- `publicStatusLabel()` and `publicStatusColor()` collapse the six admin status values into a three-state public representation. Use these functions in all citizen-facing pages rather than matching against raw status strings.
 
 ---
 
@@ -565,6 +655,8 @@ export async function getAdminReports(): Promise<AdminReport[]> {
 }
 ```
 
+Phase 03 functions (`resolveReport`, `assignReportOrg`, `listOrganizations`, `getIntakeStats`) follow the same pattern and are already defined in `adminApi.ts`.
+
 ### `middleware.ts` auth guard
 
 `frontend/middleware.ts` runs on the Edge for all `/admin/*` paths. It checks for the `admin_token` cookie and redirects to `/admin/login` if absent. It also injects an `x-pathname` response header so the server-side `admin/layout.tsx` can read the current path without client-side JavaScript.
@@ -591,12 +683,29 @@ The authoritative GeoJSON source is `data/gba_wards_2025.geojson`. The INSERT st
 
 The handler is `backend/src/handlers/wards.rs`. Only `ward_number` and `ward_name` are exposed — the internal UUID and corporation name are intentionally omitted from the public response (see `WardLookupResponse` vs `Ward` model).
 
+### Ward hierarchy columns (migration 009)
+
+Migration `009_ward_hierarchy.sql` backfills eight GBA hierarchy columns onto the `wards` table:
+
+| Column | Description |
+|---|---|
+| `zone_name` | Engineering zone (10 GBA zones) |
+| `ro_division` | Revenue Officer division |
+| `aro_sub_division` | ARO sub-division |
+| `assembly_constituency` | Assembly constituency name |
+| `assembly_constituency_no` | AC number (150–177 for GBA) |
+| `parliamentary_constituency` | Lok Sabha constituency |
+| `mla_name` | Elected MLA (Karnataka 2023) |
+| `mp_name` | Elected MP (Lok Sabha 2024) |
+
+These columns are nullable — rows added after the data refresh cycle may have `NULL` values until the next update. The `GbaHierarchyPanel` admin component reads these fields via `WardHierarchy` in `adminApi.ts` and renders them as a collapsible bureaucratic + elected chain display.
+
 ### PostGIS coordinate order
 
 PostGIS `ST_MakePoint` takes `(longitude, latitude)` — X,Y order, the opposite of the conventional lat/lng pair. All ward queries in `db/queries.rs` bind `lat` as `$1` and `lng` as `$2`, then call `ST_MakePoint($2, $1)`. This is documented in each query function. Do not change the bind order without updating the comment.
 
-### Organization scoping (migrations 005 and 006)
+### Organization scoping (migrations 005, 006, and 010)
 
-Migrations `005_organizations.sql` and `006_ward_org_scoping.sql` add an organization hierarchy (`organizations` table) and link both `admin_users` and `wards` to it via nullable `org_id` columns. At migration time these columns are `NULL` for all rows — org data is populated out-of-band after the GBA org structure is confirmed.
+Migrations `005_organizations.sql` and `006_ward_org_scoping.sql` add an organization hierarchy (`organizations` table) and link both `admin_users` and `wards` to it via nullable `org_id` columns. Migration `010_org_seed.sql` seeds the initial GBA org structure: one root GBA row and five corporation rows (Bengaluru Central, North, East, South, West). Ward-office rows are out of scope until GBA finalises ward office boundaries.
 
 When `org_id` is `NULL` on a ward, org-scoped admin users see zero reports for that ward. This is the correct behavior during the initial rollout period, not a bug.

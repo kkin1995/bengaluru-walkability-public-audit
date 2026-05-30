@@ -9,14 +9,16 @@ For a complete list of all environment variables and their defaults, see [CONFIG
 
 ## Deployment Targets
 
-| Target | Config File | Notes |
+| Target | Config Files | Notes |
 |--------|-------------|-------|
-| Self-hosted (Docker Compose) | `docker-compose.yml` | Production reference; nginx on port 80, all services containerised |
+| Self-hosted (full-stack Docker Compose) | `docker-compose.yml` | Production reference; nginx on port 80, all services containerised |
+| Self-hosted (backend-only, Cloudflare tunnel) | `docker-compose.yml` + `docker-compose.server.yml` | Runs `db`, `backend`, `nginx` only; frontend served by Vercel; nginx uses `nginx/nginx.server.conf` |
+| Local development (hot-reload) | `docker-compose.yml` + `docker-compose.dev.yml` | Overlaid on top of `docker-compose.yml`; `cargo watch` for backend, `npm run dev` for frontend |
+| Local LAN test | `docker-compose.yml` + `docker-compose.local.yml` | Sets `CORS_ORIGIN` and `PUBLIC_URL` to a LAN IP; not for production |
 | Staging — Backend | `backend/railway.toml` | Railway Hobby plan; auto-deploy on push to `main` |
 | Staging — Frontend | Vercel project settings | Vercel free tier; auto-deploy on push to `main` |
-| Local development | `docker-compose.dev.yml` | Overlaid on top of `docker-compose.yml`; hot-reload for both backend and frontend |
 
-The `nginx/` directory and `docker-compose.yml` are the canonical production target. Staging uses Railway (backend) and Vercel (frontend) without nginx — see [Staging Deployment](#staging-deployment-railway--vercel) below.
+The `nginx/` directory and `docker-compose.yml` are the canonical full-stack production target. The `docker-compose.server.yml` overlay supports a backend-only deployment behind a Cloudflare tunnel, where the frontend is hosted on Vercel. See [Staging Deployment](#staging-deployment-railway--vercel) for the Railway + Vercel setup.
 
 ---
 
@@ -63,16 +65,26 @@ JWT_SECRET=<64-char-hex-string>
 
 ### Step 2 — Build and start
 
+**Full-stack (all services including Next.js frontend):**
+
 ```bash
 docker compose up --build -d
 ```
+
+**Backend-only behind a Cloudflare tunnel (frontend on Vercel):**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.server.yml up -d db backend nginx
+```
+
+This variant uses `nginx/nginx.server.conf` (catch-all 404 for `/`; no frontend upstream). The frontend container is parked behind the `frontend-only` profile and will not start unless explicitly requested.
 
 Docker Compose starts services in dependency order:
 
 1. `db` (PostGIS) — waits for `pg_isready` health check to pass
 2. `backend` (Rust/Axum) — waits for `db` to be healthy; runs migrations automatically on startup
-3. `frontend` (Next.js) — waits for `backend` to start
-4. `nginx` — waits for both `backend` and `frontend` health checks to pass before accepting traffic
+3. `frontend` (Next.js) — waits for `backend` to start (full-stack mode only)
+4. `nginx` — waits for `backend` (and `frontend` in full-stack mode) health checks to pass before accepting traffic
 
 ### Step 3 — Verify
 
@@ -100,10 +112,13 @@ The backend uses `sqlx::migrate!()` which applies all pending SQL files from `ba
 | `001_init.sql` | `reports` table, enums, PostGIS geography index, triggers |
 | `002_admin.sql` | `admin_users`, `status_history`, `user_role` enum |
 | `003_super_admin.sql` | `is_super_admin BOOLEAN` column on `admin_users` |
-| `004_ward_boundaries.sql` | Ward boundary geometry data |
-| `005_organizations.sql` | `organizations` table |
-| `006_ward_org_scoping.sql` | Ward-to-organisation scoping links |
-| `007_anti_abuse.sql` | Honeypot and abuse prevention fields |
+| `004_ward_boundaries.sql` | GBA 2025 ward boundary geometry (369 wards, 5 corporations) |
+| `005_organizations.sql` | `organizations` table (self-referential adjacency list for GBA hierarchy) |
+| `006_ward_org_scoping.sql` | `org_id` on `wards` for ward-to-organisation scoping |
+| `007_anti_abuse.sql` | Photo deduplication fields and `submitter_ip` for rate-limit audit trail |
+| `008_workflow.sql` | Phase 03 government triage workflow schema (runs outside a transaction — `ALTER TYPE ADD VALUE` requirement) |
+| `009_ward_hierarchy.sql` | GBA hierarchy columns on `wards`; backfills from `gba_wards_2025.geojson` |
+| `010_org_seed.sql` | Placeholder GBA org structure seed data (update with ground-truth once GBA structure is confirmed) |
 
 The `reports.location` column (GEOGRAPHY type) is populated automatically from `lat`/`lng` values via a trigger — never set it directly.
 
@@ -113,11 +128,18 @@ The `reports.location` column (GEOGRAPHY type) is populated automatically from `
 
 ## nginx Configuration
 
-nginx acts as the reverse proxy, entry point, and rate limiter. The config lives at `nginx/nginx.conf` and is bind-mounted read-only into the nginx container.
+nginx acts as the reverse proxy, entry point, and rate limiter. Two nginx configs exist:
+
+| Config file | Used by | Purpose |
+|-------------|---------|---------|
+| `nginx/nginx.conf` | `docker-compose.yml` (default) | Full-stack: proxies `/` and `/admin*` to `frontend:3000`, API and uploads to `backend:3001` |
+| `nginx/nginx.server.conf` | `docker-compose.server.yml` override | Backend-only: no frontend upstream; catch-all `location /` returns HTTP 404. TLS terminated by Cloudflare tunnel upstream. |
+
+Both configs are bind-mounted read-only into the nginx container.
 
 ### Port and TLS
 
-nginx listens on port 80 only. TLS must be terminated upstream — by a cloud load balancer (e.g., AWS ALB, Cloudflare) or by extending `nginx.conf` to add a TLS listener.
+nginx listens on port 80 only. In full-stack self-hosted deployments, TLS must be terminated upstream — by a cloud load balancer (e.g., AWS ALB, Cloudflare) or by extending `nginx/nginx.conf` to add a TLS listener.
 
 To enable TLS directly on nginx:
 
@@ -127,7 +149,11 @@ To enable TLS directly on nginx:
 
 The commented TLS block in `nginx.conf` shows the exact `ssl_certificate`, `ssl_certificate_key`, `ssl_protocols`, and `ssl_ciphers` directives to use.
 
+In the backend-only (`docker-compose.server.yml`) configuration, TLS is handled entirely by the Cloudflare tunnel daemon (`cloudflared`) running on the same host — no SSL certificates are needed in nginx.
+
 ### Routing rules
+
+**Full-stack (`nginx/nginx.conf`):**
 
 | Path pattern | Upstream | Notes |
 |---|---|---|
@@ -138,6 +164,10 @@ The commented TLS block in `nginx.conf` shows the exact `ssl_certificate`, `ssl_
 | `/uploads/*` | `backend:3001` | Served by Axum `ServeDir`; cached 30 days at the browser |
 | `/admin*` | `frontend:3000` | Security headers applied: `X-Frame-Options: DENY`, CSP, `X-Content-Type-Options`, `Referrer-Policy` |
 | `/` | `frontend:3000` | All other requests |
+
+**Backend-only (`nginx/nginx.server.conf`):**
+
+Identical rate-limiting and upstream rules for `/health`, `/api/admin/auth/login`, `/api/admin/*`, `/api/*`, and `/uploads/*`. The `/admin*` and `/` locations are absent — `location /` returns HTTP 404 (no frontend on this host).
 
 ### Request size limits
 
@@ -173,7 +203,9 @@ volumes:
 The `entrypoint.sh` script re-applies the correct ownership to `/app/uploads` on each container start (the named volume mount overwrites the image layer, so ownership must be fixed at runtime):
 
 ```sh
-chown -R appuser:appuser /app/uploads
+#!/bin/sh
+set -e
+chown -R appuser:appuser /app/uploads 2>/dev/null || true
 exec gosu appuser "$@"
 ```
 
@@ -189,12 +221,12 @@ All four services expose health checks that Docker Compose uses to gate startup 
 
 | Service | Health check command | Interval | Timeout | Start period | Retries |
 |---------|---------------------|----------|---------|--------------|---------|
-| `db` | `pg_isready -U walkability -d walkability` | 5s | 5s | — | 10 |
+| `db` | `pg_isready -U ${POSTGRES_USER:-walkability} -d ${POSTGRES_DB:-walkability}` | 5s | 5s | — | 10 |
 | `backend` | `curl -f http://localhost:3001/health` | 10s | 5s | 30s | 3 |
-| `frontend` | `wget -qO- http://127.0.0.1:3000/` | 10s | 5s | 30s | 3 |
+| `frontend` | `wget -qO- http://127.0.0.1:3000/ > /dev/null` | 10s | 5s | 30s | 3 |
 | `nginx` | `curl -f http://localhost/health` | 30s | 5s | 10s | 3 |
 
-nginx only starts after both `backend` and `frontend` report healthy. This prevents nginx from returning 502 errors on the first real request after a fresh deployment.
+nginx only starts after both `backend` and `frontend` report healthy in full-stack mode. In the `docker-compose.server.yml` (backend-only) override, nginx waits only for `backend` — the `frontend` dependency is set to `required: false`.
 
 The backend `/health` endpoint returns `{"status":"ok"}` when the server is accepting connections.
 
@@ -241,24 +273,25 @@ Two GitHub Actions workflows manage CI and deployment.
 
 ### CI (`ci.yml`)
 
-Triggers on every push and pull request to any branch.
+Triggers on every push and pull request to any branch. Also callable as a reusable workflow from `deploy.yml`.
 
-1. **Frontend checks** — `npm run lint`, `npm test`, `npm audit --audit-level=critical` (Node 20)
+1. **Frontend checks** — `npm run lint`, `npm test -- --passWithNoTests --watchAll=false`, `npm audit --audit-level=critical` (Node 20)
 2. **Backend checks** — `cargo clippy -- -D warnings`, `cargo test`, `cargo audit` (Rust stable)
-3. **Docker build** — `docker compose build` with dummy secrets to verify all images build cleanly
+3. **Docker build** — `docker compose build` with dummy `POSTGRES_PASSWORD` and `JWT_SECRET` values to verify all images build cleanly (containers are not started)
 
 ### Deploy (`deploy.yml`)
 
-Triggers on push to `main` and supports manual `workflow_dispatch`.
+Triggers on push to `main` and supports manual `workflow_dispatch`. Requires a `production` GitHub Environment to be configured (Settings → Environments) and a self-hosted runner labelled `self-hosted, linux, walkability-prod` installed on the Arch Linux host.
 
 1. Runs the full CI workflow (reuses `ci.yml`)
-2. After CI passes, runs a smoke test against the Railway staging environment:
-   - Waits 30 seconds for Railway and Vercel to begin redeployment
-   - Retries the Railway `/health` endpoint up to 5 times with 15-second intervals
-   - Checks `/api/reports` responds successfully
-   - Checks the Vercel staging frontend returns HTTP 200
-
-The smoke test requires the `RAILWAY_BACKEND_URL` GitHub Actions secret. If the secret is not set, smoke tests are skipped (a workflow notice is emitted but the job does not fail).
+2. After CI passes, deploys to the Namma Daari LXC via SSH:
+   - Rsyncs the repository to `/opt/nammadaari/` on the LXC (`root@192.168.1.152`)
+   - Runs `docker compose -f docker-compose.yml -f docker-compose.server.yml build backend` then brings up `db backend nginx`
+3. Waits for the local `/health` endpoint to pass (6 attempts, 10-second intervals)
+4. Runs smoke tests from a `ubuntu-latest` runner against the Cloudflare tunnel and Vercel URLs:
+   - Retries `${{ vars.BACKEND_URL }}/health` up to 5 times (15-second intervals)
+   - Checks `${{ vars.BACKEND_URL }}/api/reports` responds
+   - Checks `${{ vars.FRONTEND_URL }}` returns HTTP 200
 
 ---
 
@@ -408,34 +441,37 @@ docker compose logs -f nginx
 
 ---
 
-## GitHub Actions Secrets
+## GitHub Actions Secrets and Variables
 
-The following secrets must be configured in the GitHub repository (Settings → Secrets and variables → Actions) for the CI and deploy workflows to function correctly.
+The following must be configured in the GitHub repository (Settings → Secrets and variables → Actions) for the CI and deploy workflows to function correctly.
 
-### Required for deploy workflow (`deploy.yml`)
+### Secrets (Settings → Secrets)
+
+| Secret | Description |
+|--------|-------------|
+| `LXC_SSH_KEY` | Private SSH key for access to the Namma Daari LXC (used by the `deploy` job to rsync files and run Docker commands via SSH). |
+
+### Variables (Settings → Variables)
+
+| Variable | Description |
+|----------|-------------|
+| `BACKEND_URL` | Public Cloudflare tunnel URL for the backend. Used by the post-deploy smoke test to hit `/health` and `/api/reports`. <!-- VERIFY: actual Cloudflare tunnel URL --> |
+| `FRONTEND_URL` | Vercel frontend URL. Used by the post-deploy smoke test to verify HTTP 200. <!-- VERIFY: actual Vercel project URL --> |
+| `CORS_ORIGIN` | Exact origin string the backend should allow (passed to the deployed service). <!-- VERIFY: exact value set in repository variables --> |
+
+### GitHub Environment
+
+A `production` GitHub Environment (Settings → Environments) must exist and be configured on the repository. The `deploy` job targets this environment, which can be used to add required reviewers or deployment protection rules.
+
+### Secrets referenced in `ci.yml` comments (deploy workflow only)
+
+The `ci.yml` header documents four secrets used by the deploy workflow at runtime:
 
 | Secret | Description |
 |--------|-------------|
 | `JWT_SECRET` | 64-char hex string used to sign admin session tokens. Generate with `openssl rand -hex 64`. |
-| `COOKIE_SECURE` | Set to `true` for HTTPS deployments. Used when building the Docker image via the deploy workflow. |
+| `COOKIE_SECURE` | Set to `true` for HTTPS deployments. |
 | `ADMIN_SEED_EMAIL` | Email address for the initial super-admin account seeded on first boot. |
 | `ADMIN_SEED_PASSWORD` | Password for the initial super-admin account (minimum 12 characters). Remove after first login. |
 
-These four secrets are passed as environment variables to the Docker Compose build step inside the deploy workflow. They are not used by the CI checks job (`ci.yml`) — that job passes dummy values for `POSTGRES_PASSWORD` and `JWT_SECRET` solely to satisfy the `docker compose build` validation step.
-
-### Required for smoke tests (`deploy.yml`)
-
-| Secret | Description |
-|--------|-------------|
-| `RAILWAY_BACKEND_URL` | Public HTTPS URL of the Railway backend service (e.g., `https://<project>.railway.app`). If not set, the post-deploy smoke test step is skipped with a workflow notice — CI and the Docker build still pass. <!-- VERIFY: actual Railway service URL --> |
-
-### Hardcoded workflow values
-
-The Vercel staging URL used by the smoke test is hardcoded as a job-level environment variable in `.github/workflows/deploy.yml` rather than a secret, because it is not sensitive:
-
-```yaml
-env:
-  VERCEL_STAGING_URL: https://staging-walkability.kinariwala.com
-```
-
-If the Vercel project URL changes, update this value directly in `deploy.yml`.
+These four values are environment variables passed to the LXC at deploy time — not GitHub Actions secrets consumed directly by workflow steps. The CI checks job (`ci.yml`) uses only dummy `POSTGRES_PASSWORD` and `JWT_SECRET` values to satisfy the `docker compose build` validation step.

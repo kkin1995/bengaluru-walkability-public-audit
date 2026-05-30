@@ -53,6 +53,14 @@ Open `backend/.env` and replace every `CHANGEME_*` / `changeme-*` placeholder wi
 | `ADMIN_SEED_EMAIL` | Email address for the first admin account |
 | `ADMIN_SEED_PASSWORD` | Password for the first admin account (minimum 12 characters) |
 
+The following variables have safe defaults and do not need to be changed for local development:
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `PUBLIC_URL` | `http://localhost` | Base URL used in outgoing links; change for staging/production |
+| `JWT_SESSION_HOURS` | `24` | Admin session duration in hours |
+| `COOKIE_SECURE` | `false` | Set to `true` in production (requires HTTPS) |
+
 For a full description of every variable see [docs/CONFIGURATION.md](CONFIGURATION.md).
 
 ---
@@ -68,7 +76,7 @@ docker compose up --build
 What happens on first boot:
 
 1. PostgreSQL (with PostGIS) initialises and passes its health check.
-2. The Rust/Axum binary starts, runs `sqlx::migrate!` to apply all migrations, and seeds the first admin user from `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD`.
+2. The Rust/Axum binary starts, runs `sqlx::migrate!` to apply all migrations (including the government triage workflow schema in migrations 008–010), and seeds the first admin user from `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD`.
 3. Next.js starts and passes its health check.
 4. nginx starts and begins accepting traffic on port 80.
 
@@ -79,6 +87,7 @@ Once all services are healthy, open `http://localhost` in a browser.
 | `http://localhost` | Citizen-facing landing page |
 | `http://localhost/report` | 4-step report submission wizard |
 | `http://localhost/map` | Public map of all reports |
+| `http://localhost/reports/{id}` | Public detail page for a single report |
 | `http://localhost/admin/login` | Admin dashboard login |
 
 To stop all services:
@@ -136,50 +145,19 @@ The frontend is now available at `http://localhost:3000`. The dev compose overri
 
 ### `POSTGRES_PASSWORD` not set — compose exits immediately
 
-`docker-compose.yml` uses `${POSTGRES_PASSWORD}` with no fallback and no `:?` hard-fail guard. If the variable is missing from `backend/.env` (or the file was not copied), Docker Compose will substitute an empty string, which will cause PostgreSQL to reject connections.
+`docker-compose.yml` uses `${POSTGRES_PASSWORD}` with no fallback. If the variable is missing from `backend/.env` (or the file was not copied), Docker Compose will substitute an empty string, which will cause PostgreSQL to reject connections.
 
 **Fix:** Ensure `backend/.env` exists and `POSTGRES_PASSWORD` is set to a non-empty value.
 
 ### `JWT_SECRET must be set` error at compose start
 
-The compose file enforces `${JWT_SECRET:?JWT_SECRET must be set...}`. A missing or empty `JWT_SECRET` in `backend/.env` causes an immediate exit.
+The compose file enforces `${JWT_SECRET:?JWT_SECRET must be set...}`. A missing or empty `JWT_SECRET` in `backend/.env` causes an immediate exit before any container starts.
 
 **Fix:** Set `JWT_SECRET` to a string of at least 32 characters (e.g. `openssl rand -hex 64`).
 
 ### Frontend `.env.local` not found in manual dev mode
 
-The frontend reads `NEXT_PUBLIC_API_URL` and `INTERNAL_API_URL` from the environment. In manual dev mode these are set by the `docker-compose.dev.yml` override when the frontend runs inside Docker. When running `npm run dev` directly on your machine without Docker, create the file manually:
-
-```bash
-# frontend/.env.local — manual dev only; do not commit
-NEXT_PUBLIC_API_URL=http://localhost:3001
-INTERNAL_API_URL=http://localhost:3001
-```
-
-### Port 80 already in use
-
-nginx binds to port 80. If another process (e.g. Apache, another nginx) is already on port 80, `docker compose up` will fail with `address already in use`.
-
-**Fix:** Stop the conflicting process, or change the host port in `docker-compose.yml` (`"80:80"` → e.g. `"8080:80"`) and access the app at `http://localhost:8080`.
-
-### Cargo compile times on first build
-
-The Rust backend performs a full compile from source on the first `cargo build`. This is expected and can take 2–5 minutes on a typical laptop. Subsequent builds are incremental. In Docker Compose, `cargo_cache` and `target_cache` named volumes (defined in `docker-compose.dev.yml`) persist the build cache across container restarts.
-
----
-
-## Next Steps
-
-- **Development workflow, build commands, and code style:** see [docs/DEVELOPMENT.md](DEVELOPMENT.md)
-- **Running the test suite:** see [docs/TESTING.md](TESTING.md)
-- **Full environment variable reference:** see [docs/CONFIGURATION.md](CONFIGURATION.md)
-- **System architecture and component diagram:** see [docs/ARCHITECTURE.md](ARCHITECTURE.md)
-
----
-
-## Frontend Environment File
-
-`frontend/.env.local.example` is committed to the repository as the canonical template for frontend environment variables. When running `npm run dev` outside of Docker (Option B, Terminal 3), copy it before starting the dev server:
+The frontend reads `NEXT_PUBLIC_API_URL` and `INTERNAL_API_URL` from the environment. In manual dev mode, when running `npm run dev` directly on your machine (not inside Docker), create the file from the committed example:
 
 ```bash
 cp frontend/.env.local.example frontend/.env.local
@@ -194,8 +172,51 @@ INTERNAL_API_URL=http://localhost:3001
 
 `frontend/.env.local` is listed in `.gitignore` and must never be committed.
 
+### Port 80 already in use
+
+nginx binds to port 80. If another process (e.g. Apache, another nginx) is already on port 80, `docker compose up` will fail with `address already in use`.
+
+**Fix:** Stop the conflicting process, or change the host port in `docker-compose.yml` (`"80:80"` → e.g. `"8080:80"`) and access the app at `http://localhost:8080`.
+
+### Cargo compile times on first build
+
+The Rust backend performs a full compile from source on the first `cargo build`. This is expected and can take 2–5 minutes on a typical laptop. Subsequent builds are incremental. In Docker Compose, `cargo_cache` and `target_cache` named volumes (defined in `docker-compose.dev.yml`) persist the build cache across container restarts.
+
+---
+
+## Compose Override Files
+
+The repository ships three compose files beyond the base `docker-compose.yml`:
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.dev.yml` | Hot-reload dev mode: exposes ports 5432/3001/3000, mounts source directories, runs `cargo watch` and `npm run dev` |
+| `docker-compose.local.yml` | LAN testing: overrides `CORS_ORIGIN` and `PUBLIC_URL` with a local IP address (e.g. `192.168.1.33`). Not for production. |
+| `docker-compose.server.yml` | Backend-only server deployment: removes the frontend dependency from nginx, parks the frontend behind a `frontend-only` profile. Used for self-hosted desktop deployments behind a Cloudflare tunnel. |
+
+For LAN testing:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+```
+
+For backend-only server mode:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.server.yml up -d db backend nginx
+```
+
+---
+
+## Next Steps
+
+- **Development workflow, build commands, and code style:** see [docs/DEVELOPMENT.md](DEVELOPMENT.md)
+- **Running the test suite:** see [docs/TESTING.md](TESTING.md)
+- **Full environment variable reference:** see [docs/CONFIGURATION.md](CONFIGURATION.md)
+- **System architecture and component diagram:** see [docs/ARCHITECTURE.md](ARCHITECTURE.md)
+
 ---
 
 ## Staging and Production
 
-This guide covers local development only. For staging and production deployment — including Docker image builds, Railway/Vercel configuration, environment variable secrets management, database migrations on a live instance, and rollback procedures — see [docs/DEPLOYMENT.md](DEPLOYMENT.md).
+This guide covers local development only. For staging and production deployment — including Docker image builds, environment variable secrets management, database migrations on a live instance, and rollback procedures — see [docs/DEPLOYMENT.md](DEPLOYMENT.md).

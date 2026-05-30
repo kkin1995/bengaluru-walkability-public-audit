@@ -32,8 +32,10 @@ Copy `frontend/.env.local.example` to `frontend/.env.local`. All configuration l
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `NEXT_PUBLIC_API_URL` | Optional | `""` (empty string) | Client-side base URL for public API calls (report submission, map data). Set to `""` in Docker so the browser uses relative URLs resolved against the nginx proxy. Set to `http://localhost:3001` for local dev without Docker. **Baked into the Next.js bundle at build time** — a rebuild is required if this value changes. |
-| `INTERNAL_API_URL` | Optional | `http://localhost:3001` | Server-side base URL for Next.js server components and `next.config.mjs` rewrites. Never sent to the browser. In Docker, set to `http://backend:3001` (Docker internal hostname). |
-| `NEXT_OUTPUT` | Optional | — | Set to `"standalone"` to enable Next.js standalone output mode, required for Docker/self-hosted builds. Not needed on Vercel. |
+| `INTERNAL_API_URL` | Optional | `http://localhost:3001` | Server-side base URL for Next.js server components and `next.config.mjs` rewrites (including the `/uploads/*` proxy). Never sent to the browser. In Docker, set to `http://backend:3001` (Docker internal hostname). |
+| `NEXT_OUTPUT` | Optional | — | Set to `"standalone"` to enable Next.js standalone output mode, required for Docker/self-hosted builds. Not needed on Vercel. Declared as a build `ARG` in `frontend/Dockerfile`; defaults to `standalone` inside the Dockerfile. |
+
+`NEXT_PUBLIC_APP_VERSION` is injected automatically by `next.config.mjs` from the `version` field in `frontend/package.json`. It is not user-configurable and does not need to be set in `.env.local`.
 
 ### Docker Compose variables (`.env` at project root or shell environment)
 
@@ -50,6 +52,8 @@ These variables are consumed by `docker-compose.yml` and forwarded to the approp
 | `JWT_SESSION_HOURS` | Optional | `24` | Forwarded to the backend. |
 | `ADMIN_SEED_EMAIL` | Optional | — | Forwarded to the backend. |
 | `ADMIN_SEED_PASSWORD` | Optional | — | Forwarded to the backend. Remove after first login. |
+
+Note: `PUBLIC_URL` is hardcoded to `http://localhost` in `docker-compose.yml` and is not forwarded as a variable. Override it via `docker-compose.local.yml` or `docker-compose.server.yml` for non-localhost deployments.
 
 ---
 
@@ -89,6 +93,9 @@ export const ADMIN_API_BASE_URL = "";
 // Server-side only — never sent to the browser
 export const INTERNAL_API_URL =
   process.env.INTERNAL_API_URL ?? "http://localhost:3001";
+
+// Injected at build time by next.config.mjs from package.json version field
+export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0";
 ```
 
 ### nginx — `nginx/nginx.conf`
@@ -102,6 +109,8 @@ nginx is configured via `nginx/nginx.conf` (mounted read-only into the container
 | Upload rate limit (`/api/`) | 5 req/min, burst 2 | POST-only; GET requests are not throttled. |
 | Admin login rate limit | 5 req/min, burst 3 | Applied to `POST /api/admin/auth/login` only. |
 | Admin API rate limit | 60 req/min, burst 10 | Applied to all other `/api/admin/*` routes. |
+
+A backend-only variant (`nginx/nginx.server.conf`) is used when deploying via `docker-compose.server.yml` (Cloudflare Tunnel + Vercel split deploy). It has the same rate limits and body size settings but omits the `/admin` and catch-all frontend proxy locations.
 
 ---
 
@@ -135,6 +144,7 @@ All other variables have defaults and will not cause startup failure.
 | `COOKIE_SECURE` (compose) | `true` | `docker-compose.yml`: `${COOKIE_SECURE:-true}` |
 | `INTERNAL_API_URL` | `http://localhost:3001` | `frontend/app/lib/config.ts`: `?? "http://localhost:3001"` |
 | `NEXT_PUBLIC_API_URL` | `""` | `frontend/app/lib/config.ts`: `?? ""` |
+| `APP_VERSION` | `"0.0.0"` | `frontend/app/lib/config.ts`: `?? "0.0.0"` (resolved from `package.json` at build time) |
 
 ---
 
@@ -174,7 +184,36 @@ Run with both files:
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
-### Production (Docker Compose)
+### Local LAN testing (Docker Compose local mode)
+
+`docker-compose.local.yml` overrides the production compose file for testing from devices on the local network (e.g. mobile phones on the same Wi-Fi). Key overrides:
+
+- `CORS_ORIGIN=http://192.168.1.33` (backend) <!-- VERIFY: LAN IP address; replace with the host machine's actual LAN IP -->
+- `PUBLIC_URL=http://192.168.1.33` (backend)
+- `COOKIE_SECURE=false` (backend)
+
+Run with:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+```
+
+### Production self-hosted (backend-only, Cloudflare Tunnel + Vercel split)
+
+`docker-compose.server.yml` is used for a deployment where the backend runs on a self-hosted machine behind a Cloudflare Tunnel and the frontend is deployed separately on Vercel. Key behaviour:
+
+- nginx uses `nginx/nginx.server.conf` (backend-only routes; catch-all returns 404)
+- The `frontend` service is placed behind the `frontend-only` profile and does not start unless explicitly requested
+- nginx starts without waiting for the frontend container
+- TLS is terminated by the Cloudflare tunnel daemon (`cloudflared`) — nginx serves plain HTTP on port 80
+
+Run with:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.server.yml up -d db backend nginx
+```
+
+### Production (full-stack Docker Compose)
 
 ```bash
 # Copy and fill in the required secrets
@@ -194,17 +233,18 @@ In production:
 - `COOKIE_SECURE` defaults to `true` (HTTPS required for the admin session cookie).
 - `NEXT_PUBLIC_API_URL` is set to `""` so the browser uses relative URLs — nginx proxies `/api/*` and `/uploads/*` to the backend internally.
 - `INTERNAL_API_URL` is set to `http://backend:3001` (Docker internal network hostname).
-- TLS must be terminated upstream (cloud load balancer or a TLS listener added to nginx). <!-- VERIFY: production TLS termination method -->
+- TLS must be terminated upstream (cloud load balancer, Cloudflare Tunnel, or a TLS listener added to nginx). <!-- VERIFY: production TLS termination method -->
 
 ---
 
 ## Frontend Dockerfile Build-Time Variables
 
-The `frontend/Dockerfile` declares two additional variables at the builder stage that are not set via `.env.local` but are fixed at image build time.
+The `frontend/Dockerfile` declares additional variables at the builder stage that are not set via `.env.local` but are fixed at image build time.
 
 | Variable | Stage | Default | Description |
 |---|---|---|---|
 | `NEXT_OUTPUT` | Build arg (`ARG`) | `standalone` | Controls the Next.js output mode. Defaults to `"standalone"` in the Dockerfile — required for Docker/self-hosted deploys. Override to `""` only when building for Vercel (which manages its own output format). |
+| `NEXT_PUBLIC_API_URL` | Build arg (`ARG`) + runtime (`ENV`) | — | Baked into the webpack bundle at build time. Set to `""` in `docker-compose.yml` for relative-URL production builds; set to `http://localhost:3001` in `docker-compose.dev.yml`. |
 | `NEXT_TELEMETRY_DISABLED` | Build + runtime (`ENV`) | `1` | Disables Next.js anonymous telemetry. Hardcoded to `1` in the Dockerfile and is not configurable via `.env.local`. |
 
 `NEXT_OUTPUT` can be overridden at `docker compose build` time by passing a build arg:
@@ -235,7 +275,7 @@ These are set globally on the `server` block and repeated explicitly on the admi
 
 ### Static image caching (`/uploads/`)
 
-Responses served from `/uploads/` carry `Cache-Control: public, no-transform` with an `Expires` header set 30 days in the future. This is appropriate for immutable uploaded files. If an uploaded image is replaced (same filename), downstream caches will serve the stale version for up to 30 days.
+Responses served from `/uploads/` carry `Cache-Control: public, no-transform` with an `Expires` header set 30 days in the future (`expires 30d`). An `X-Content-Type-Options: nosniff` header is also added. This is appropriate for immutable uploaded files. If an uploaded image is replaced (same filename), downstream caches will serve the stale version for up to 30 days.
 
 ### Security headers on `/admin` routes
 
@@ -246,7 +286,17 @@ nginx adds the following response headers to all requests matching the `/admin` 
 | `X-Frame-Options` | `DENY` | Prevents clickjacking of the admin dashboard. |
 | `X-Content-Type-Options` | `nosniff` | Prevents MIME-type sniffing on admin page responses. |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Limits referer leakage when navigating away from admin pages. |
-| `Content-Security-Policy` | See `nginx/nginx.conf` | Restricts script/style/image sources. `script-src 'unsafe-inline'` is an accepted risk — Next.js injects inline script chunks at build time. Full nonce-based remediation is tracked for post-launch. |
+| `Content-Security-Policy` | See `nginx/nginx.conf` | Restricts script/style/image sources. `script-src 'unsafe-inline'` and `style-src 'unsafe-inline'` are accepted risks — Next.js injects inline script chunks at build time and the admin portal uses inline `style={}` props throughout. Full nonce-based remediation is tracked for post-launch. |
+
+The full CSP value set in `nginx/nginx.conf`:
+
+```
+default-src 'self';
+script-src 'self' 'unsafe-inline';
+style-src 'self' 'unsafe-inline' https://unpkg.com;
+img-src 'self' data: blob: https://unpkg.com https://*.tile.openstreetmap.org;
+connect-src 'self';
+```
 
 ### Structured JSON access logging
 

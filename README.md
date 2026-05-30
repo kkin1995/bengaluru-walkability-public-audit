@@ -589,3 +589,105 @@ GNU Affero General Public License v3.0 (AGPL-3.0) — see `LICENSE.md`.
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on development setup, coding standards, the TDD contribution workflow, branch conventions, and how to submit pull requests.
+
+---
+
+## CI / CD
+
+Three GitHub Actions workflows are defined in `.github/workflows/`:
+
+### CI (`ci.yml`)
+
+Triggered on every push and pull request to any branch. Also callable as a reusable workflow from `deploy.yml`.
+
+| Job | What it checks |
+|-----|---------------|
+| `frontend-checks` | `npm run lint`, `npm test --watchAll=false`, `npm audit --audit-level=critical` |
+| `backend-checks` | `cargo clippy -- -D warnings`, `cargo test`, `cargo audit` |
+| `docker-build` | `docker compose build` (dummy secrets; verifies image builds only) |
+
+### Deploy (`deploy.yml`)
+
+Triggered on push to `main` or manual dispatch. Runs CI first, then deploys to the production LXC via a self-hosted runner (`walkability-prod`).
+
+1. Rsyncs repository to `/opt/nammadaari/` on the LXC host.
+2. Rebuilds and restarts the `backend` and `nginx` services using `docker-compose.server.yml` overrides.
+3. Polls `http://localhost/health` until the container is healthy (6 attempts, 10 s apart).
+4. A follow-up `smoke-test` job hits the Cloudflare tunnel backend URL and the Vercel frontend URL to confirm external availability.
+
+### CodeQL (`codeql.yml`)
+
+Runs static security analysis for JavaScript/TypeScript, GitHub Actions, and Rust on pushes and PRs to `main`, and on a weekly schedule (Mondays at 03:00 UTC).
+
+---
+
+## Database Schema — Migrations 008–010
+
+The following migrations were added after the initial schema documentation above. They extend the `reports` table and `wards` table for the Phase 03 government triage workflow.
+
+### `008_workflow.sql` — Government triage workflow
+
+> **Note:** This migration uses `-- no-transaction` because `ALTER TYPE ADD VALUE` cannot run inside a PostgreSQL transaction block.
+
+**`report_status` enum changes:**
+
+| Old value | New value | Notes |
+|-----------|-----------|-------|
+| `submitted` | `open` | Renamed |
+| `under_review` | `acknowledged` | Renamed |
+| — | `assigned` | New — report routed to an org |
+| — | `in_progress` | New — org has begun remediation |
+| `resolved` | `resolved` | Unchanged |
+| — | `closed` | New — formally closed after resolution |
+
+Full workflow order: `open → acknowledged → assigned → in_progress → resolved → closed`
+
+**New columns on `reports`:**
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `resolution_photo_path` | `TEXT` | Optional path to a resolution photo uploaded by admin |
+| `resolution_notes` | `TEXT` | Optional admin notes recorded at resolution/closure |
+| `assigned_org_id` | `UUID` FK | References `organizations(id)`; set atomically with status `assigned`; ON DELETE SET NULL |
+
+**New index:** `idx_reports_assigned_org` on `assigned_org_id` (partial: WHERE NOT NULL).
+
+### `009_ward_hierarchy.sql` — GBA ward hierarchy columns
+
+Adds political and administrative hierarchy columns to the `wards` table, backfilled from `gba_wards_2025.geojson` for all 369 ward rows.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `zone_name` | `TEXT` | Engineering zone (10 GBA zones) |
+| `ro_division` | `TEXT` | Revenue Officer division |
+| `aro_sub_division` | `TEXT` | ARO sub-division |
+| `assembly_constituency` | `TEXT` | AC name |
+| `assembly_constituency_no` | `INT` | AC number (150–177 for GBA) |
+| `parliamentary_constituency` | `TEXT` | Lok Sabha constituency |
+| `mla_name` | `TEXT` | Elected MLA (Karnataka 2023) |
+| `mp_name` | `TEXT` | Elected MP (Lok Sabha 2024) |
+
+All columns are nullable; new ward rows added in future data refreshes will have NULL values until backfilled.
+
+### `010_org_seed.sql` — GBA organization seed data
+
+Seeds placeholder GBA organization hierarchy into the `organizations` table (idempotent — guarded by a `DO $$ ... IF NOT EXISTS` block):
+
+- 1 root row: `GBA` (`org_type = 'gba'`)
+- 5 corporation rows (`org_type = 'corporation'`): Bengaluru Central, North, East, South, West
+
+Ward-office rows are out of scope pending GBA boundary finalization.
+
+---
+
+## Admin API — Additional Endpoints
+
+The following endpoints were added after the Admin API table above was written. All require a valid `admin_token` cookie.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/admin/reports/:id/assign-org` | Atomically assigns a report to an organization and transitions status to `assigned` |
+| `POST` | `/api/admin/reports/:id/resolve` | Resolves or closes a report; accepts `multipart/form-data` with optional resolution photo and notes |
+| `GET` | `/api/admin/stats/intake` | Intake statistics (time-series or aggregate counts for the triage workflow dashboard) |
+
+<!-- generated-by: gsd-doc-writer -->
