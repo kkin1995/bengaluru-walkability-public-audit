@@ -21,6 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 02.6: Build Metadata & Version Stamping** - Inject `package.json` version into both the citizen-facing UI footer and the admin console brand string at build time via `NEXT_PUBLIC_APP_VERSION`; auto-update on every release (INSERTED — polish before GBA handoff)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
 - [x] **Phase 3.1: Admin Report Detail — Split Layout** - Restructure /admin/reports/[id] into two-column split layout: fixed left column (photo + metadata) + independently-scrolling right rail (action panels + GBA hierarchy + history) — eliminates below-fold discoverability (F-07 / ISSUE-07 from Phase 03 UAT) (INSERTED — UAT polish after Phase 3 ships) (completed 2026-05-26)
+- [ ] **Phase 3.2: Admin UAT Gap Fixes — Dashboard Chart Period Filter and Status History Attribution** - Wire up the 7D/14D/30D intake chart period filter buttons on the admin dashboard, implement real status_history timestamps and admin user attribution in the report detail view (INSERTED — UAT gap closure after Phase 3.1)
 - [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
 
 ## Phase Details
@@ -276,6 +277,21 @@ Plans:
 
 - [x] 03.1-01-PLAN.md — Split layout restructure of `/admin/reports/[id]` (left flex-column photo + identity strip; right action rail with independent scroll) + 768px breakpoint + GbaHierarchyPanel ISSUE-01/03/04/05 fixes + status timeline ISSUE-06 dot color map fix
 
+### Phase 3.2: Admin UAT Gap Fixes — Dashboard Chart Period Filter and Status History Attribution (INSERTED)
+
+**Goal**: Fix the two confirmed UAT bugs from Phase 3.1: wire up the 7D/14D/30D intake chart period filter buttons on the admin dashboard so period selection updates the chart, and implement real status history timestamps and admin user attribution in the report detail view (replacing the "Invalid Date / BY · SYSTEM" placeholders)
+**Depends on**: Phase 3.1
+**Requirements**: BUG-03.1-B, BUG-03.1-C (phase-local; sourced from 03.1-UAT-ISSUES.md and 03.1-UAT.md gap analysis)
+**Success Criteria** (what must be TRUE):
+
+  1. On the admin dashboard, clicking 7D or 30D updates the INTAKE chart to show data for the selected period — the active button highlights and the chart re-renders
+  2. In the report detail view, status history entries show a real formatted timestamp (not "Invalid Date") and the name of the admin who changed the status (not "BY · SYSTEM")
+  3. `npm run build` passes with zero TypeScript errors and all existing tests remain green
+
+**Plans**: TBD
+
+Plans: *(not yet created — planning begins now)*
+
 ### Phase 4: Export and Public Analytics
 
 **Goal**: GBA planners can download actionable exports in their preferred format, citizens can see high-level progress statistics, and admins have ward-level analytics to identify where investment is most needed
@@ -318,4 +334,5 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.5 Admin Portal UI Redesign | 4/4 | Complete   | 2026-05-22 |
 | 3. Government Triage Workflow | 1/4 | In Progress|  |
 | 3.1 Admin Report Detail — Split Layout | 1/1 | Complete   | 2026-05-26 |
+| 3.2 Admin UAT Gap Fixes | 0/TBD | Planned | - |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
