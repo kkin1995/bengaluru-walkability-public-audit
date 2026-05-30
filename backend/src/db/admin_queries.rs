@@ -534,25 +534,12 @@ pub async fn get_admin_report_by_id(
     };
 
     // D-05, D-06: Fetch status history for this report, newest first, with admin attribution.
-    let history_rows = sqlx::query(
-        r#"
-        SELECT
-            sh.id,
-            sh.old_status::TEXT AS old_status,
-            sh.new_status::TEXT AS new_status,
-            sh.changed_at,
-            sh.note,
-            sh.changed_by,
-            au.display_name AS changed_by_name
-        FROM status_history sh
-        LEFT JOIN admin_users au ON au.id = sh.changed_by
-        WHERE sh.report_id = $1
-        ORDER BY sh.changed_at DESC
-        "#,
-    )
-    .bind(report_id)
-    .fetch_all(pool)
-    .await?;
+    // BUG-03.2-B: uses STATUS_HISTORY_SQL constant which applies COALESCE(au.display_name,
+    // au.email) so the admin email is shown when display_name is NULL.
+    let history_rows = sqlx::query(STATUS_HISTORY_SQL)
+        .bind(report_id)
+        .fetch_all(pool)
+        .await?;
 
     let status_history: Vec<serde_json::Value> = history_rows
         .iter()
@@ -1009,6 +996,33 @@ pub const ADMIN_REPORT_DEDUP_COLS: &str =
     "reports.duplicate_count, reports.duplicate_of_id, reports.duplicate_confidence";
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Status history SQL constant — single source of truth for the status_history
+// SELECT used in get_report_admin().  Both the runtime query and the test helper
+// reference this constant so they can never drift apart (BUG-03.2-B).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The SQL string used in the status history `sqlx::query(...)` block.
+///
+/// # Fix applied (BUG-03.2-B)
+/// Column expression changed from the bare `au.display_name` alias to
+/// `COALESCE(au.display_name, au.email) AS changed_by_name` so the admin email
+/// is surfaced when `display_name` is NULL (the default for seeded admins).
+const STATUS_HISTORY_SQL: &str = r#"
+        SELECT
+            sh.id,
+            sh.old_status::TEXT AS old_status,
+            sh.new_status::TEXT AS new_status,
+            sh.changed_at,
+            sh.note,
+            sh.changed_by,
+            COALESCE(au.display_name, au.email) AS changed_by_name
+        FROM status_history sh
+        LEFT JOIN admin_users au ON au.id = sh.changed_by
+        WHERE sh.report_id = $1
+        ORDER BY sh.changed_at DESC
+        "#;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Pure SQL-string helpers (testable without a database)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1035,6 +1049,21 @@ pub fn admin_user_cols_sql() -> &'static str {
 #[allow(dead_code)]
 pub fn deactivate_admin_user_sql() -> &'static str {
     DEACTIVATE_ADMIN_USER_SQL
+}
+
+/// Returns the status history SQL string used in `get_report_admin()`.
+///
+/// # Contract (BUG-03.2-B)
+/// The returned string must contain "COALESCE", "au.email", and "changed_by_name"
+/// so that admin attribution in the status history timeline falls back to the
+/// admin email when `display_name` is NULL.
+///
+/// This is a test-only hook — the same `STATUS_HISTORY_SQL` constant is used by
+/// the runtime `sqlx::query(STATUS_HISTORY_SQL)` call, so this function asserts
+/// the exact SQL the query executes.
+#[allow(dead_code)]
+pub fn attribution_sql_fragment() -> &'static str {
+    STATUS_HISTORY_SQL
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1483,6 +1512,41 @@ mod tests {
             "deactivate_admin_user SQL must include 'FALSE' to guard against deactivating \
              super-admin rows (AC-SA-BE-3-F1); got: {}",
             sql
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite 6 — BUG-03.2-B: status history attribution fallback via COALESCE
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// BUG-03.2-B — The status history query must use COALESCE(au.display_name, au.email)
+    /// so that the admin email is shown when display_name is NULL (the default for
+    /// seeded admins).  Without this, the timeline always renders "BY · —".
+    ///
+    /// This test asserts on the exact SQL string the runtime query executes
+    /// (via the STATUS_HISTORY_SQL constant) — it is not a snapshot test.
+    #[test]
+    fn attribution_fallback_sql_uses_coalesce() {
+        let fragment = attribution_sql_fragment();
+        assert!(
+            fragment.contains("COALESCE"),
+            "Status history SQL must use COALESCE for attribution fallback (BUG-03.2-B); \
+             a bare display_name alias returns NULL when display_name is unset. \
+             Got: {}",
+            fragment
+        );
+        assert!(
+            fragment.contains("au.email"),
+            "Status history SQL must include 'au.email' as the COALESCE fallback so the \
+             admin email appears when display_name is NULL (BUG-03.2-B); got: {}",
+            fragment
+        );
+        assert!(
+            fragment.contains("changed_by_name"),
+            "Status history SQL must alias the column as 'changed_by_name' so the \
+             row-accessor h.try_get::<String, _>(\"changed_by_name\") succeeds (BUG-03.2-B); \
+             got: {}",
+            fragment
         );
     }
 }
