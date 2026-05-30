@@ -310,7 +310,7 @@ Plans: *(not yet created — planning begins now)*
 Plans:
 **Wave 1**
 
-- [ ] 03.3-01-PLAN.md — BUG-03.2-B attribution COALESCE fallback in status history query + SQL-string test helper (backend admin_queries.rs)
+- [x] 03.3-01-PLAN.md — BUG-03.2-B attribution COALESCE fallback in status history query + SQL-string test helper (backend admin_queries.rs)
 
 **Wave 2** *(blocked on Wave 1 — shared admin_queries.rs)*
 
