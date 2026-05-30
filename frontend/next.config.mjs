@@ -1,5 +1,17 @@
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const { version } = JSON.parse(
+  readFileSync(join(__dirname, "package.json"), "utf8")
+);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_VERSION: version,
+  },
   // "standalone" is required for Docker/self-hosted builds.
   // Vercel handles its own output format — do not set standalone there.
   output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
@@ -9,8 +21,9 @@ const nextConfig = {
   },
   images: {
     remotePatterns: [
-      { protocol: "http", hostname: "**" },
-      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "localhost" },
+      { protocol: "http", hostname: "backend" },
+      { protocol: "https", hostname: "staging.nammadaari.com" },
     ],
   },
   async rewrites() {

@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { logout } from "@/app/admin/lib/adminApi";
 import { Icon } from "./Icon";
 import { Avatar } from "./Avatar";
 import { Kbd } from "./Kbd";
 import { Btn } from "./Btn";
+import { APP_VERSION } from "@/app/lib/config";
 
 interface AdminSidebarProps {
   role: string;
@@ -68,11 +71,24 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
 
   const isAdminOrSuper = role === "admin" || role === "super_admin";
 
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      window.location.replace("/admin/login");
+    }
+  }
+
+  const visibleMobileTabs = MOBILE_TABS.filter(
+    (tab) => !(tab.roleGated && !isAdminOrSuper)
+  );
+
   // ── Desktop Sidebar ─────────────────────────────────────────────────────────
   const desktopSidebar = (
     <nav
       aria-label="Admin navigation"
       role="navigation"
+      aria-hidden={!isDesktop}
       style={{
         display: isDesktop ? "flex" : "none",
         flexDirection: "column",
@@ -114,7 +130,7 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
         }}>W</div>
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, letterSpacing: "0.02em" }}>WLK.CONSOLE</span>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em" }}>BENGALURU · v2.4.1</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em" }}>BENGALURU · v{APP_VERSION}</span>
         </div>
       </div>
 
@@ -209,14 +225,16 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
         marginTop: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Avatar name="Admin" tone="ink" size={28} />
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, minWidth: 0, flex: 1 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink)" }}>Admin</span>
-            <span style={{ fontSize: 9, color: "var(--muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{role}</span>
-          </div>
-          <a
-            href="/api/admin/auth/logout"
+          <Link href="/admin/profile" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, textDecoration: "none", color: "inherit" }}>
+            <Avatar name="Admin" tone="ink" size={28} />
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, minWidth: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink)" }}>Admin</span>
+              <span style={{ fontSize: 9, color: "var(--muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", textTransform: "uppercase" }}>{role}</span>
+            </div>
+          </Link>
+          <button
             aria-label="Log out"
+            onClick={handleLogout}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -233,7 +251,7 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
             }}
           >
             <Icon name="logout" size={14} aria-hidden={true} />
-          </a>
+          </button>
         </div>
 
         {/* Dark mode toggle */}
@@ -270,9 +288,10 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
     <nav
       aria-label="Admin navigation"
       role="navigation"
+      aria-hidden={isDesktop}
       style={{
         display: isDesktop ? "none" : "grid",
-        gridTemplateColumns: "repeat(5, 1fr)",
+        gridTemplateColumns: `repeat(${visibleMobileTabs.length}, 1fr)`,
         gap: 2,
         position: "fixed",
         bottom: 0,
@@ -284,8 +303,38 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
         zIndex: 1000,
       }}
     >
-      {MOBILE_TABS.map((tab) => {
-        if (tab.roleGated && !isAdminOrSuper) return null;
+      {visibleMobileTabs.map((tab) => {
+        if (tab.key === "logout") {
+          return (
+            <button
+              key="logout"
+              onClick={handleLogout}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 3,
+                padding: "6px 4px",
+                borderRadius: "var(--r-sm)",
+                background: "transparent",
+                color: "var(--muted)",
+                border: "1px solid transparent",
+                cursor: "pointer",
+                minHeight: 44,
+                boxSizing: "border-box",
+              }}
+            >
+              <Icon name="logout" size={18} aria-hidden={true} />
+              <span style={{
+                fontSize: 9,
+                fontFamily: "var(--font-mono)",
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase" as const,
+              }}>OUT</span>
+            </button>
+          );
+        }
         const active = isActive(tab.href, pathname);
         return (
           <a

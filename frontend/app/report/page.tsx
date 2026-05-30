@@ -405,7 +405,6 @@ export default function ReportPage() {
     return (
       <main
         style={{
-          minHeight: "100dvh",
           maxWidth: 428,
           margin: "0 auto",
           display: "flex",
@@ -431,7 +430,6 @@ export default function ReportPage() {
     return (
       <main
         style={{
-          minHeight: "100dvh",
           maxWidth: 428,
           margin: "0 auto",
           display: "flex",
@@ -566,7 +564,6 @@ export default function ReportPage() {
     return (
       <main
         style={{
-          minHeight: "100dvh",
           maxWidth: 428,
           margin: "0 auto",
           display: "flex",
@@ -761,7 +758,6 @@ export default function ReportPage() {
   return (
     <main
       style={{
-        minHeight: "100dvh",
         maxWidth: 428,
         margin: "0 auto",
         display: "flex",

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Noto_Sans_Kannada } from "next/font/google";
 import "./globals.css";
+import { FooterBoundary } from "./components/FooterBoundary";
 
 // Self-hosted Google Fonts via next/font — exposed as CSS variables
 // for the design system to reference in globals.css (--font-sans etc.).
@@ -48,7 +49,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={fontVars} suppressHydrationWarning>
       <head>
-        <link rel="manifest" href="/manifest.json" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -60,7 +60,7 @@ export default function RootLayout({
           crossOrigin=""
         />
       </head>
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased flex flex-col"><div className="flex-1 flex flex-col">{children}</div><FooterBoundary /></body>
     </html>
   );
 }

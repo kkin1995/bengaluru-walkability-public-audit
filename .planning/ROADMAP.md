@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 02.4: Self-Hosted Infrastructure — Arch Linux + Cloudflare Tunnel** - Decommission Railway, host backend + DB on Arch Linux desktop via Docker Compose, expose via Cloudflare tunnel, self-hosted GitHub Actions runner (INSERTED — must complete before Phase 3) (completed 2026-05-20)
 - [x] **Phase 02.4.1: Security Hardening** - JPEG magic-bytes upload validation, logout cookie SameSite fix, nginx Content-Type override, weekly backups (pg_dump + uploads) with systemd timer, secret rotation + restore docs, external uptime monitor (INSERTED — must complete before Phase 3) (completed 2026-05-20)
 - [x] **Phase 02.5: Admin Portal UI Redesign** - Implement the hybrid "B-voice × A-structure" design system for the admin portal at /admin — teal Console palette, JetBrains Mono chrome, A-pattern report cards, light+dark mode, full accessibility pass (INSERTED — visual polish before GBA handoff) (completed 2026-05-22)
-- [ ] **Phase 02.6: Build Metadata & Version Stamping** - Inject `package.json` version into both the citizen-facing UI footer and the admin console brand string at build time via `NEXT_PUBLIC_APP_VERSION`; auto-update on every release (INSERTED — polish before GBA handoff)
+- [x] **Phase 02.6: Build Metadata & Version Stamping** - Inject `package.json` version into both the citizen-facing UI footer and the admin console brand string at build time via `NEXT_PUBLIC_APP_VERSION`; auto-update on every release (INSERTED — polish before GBA handoff) (gap closure 02.6-03 in progress — fixes UAT footer-whitespace on /report and admin logout soft-navigation) (completed 2026-05-25)
 - [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
 - [x] **Phase 3.1: Admin Report Detail — Split Layout** - Restructure /admin/reports/[id] into two-column split layout: fixed left column (photo + metadata) + independently-scrolling right rail (action panels + GBA hierarchy + history) — eliminates below-fold discoverability (F-07 / ISSUE-07 from Phase 03 UAT) (INSERTED — UAT polish after Phase 3 ships) (completed 2026-05-26)
 - [x] **Phase 3.2: Admin UAT Gap Fixes — Dashboard Chart Period Filter and Status History Attribution** - Wire up the 7D/14D/30D intake chart period filter buttons on the admin dashboard, implement real status_history timestamps and admin user attribution in the report detail view (INSERTED — UAT gap closure after Phase 3.1) (completed 2026-05-30)
@@ -176,6 +176,31 @@ Plans:
 - [x] 02.5-03-PLAN.md — Reports list (card stream + compact rows) + Report detail screen
 - [x] 02.5-04-PLAN.md — Map view + Users management + Organizations + Profile + Empty/Error states
 
+### Phase 02.6: Build Metadata & Version Stamping (INSERTED)
+
+**Goal:** Inject the `package.json` version into both the citizen-facing UI footer and the admin console brand string at build time via `NEXT_PUBLIC_APP_VERSION`; auto-update the version string on every release so both surfaces always show the deployed version
+**Depends on:** Phase 02.5
+**Requirements**: VERSION-01, VERSION-02, VERSION-03
+**Success Criteria** (what must be TRUE):
+
+  1. The citizen-facing site footer shows the app version (e.g. "v1.2.3") sourced from `NEXT_PUBLIC_APP_VERSION` — never a hardcoded string
+  2. The admin console brand/sidebar shows the app version string sourced from `NEXT_PUBLIC_APP_VERSION` — never a hardcoded string
+  3. `NEXT_PUBLIC_APP_VERSION` is populated from `package.json` version at build time via the Next.js build config (`next.config.ts`), so bumping `package.json` version automatically updates both UI surfaces on the next deploy — no other file changes required
+
+**Plans**: 3 plans
+Plans:
+**Wave 1**
+
+- [x] 02.6-01-PLAN.md — Build-time NEXT_PUBLIC_APP_VERSION injection (next.config.mjs + package.json source) + APP_VERSION export (config.ts) + citizen SiteFooter Server Component + FooterBoundary client wrapper hiding footer on /map + root layout mount
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 02.6-02-PLAN.md — Replace hardcoded `v2.4.1` literal in AdminSidebar.tsx brand mark with `v{APP_VERSION}` interpolation sourced from @/app/lib/config
+
+**Wave 3** *(gap closure — blocked on Wave 1 + Wave 2)*
+
+- [x] 02.6-03-PLAN.md — Gap closure: sticky-footer layout (body flex-col + flex-1 children wrapper + remove minHeight:100dvh from /report step containers) + admin logout hard-navigation (window.location.replace in AdminSidebar.tsx and profile/page.tsx logout handler only)
+
 ### Phase 02.3.1: Implement Walkable BLR UI redesign from design file on separate branch (INSERTED)
 
 **Goal:** On a dedicated `ui-redesign` branch, implement a pixel-faithful Next.js redesign of the 5 citizen-facing screens (Home, Category step, Confirm step, Success, Public Map) per the Walkable BLR design file — introducing a CSS-variable design system, Google Fonts via next/font, and 5 TSX primitives (Bi, Icon, Btn, Pill, SectionLabel) — without merging to main.
@@ -316,7 +341,6 @@ Plans:
 
 - [x] 03.3-02-PLAN.md — BUG-03.2-A intake endpoint: IntakeDayCount struct + get_intake_stats DB fn + admin_get_intake_stats handler (days clamp [1,90]) + route + getIntakeStats adminApi fn + dashboard useEffect wiring + Wave 0 tests
 
-
 ### Phase 4: Export and Public Analytics
 
 **Goal**: GBA planners can download actionable exports in their preferred format, citizens can see high-level progress statistics, and admins have ward-level analytics to identify where investment is most needed
@@ -343,7 +367,7 @@ Plans: *(not yet created — Phase 4 has no plan files on disk; planning begins 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 2.4 → 2.4.1 → 2.5 → 3 → 3.1 → 4
+Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2.3.2 → 2.4 → 2.4.1 → 2.5 → 2.6 → 3 → 3.1 → 3.2 → 3.3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -357,7 +381,20 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.4 Self-Hosted Infrastructure | 4/4 | Complete | 2026-05-20 |
 | 2.4.1 Security Hardening | 3/3 | Complete   | 2026-05-20 |
 | 2.5 Admin Portal UI Redesign | 4/4 | Complete   | 2026-05-22 |
-| 3. Government Triage Workflow | 1/4 | In Progress|  |
+| 2.6 Build Metadata & Version Stamping | 3/3 | Complete    | 2026-05-25 |
+| 3. Government Triage Workflow | 2/4 | Complete (merged PR #12) | 2026-05-30 |
 | 3.1 Admin Report Detail — Split Layout | 1/1 | Complete   | 2026-05-26 |
 | 3.2 Admin UAT Gap Fixes | 2/2 | Complete   | 2026-05-30 |
+| 3.3 Intake Chart + Attribution Fallback | 2/2 | Complete   | 2026-05-30 |
 | 4. Export and Public Analytics | 0/4 | Future — not yet scaffolded | - |
+
+### Phase 5: Coming Soon Homepage + Branching Workflow Setup
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 5 to break down)

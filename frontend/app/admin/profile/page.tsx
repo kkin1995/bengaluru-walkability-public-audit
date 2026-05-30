@@ -163,7 +163,7 @@ export default function ProfilePage() {
     try {
       await logout();
     } finally {
-      routerRef.current.push("/admin/login");
+      window.location.replace("/admin/login");
     }
   };
 
