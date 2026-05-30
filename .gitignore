@@ -32,5 +32,15 @@ Thumbs.db
 
 # KML input files (raw downloads, converted to GeoJSON in data/)
 input/
+*.kml
 .planning/config.json
 .planning/tmp/
+
+# Local dev / tooling overrides
+docker-compose.local.yml
+script.sh
+
+# Claude Code / AI tooling artifacts
+.clone/
+.codex/
+.productivity-reports/
