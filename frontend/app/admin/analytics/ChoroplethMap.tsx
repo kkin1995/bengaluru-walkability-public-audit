@@ -58,7 +58,7 @@ export default function ChoroplethMap({ onWardClick }: ChoroplethMapProps) {
         />
         {boundaries && (
           <GeoJSON
-            key={JSON.stringify(boundaries).slice(0, 40)}
+            key={boundaries.features.map(f => f.properties?.ward_number).join(',')}
             data={boundaries}
             style={(feature?: Feature): PathOptions => ({
               fillColor: getWardColor(
