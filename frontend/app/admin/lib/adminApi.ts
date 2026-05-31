@@ -357,3 +357,58 @@ export async function assignUserOrg(
     body: JSON.stringify({ org_id: orgId }),
   });
 }
+
+// ─── Phase 04-01: Streaming export downloads (EXPORT-01, EXPORT-02) ──────────
+
+/**
+ * Download a CSV export of reports filtered by the current filter state.
+ *
+ * Calls GET /api/admin/reports/export/csv with filter query params.
+ * Uses credentials: "include" so the admin session cookie is sent.
+ * Returns the response body as a Blob for Blob URL download.
+ *
+ * Security: filter params are forwarded to the backend which binds them
+ * via build_export_where_clause — no client-side SQL construction.
+ */
+export async function downloadCsvExport(
+  filters?: AdminReportFilters
+): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (filters) {
+    if (filters.category) params.set("category", filters.category);
+    if (filters.status) params.set("status", filters.status);
+    if (filters.severity) params.set("severity", filters.severity);
+    if (filters.date_from) params.set("date_from", filters.date_from);
+    if (filters.date_to) params.set("date_to", filters.date_to);
+  }
+  const qs = params.toString();
+  const url = `${BASE}/api/admin/reports/export/csv${qs ? `?${qs}` : ""}`;
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.blob();
+}
+
+/**
+ * Download a GeoJSON export of reports filtered by the current filter state.
+ *
+ * Calls GET /api/admin/reports/export/geojson with filter query params.
+ * Uses credentials: "include" so the admin session cookie is sent.
+ * Returns the response body as a Blob for Blob URL download.
+ */
+export async function downloadGeoJsonExport(
+  filters?: AdminReportFilters
+): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (filters) {
+    if (filters.category) params.set("category", filters.category);
+    if (filters.status) params.set("status", filters.status);
+    if (filters.severity) params.set("severity", filters.severity);
+    if (filters.date_from) params.set("date_from", filters.date_from);
+    if (filters.date_to) params.set("date_to", filters.date_to);
+  }
+  const qs = params.toString();
+  const url = `${BASE}/api/admin/reports/export/geojson${qs ? `?${qs}` : ""}`;
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.blob();
+}
