@@ -932,9 +932,13 @@ submitter_contact,resolved_at,resolution_notes\n";
                     }
                 }
                 Err(e) => {
-                    let _ = tx
-                        .send(Err(std::io::Error::other(e.to_string())))
-                        .await;
+                    // WR-05: HTTP 200 header is already sent; cannot change status.
+                    // Append an error sentinel comment so consumers can detect truncation.
+                    // RFC 4180 does not define comments, but a "#ERROR:" prefix is
+                    // convention-compatible with most CSV tools that skip # lines.
+                    tracing::error!(error = %e, "CSV export: mid-stream DB error; appending sentinel");
+                    let sentinel = format!("#ERROR: stream interrupted — {}\n", e);
+                    let _ = tx.send(Ok(Bytes::from(sentinel))).await;
                     break;
                 }
             }
@@ -1086,15 +1090,19 @@ pub async fn admin_export_geojson(
                     }
                 }
                 Err(e) => {
-                    let _ = tx
-                        .send(Err(std::io::Error::other(e.to_string())))
-                        .await;
+                    // WR-05: HTTP 200 header is already sent; cannot change status.
+                    // Log the error and break — the closing `]}` below will still be
+                    // sent so the GeoJSON remains syntactically valid (though truncated).
+                    // Consumers should compare feature count against known totals to
+                    // detect truncation; there is no in-band error signal for GeoJSON.
+                    tracing::error!(error = %e, "GeoJSON export: mid-stream DB error; closing stream");
                     break;
                 }
             }
         }
 
-        // GeoJSON closing delimiter
+        // GeoJSON closing delimiter — sent even on mid-stream error so the output
+        // is parseable JSON (features may be truncated, but the document is valid).
         let _ = tx
             .send(Ok(Bytes::from_static(b"]}")))
             .await;
