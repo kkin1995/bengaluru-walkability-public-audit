@@ -31,10 +31,12 @@ interface Report {
   category: string;
   severity: string;
   description?: string;
-  image_url: string;
+  // WR-04: image_url is not included in the GeoJSON endpoint (privacy by design).
+  // Made optional so the popup renders gracefully without it.
+  image_url?: string;
   created_at: string;
   status: string;
-  // Phase 03 popup additions (D-31): populated from public list endpoint via ward JOIN
+  // Phase 03 popup additions (D-31): populated from GeoJSON endpoint via ward JOIN
   corporation?: string | null;
   ward_name?: string | null;
 }
@@ -69,10 +71,43 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiUrl}/api/reports?limit=200`);
+      // WR-04: use the purpose-built GeoJSON endpoint instead of the paginated list.
+      // GET /api/reports.geojson streams all reports with privacy-rounded coordinates
+      // (~111 m precision) and no hard limit. The previous /api/reports?limit=200
+      // silently dropped all reports beyond the 200th.
+      const res = await fetch(`${apiUrl}/api/reports.geojson`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const items: Report[] = data.items ?? [];
+      const data: {
+        type: string;
+        features: Array<{
+          type: string;
+          geometry: { type: string; coordinates: [number, number] };
+          properties: {
+            id: string;
+            category: string;
+            severity: string;
+            status: string;
+            ward_name?: string | null;
+            corporation?: string | null;
+            created_at: string;
+            description?: string | null;
+          };
+        }>;
+      } = await res.json();
+      const items: Report[] = (data.features ?? []).map((f) => ({
+        id: f.properties.id,
+        // GeoJSON coordinates are [longitude, latitude] per RFC 7946
+        latitude: f.geometry.coordinates[1],
+        longitude: f.geometry.coordinates[0],
+        category: f.properties.category,
+        severity: f.properties.severity,
+        status: f.properties.status,
+        ward_name: f.properties.ward_name,
+        corporation: f.properties.corporation,
+        created_at: f.properties.created_at,
+        description: f.properties.description ?? undefined,
+        // image_url is not included in the GeoJSON endpoint (privacy by design)
+      }));
       setReports(items);
       onReportsLoaded?.(items);
     } catch {
@@ -128,15 +163,18 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
           >
             <Popup>
               <div className="min-w-48 max-w-64">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={report.image_url}
-                  alt="Report photo"
-                  className="w-full h-32 object-cover rounded mb-2"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
+                {/* WR-04: image_url not available from GeoJSON endpoint; only render if present */}
+                {report.image_url && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={report.image_url}
+                    alt="Report photo"
+                    className="w-full h-32 object-cover rounded mb-2"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                )}
                 {/* Category label + inline status chip (MAP-03 / D-31 per UI-SPEC §G) */}
                 <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
                   <p className="font-semibold text-sm" style={{ margin: 0 }}>
