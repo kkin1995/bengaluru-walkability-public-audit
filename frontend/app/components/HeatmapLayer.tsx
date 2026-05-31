@@ -35,9 +35,12 @@ export default function HeatmapLayer({ reports }: HeatmapLayerProps) {
   const controlRef = useRef<any>(null);
 
   useEffect(() => {
-    // D-02: filter to open/unresolved reports only
+    // D-02: filter to unresolved reports only — all five Phase-03 unresolved statuses.
+    // WR-03: "open" alone missed acknowledged/assigned/in_progress, giving a misleadingly
+    // sparse heatmap. Only "resolved" and "closed" should be excluded.
+    const UNRESOLVED_STATUSES = new Set(["open", "acknowledged", "assigned", "in_progress"]);
     const openPoints = reports
-      .filter((r) => r.status === "open")
+      .filter((r) => UNRESOLVED_STATUSES.has(r.status))
       .map((r): [number, number, number] => [r.latitude, r.longitude, 1.0]);
 
     // leaflet.heat augments L with heatLayer via the side-effect import above
