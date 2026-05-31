@@ -1281,6 +1281,301 @@ pub fn export_geojson_sql_fragment() -> &'static str {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Phase 04-03a: Admin analytics SQL constants and query functions
+// Requirements: ANALYTICS-02, ANALYTICS-03, ANALYTICS-04, ANALYTICS-05
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// ANALYTICS-02: Top 10 wards by unresolved report count.
+///
+/// Security notes (T-04-08, T-04-09):
+/// - Endpoint registered under admin_protected_router (require_auth).
+/// - No user input is interpolated into this SQL — purely aggregate.
+///
+/// Returns columns: ward_name, ward_number, unresolved_count, total_count.
+/// FILTER (WHERE r.status NOT IN ('resolved','closed')) counts only active
+/// issues; ORDER BY unresolved_count DESC; LIMIT 10 caps to top 10.
+const WARD_ANALYTICS_SQL: &str = "SELECT \
+    w.ward_name, \
+    w.ward_number, \
+    COUNT(r.id) FILTER (WHERE r.status NOT IN ('resolved', 'closed')) AS unresolved_count, \
+    COUNT(r.id) AS total_count \
+    FROM wards w \
+    LEFT JOIN reports r ON r.ward_id = w.id \
+    GROUP BY w.id, w.ward_name, w.ward_number \
+    ORDER BY unresolved_count DESC \
+    LIMIT 10";
+
+/// Represents a single row from the ward analytics query.
+#[derive(serde::Serialize)]
+pub struct WardAnalyticsRow {
+    pub ward_name: String,
+    pub ward_number: i32,
+    pub unresolved_count: i64,
+    pub total_count: i64,
+}
+
+/// Returns the top 10 wards ordered by unresolved report count (ANALYTICS-02).
+///
+/// # Contract
+/// - Requires a valid PostgreSQL connection pool.
+/// - Returns at most 10 rows (enforced by SQL LIMIT).
+/// - unresolved_count excludes reports with status 'resolved' or 'closed'.
+pub async fn get_ward_analytics(pool: &PgPool) -> Result<Vec<WardAnalyticsRow>, AppError> {
+    let rows = sqlx::query(WARD_ANALYTICS_SQL)
+        .fetch_all(pool)
+        .await?;
+
+    let result = rows
+        .iter()
+        .map(|r| WardAnalyticsRow {
+            ward_name: r.get::<String, _>("ward_name"),
+            ward_number: r.get::<i32, _>("ward_number"),
+            unresolved_count: r.get::<i64, _>("unresolved_count"),
+            total_count: r.get::<i64, _>("total_count"),
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Returns the WARD_ANALYTICS_SQL constant for SQL-string unit tests.
+///
+/// Test-only hook — the same constant is used by `get_ward_analytics` at
+/// runtime. Asserting on this string guarantees no drift between the test
+/// and the live query.
+#[allow(dead_code)]
+pub fn ward_analytics_sql_fragment() -> &'static str {
+    WARD_ANALYTICS_SQL
+}
+
+/// ANALYTICS-03: Resolution rate per corporation.
+///
+/// Security notes (T-04-08, T-04-09):
+/// - Endpoint registered under admin_protected_router (require_auth).
+/// - NULLIF(COUNT(r.id), 0) guards against PostgreSQL division-by-zero when
+///   a corporation has no associated reports.
+///
+/// Returns columns: corporation, total_reports, resolved_count,
+/// resolution_rate_pct. Filters to org_type = 'corporation'.
+const CORP_ANALYTICS_SQL: &str = "SELECT \
+    o.name AS corporation, \
+    COUNT(r.id) AS total_reports, \
+    COUNT(r.id) FILTER (WHERE r.status IN ('resolved', 'closed')) AS resolved_count, \
+    ROUND(100.0 * COUNT(r.id) FILTER (WHERE r.status IN ('resolved', 'closed')) \
+        / NULLIF(COUNT(r.id), 0), 1) AS resolution_rate_pct \
+    FROM organizations o \
+    JOIN wards w ON w.org_id = o.id \
+    LEFT JOIN reports r ON r.ward_id = w.id \
+    WHERE o.org_type = 'corporation' \
+    GROUP BY o.id, o.name \
+    ORDER BY resolution_rate_pct DESC NULLS LAST";
+
+/// Represents a single row from the corporation analytics query.
+#[derive(serde::Serialize)]
+pub struct CorpAnalyticsRow {
+    pub corporation: String,
+    pub total_reports: i64,
+    pub resolved_count: i64,
+    pub resolution_rate_pct: Option<f64>,
+}
+
+/// Returns resolution rate per corporation (ANALYTICS-03).
+///
+/// # Contract
+/// - NULLIF guard prevents division-by-zero at the PostgreSQL level.
+/// - Only organisations with org_type = 'corporation' are included.
+/// - resolution_rate_pct may be None for corporations with total_reports = 0
+///   (NULLIF returns NULL which maps to None in Rust).
+pub async fn get_corporation_analytics(
+    pool: &PgPool,
+) -> Result<Vec<CorpAnalyticsRow>, AppError> {
+    let rows = sqlx::query(CORP_ANALYTICS_SQL)
+        .fetch_all(pool)
+        .await?;
+
+    let result = rows
+        .iter()
+        .map(|r| CorpAnalyticsRow {
+            corporation: r.get::<String, _>("corporation"),
+            total_reports: r.get::<i64, _>("total_reports"),
+            resolved_count: r.get::<i64, _>("resolved_count"),
+            resolution_rate_pct: r.try_get::<f64, _>("resolution_rate_pct").ok(),
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Returns the CORP_ANALYTICS_SQL constant for SQL-string unit tests.
+///
+/// Test-only hook — same string used by `get_corporation_analytics` at runtime.
+#[allow(dead_code)]
+pub fn corp_analytics_sql_fragment() -> &'static str {
+    CORP_ANALYTICS_SQL
+}
+
+/// ANALYTICS-04: Reports per week over the last 12 weeks, optionally filtered
+/// by category.
+///
+/// Security notes (T-04-08, T-04-09):
+/// - Endpoint registered under admin_protected_router (require_auth).
+/// - The optional category filter is a bound parameter ($1) — never interpolated
+///   via format! or string concatenation.
+///
+/// When `category` is None the WHERE clause is omitted (both variants compile
+/// to the same const SQL; the runtime function applies conditional binding).
+///
+/// Returns columns: week_start (YYYY-MM-DD text), category (text), count.
+const TREND_SQL: &str = "SELECT \
+    DATE_TRUNC('week', created_at AT TIME ZONE 'UTC')::DATE::TEXT AS week_start, \
+    category::TEXT AS category, \
+    COUNT(*)::BIGINT AS count \
+    FROM reports \
+    WHERE created_at >= NOW() - INTERVAL '12 weeks' \
+    GROUP BY 1, 2 \
+    ORDER BY 1, 2";
+
+/// Like TREND_SQL but with an additional category filter bound as $1.
+///
+/// Used by `get_trend_data` when a category filter is provided.
+/// Security (T-04-09): category value is a bound parameter, never interpolated.
+const TREND_SQL_FILTERED: &str = "SELECT \
+    DATE_TRUNC('week', created_at AT TIME ZONE 'UTC')::DATE::TEXT AS week_start, \
+    category::TEXT AS category, \
+    COUNT(*)::BIGINT AS count \
+    FROM reports \
+    WHERE created_at >= NOW() - INTERVAL '12 weeks' \
+    AND category::TEXT = $1 \
+    GROUP BY 1, 2 \
+    ORDER BY 1, 2";
+
+/// Represents a single row from the trend data query.
+#[derive(serde::Serialize)]
+pub struct TrendDataRow {
+    pub week_start: String,
+    pub category: String,
+    pub count: i64,
+}
+
+/// Returns reports-per-week aggregates over the last 12 weeks (ANALYTICS-04).
+///
+/// # Contract
+/// - `category` is an optional filter. When Some, it is bound as a sqlx
+///   parameter — never interpolated into the SQL string (T-04-09).
+/// - Returns one row per (week_start, category) pair that has at least one
+///   report.
+/// - Frontend is responsible for zero-filling sparse week/category combinations.
+pub async fn get_trend_data(
+    pool: &PgPool,
+    category: Option<&str>,
+) -> Result<Vec<TrendDataRow>, AppError> {
+    let rows = match category {
+        Some(cat) => {
+            sqlx::query(TREND_SQL_FILTERED)
+                .bind(cat)
+                .fetch_all(pool)
+                .await?
+        }
+        None => {
+            sqlx::query(TREND_SQL)
+                .fetch_all(pool)
+                .await?
+        }
+    };
+
+    let result = rows
+        .iter()
+        .map(|r| TrendDataRow {
+            week_start: r.get::<String, _>("week_start"),
+            category: r.get::<String, _>("category"),
+            count: r.get::<i64, _>("count"),
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Returns the TREND_SQL constant for SQL-string unit tests.
+///
+/// Test-only hook — same string used by `get_trend_data` (unfiltered variant)
+/// at runtime. Tests assert that DATE_TRUNC('week') and INTERVAL '12 weeks'
+/// are present.
+#[allow(dead_code)]
+pub fn trend_sql_fragment() -> &'static str {
+    TREND_SQL
+}
+
+/// ANALYTICS-05: Ward polygons with unresolved report count for choropleth.
+///
+/// Security notes (T-04-08, T-04-10):
+/// - Endpoint registered under admin_protected_router (require_auth).
+/// - ST_Simplify(boundary::geometry, 0.001) reduces vertex count per Pitfall 7
+///   — 0.001 degrees ≈ 100 m simplification, sufficient for visual choropleth
+///   while keeping response size manageable (T-04-10).
+///
+/// Returns columns: id, ward_name, ward_number, boundary_geojson (text),
+/// unresolved_count. The handler assembles these into a GeoJSON FeatureCollection.
+const WARD_BOUNDARIES_SQL: &str = "SELECT \
+    w.id, \
+    w.ward_name, \
+    w.ward_number, \
+    ST_AsGeoJSON(ST_Simplify(w.boundary::geometry, 0.001)) AS boundary_geojson, \
+    COUNT(r.id) FILTER (WHERE r.status NOT IN ('resolved', 'closed')) AS unresolved_count \
+    FROM wards w \
+    LEFT JOIN reports r ON r.ward_id = w.id \
+    GROUP BY w.id, w.ward_name, w.ward_number, w.boundary";
+
+/// Represents a single row from the ward boundaries query.
+///
+/// `boundary_geojson` is the ST_AsGeoJSON output — a valid GeoJSON geometry
+/// string (e.g. `{"type":"MultiPolygon","coordinates":[...]}`).
+#[derive(serde::Serialize)]
+pub struct WardBoundaryRow {
+    pub id: Uuid,
+    pub ward_name: String,
+    pub ward_number: i32,
+    pub boundary_geojson: Option<String>,
+    pub unresolved_count: i64,
+}
+
+/// Returns ward boundary GeoJSON strings with unresolved report counts (ANALYTICS-05).
+///
+/// The handler is responsible for assembling the rows into a GeoJSON
+/// FeatureCollection with properties { ward_name, ward_number, unresolved_count }
+/// and the boundary_geojson as the geometry.
+///
+/// # Contract
+/// - Rows with NULL boundary (wards missing geometry) have boundary_geojson = None.
+/// - unresolved_count excludes reports with status 'resolved' or 'closed'.
+pub async fn get_ward_boundaries(pool: &PgPool) -> Result<Vec<WardBoundaryRow>, AppError> {
+    let rows = sqlx::query(WARD_BOUNDARIES_SQL)
+        .fetch_all(pool)
+        .await?;
+
+    let result = rows
+        .iter()
+        .map(|r| WardBoundaryRow {
+            id: r.get::<Uuid, _>("id"),
+            ward_name: r.get::<String, _>("ward_name"),
+            ward_number: r.get::<i32, _>("ward_number"),
+            boundary_geojson: r.try_get::<String, _>("boundary_geojson").ok(),
+            unresolved_count: r.get::<i64, _>("unresolved_count"),
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Returns the WARD_BOUNDARIES_SQL constant for SQL-string unit tests.
+///
+/// Test-only hook — same string used by `get_ward_boundaries` at runtime.
+/// Tests assert ST_AsGeoJSON, ST_Simplify, and unresolved_count are present.
+#[allow(dead_code)]
+pub fn ward_boundaries_sql_fragment() -> &'static str {
+    WARD_BOUNDARIES_SQL
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Unit tests — no database required
 //
 // Requirements covered:
