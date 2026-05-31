@@ -16,7 +16,7 @@ The short version:
 git clone <repo-url>
 cd bengaluru-walkability-public-audit
 
-# 2. Start the database
+# 2. Start the database (both compose files are required for local dev)
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up db -d
 
 # 3. Backend (Rust)
@@ -97,7 +97,7 @@ New test files follow the existing naming convention: `*.test.ts` or `*.test.tsx
 ## PR process
 
 1. **Open a draft PR early** if you want feedback before the work is complete.
-2. **Ensure CI passes** — the `CI` workflow runs `cargo clippy`, `cargo test`, `npm run lint`, and `npm test` on every push. Merging is blocked while CI is red.
+2. **Ensure CI passes** — the `CI` workflow runs `cargo clippy`, `cargo test`, `npm run lint`, `npm test`, `cargo audit`, `npm audit --audit-level=critical`, and a Docker compose build on every push. Merging is blocked while CI is red.
 3. **Include tests** — every behaviour change must have corresponding test coverage. PRs that add untested production code will be asked to add tests before review.
 4. **Keep PRs focused** — one logical change per PR. Combine unrelated fixes into separate PRs.
 5. **Write a clear description** — explain what changed, why, and any decisions made along the way. If the PR closes an issue, include `Closes #<issue-number>` in the body.
@@ -143,6 +143,14 @@ cd backend
 cargo audit   # scans Cargo.lock against the RustSec advisory database
 ```
 
+Known advisory exceptions are documented and allowlisted in `backend/.cargo/audit.toml`. Each entry includes the CVE/RUSTSEC ID, the transitive dependency path that introduces it, a risk assessment, and the date it was reviewed. If you add a dependency that triggers a new advisory:
+
+1. Assess whether the vulnerable code path is reachable in this project.
+2. If it is not reachable or no fix is available upstream, add an entry to `audit.toml` with a full explanation.
+3. If a fix is available, upgrade the dependency before merging.
+
+Do not add entries to `audit.toml` to bypass advisories without a written justification.
+
 ### Frontend
 
 ```bash
@@ -166,13 +174,17 @@ cd backend
 cargo sqlx prepare --database-url "postgres://walkability:secret@localhost:5432/walkability"
 ```
 
-This writes updated metadata to `backend/.sqlx/`. Commit that directory alongside your query changes. If the cache is stale, the CI `cargo test` step will fail during offline verification.
+This writes updated metadata to `backend/.sqlx/`. Commit that directory alongside your query changes. If the cache is stale or the directory is missing, the CI `cargo test` step will fail during offline verification.
+
+If `backend/.sqlx/` does not exist in your checkout, run `cargo sqlx prepare` once after the database is started to create it.
 
 ---
 
 ## Database migrations
 
 Schema changes are applied via SQLx migrations located in `backend/migrations/`. Migrations run automatically on backend startup via `sqlx::migrate!`.
+
+The project currently has 10 migrations (`001_init.sql` through `010_org_seed.sql`).
 
 ### Adding a migration
 
@@ -182,7 +194,7 @@ Schema changes are applied via SQLx migrations located in `backend/migrations/`.
    NNN_short_description.sql
    ```
 
-   Example: `008_add_photo_metadata.sql`
+   Example: `011_add_photo_metadata.sql`
 
 2. Write forward-only SQL. There are no down migrations — if you need to revert, add a new migration that undoes the change.
 

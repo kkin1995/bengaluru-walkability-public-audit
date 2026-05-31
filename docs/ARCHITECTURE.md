@@ -53,6 +53,14 @@ Admin authentication flow:
 3. Subsequent admin requests carry the cookie. The `require_auth` middleware (`backend/src/middleware/auth.rs`) decodes and validates the JWT, rejecting `alg:none` tokens and expired tokens. Decoded `JwtClaims` are inserted into request extensions for downstream handlers.
 4. Role gating (`require_role`) enforces that `admin` is a superset of all roles and `reviewer` cannot access admin-only routes.
 
+Government triage workflow (Phase 03):
+
+1. An admin or reviewer opens a report in the admin detail view (`frontend/app/admin/reports/[id]/page.tsx`).
+2. `StatusActionPanel` renders available status transitions based on the current status: `open → acknowledged → assigned → in_progress → resolved → closed`.
+3. `OrgAssignPanel` calls `POST /api/admin/reports/:id/assign-org` to route the report to a corporation or ward-office org node for internal triage.
+4. When marking a report `resolved` or `closed`, the admin uploads a mandatory after-photo via `ResolveModal`, which calls `POST /api/admin/reports/:id/resolve` (multipart). The backend strips EXIF from the photo, writes it to disk, and stores `resolution_photo_path` and `resolution_notes` atomically with the status update and a `status_history` row.
+5. The `resolution_photo_url` field is publicly visible in `ReportResponse` and in the public report detail page (`frontend/app/reports/[id]/page.tsx`).
+
 ## Key Abstractions
 
 | Abstraction | File | Description |
@@ -60,11 +68,15 @@ Admin authentication flow:
 | `AppState` | `backend/src/main.rs` | Axum shared state: DB pool, uploads dir, JWT secret, session hours, rate limiter |
 | `AppError` | `backend/src/errors.rs` | Unified error enum mapping to HTTP status codes (400, 401, 403, 404, 409, 429, 500) |
 | `Config` | `backend/src/config.rs` | Reads `DATABASE_URL`, `UPLOADS_DIR`, `PORT`, `CORS_ORIGIN`, `PUBLIC_URL` from environment |
-| `Report` / `ReportResponse` | `backend/src/models/report.rs` | DB row and public JSON shape; `into_response()` rounds lat/lng to 3 dp and excludes submitter PII |
+| `Report` / `ReportResponse` | `backend/src/models/report.rs` | DB row and public JSON shape; `into_response()` rounds lat/lng to 3 dp, excludes submitter PII, includes `resolution_photo_url` when present |
 | `JwtClaims` | `backend/src/middleware/auth.rs` | JWT payload: `sub`, `email`, `role`, `exp`. Only HS256 accepted |
 | `Organization` | `backend/src/models/organization.rs` | Self-referential org hierarchy (GBA → corporation → ward_office) |
 | `create_report` handler | `backend/src/handlers/reports.rs` | Core submission handler: honeypot, photo-hash dedup, bbox validation, rate limit, EXIF strip, ward lookup |
-| `API_BASE_URL` / `INTERNAL_API_URL` | `frontend/app/lib/config.ts` | Centralised URL config; `NEXT_PUBLIC_API_URL` baked at build time for client, `INTERNAL_API_URL` used server-side only |
+| `admin_resolve_report` handler | `backend/src/handlers/admin.rs` | Phase 03 resolve handler: mandatory after-photo, EXIF strip, atomic DB update with status_history row |
+| `admin_assign_report_org` handler | `backend/src/handlers/admin.rs` | Phase 03 org-routing handler: assigns `assigned_org_id` on a report for internal triage |
+| `admin_get_intake_stats` handler | `backend/src/handlers/admin.rs` | Returns daily intake sparkbar data for up to 90 days (default 14); drives `Sparkbars` component |
+| `admin_list_organizations` handler | `backend/src/handlers/admin.rs` | Returns org hierarchy for `OrgAssignPanel` dropdowns |
+| `API_BASE_URL` / `INTERNAL_API_URL` / `APP_VERSION` | `frontend/app/lib/config.ts` | Centralised URL and version config; `NEXT_PUBLIC_API_URL` baked at build time for client, `INTERNAL_API_URL` used server-side only, `NEXT_PUBLIC_APP_VERSION` read from `package.json` at build time |
 | `LocationMap` | `frontend/app/components/LocationMap.tsx` | Leaflet map with draggable marker; always loaded via `dynamic(..., { ssr: false })` |
 | `dedup_job` | `backend/src/db/dedup_job.rs` | Background tokio loop: 5-minute poll, PostGIS `ST_DWithin` (50 m radius), atomic link + count increment |
 
@@ -89,24 +101,39 @@ bengaluru-walkability-public-audit/
 │       ├── 004_ward_boundaries.sql  wards table with BBMP polygon data (3.5 MB KML import)
 │       ├── 005_organizations.sql   organizations hierarchy table, admin_users.org_id
 │       ├── 006_ward_org_scoping.sql  wards.org_id for ward-office scoped admins
-│       └── 007_anti_abuse.sql  photo_hash, duplicate_of_id, submitter_ip columns
+│       ├── 007_anti_abuse.sql  photo_hash, duplicate_of_id, submitter_ip columns
+│       ├── 008_workflow.sql  (no-transaction) renames report_status enum values, adds
+│       │                     assigned/in_progress/closed, adds resolution_photo_path,
+│       │                     resolution_notes, assigned_org_id columns (Phase 03)
+│       ├── 009_ward_hierarchy.sql  GBA hierarchy columns on wards (zone_name, ro_division,
+│       │                     aro_sub_division, assembly_constituency, parliamentary_constituency,
+│       │                     mla_name, mp_name) + 369-row backfill from gba_wards_2025.geojson
+│       └── 010_org_seed.sql  Idempotent seed: 1 GBA root + 5 corporation org rows
 ├── frontend/                 Next.js 14 App Router — citizen UI and admin dashboard
 │   └── app/
 │       ├── lib/              Centralised config, constants, translations, utilities
-│       ├── components/       Shared UI components (PhotoCapture, LocationMap, ReportsMap, etc.)
+│       ├── components/       Shared UI components (PhotoCapture, LocationMap, ReportsMap, SiteFooter, etc.)
 │       ├── report/           Citizen report submission flow (multi-step form)
+│       ├── reports/[id]/     Public report detail page — status timeline, ward hierarchy, resolution photo
 │       ├── map/              Public map view with all submitted reports
-│       └── admin/            Password-protected admin dashboard (reports, users, stats)
+│       └── admin/            Password-protected admin dashboard
+│           ├── reports/      Report list, report detail (/reports/[id]/), and map view
+│           ├── users/        Admin user management
+│           ├── organizations/ Org hierarchy viewer (OrgAssignPanel consumer)
+│           ├── profile/      Admin profile and password-change page
+│           └── components/   Admin-only UI primitives (Sparkbars, StatusActionPanel,
+│                             OrgAssignPanel, GbaHierarchyPanel, ResolveModal, etc.)
 ├── nginx/
 │   └── nginx.conf            Reverse proxy, rate-limit zones, CSP headers, upstream definitions
 ├── docker-compose.yml        Production service definitions with health-check gates and memory limits
 ├── docker-compose.dev.yml    Dev overrides (volume mounts for hot reload)
+├── docker-compose.server.yml Server-specific overrides used by the deploy pipeline (LXC target)
 └── data/                     GeoJSON ward boundary source files (gba_wards_2025.geojson); the KML source (gba-369-wards-december-2025.kml) lives at the project root
 ```
 
 ## Notable Design Decisions
 
-**EXIF GPS client-side only.** `exifr` runs in the browser; the extracted GPS coordinates pre-fill the map but are never transmitted raw to the server. The backend additionally strips all EXIF metadata from the saved JPEG using `img-parts` as a belt-and-suspenders privacy measure.
+**EXIF GPS client-side only.** `exifr` runs in the browser; the extracted GPS coordinates pre-fill the map but are never transmitted raw to the server. The backend additionally strips all EXIF metadata from the saved JPEG using `img-parts` as a belt-and-suspenders privacy measure. This same stripping is applied to resolution after-photos uploaded by admins.
 
 **SQLx compile-time query checks.** All SQL queries are verified against a live database at compile time. Offline builds use captured metadata from `cargo sqlx prepare`. Any schema drift causes a compile error rather than a runtime panic.
 
@@ -120,17 +147,35 @@ bengaluru-walkability-public-audit/
 
 **Geography trigger.** The `trg_set_report_location` trigger on the `reports` table auto-populates the `GEOGRAPHY(POINT, 4326)` column from `latitude` and `longitude` on every insert or update. Application code never sets the `location` column directly.
 
+**Migration 008 no-transaction flag.** `ALTER TYPE ADD VALUE` cannot run inside a PostgreSQL transaction (Postgres 10+). Migration 008 carries the `-- no-transaction` comment so `sqlx::migrate!` skips the implicit `BEGIN/COMMIT` wrapper. All other migrations run in the default transactional mode.
+
+**Six-value report status enum (Phase 03).** The `report_status` PostgreSQL enum was extended by migration 008: `open → acknowledged → assigned → in_progress → resolved → closed`. The old values `submitted` and `under_review` were renamed. All status transitions are recorded in `status_history` for public timeline display.
+
+**Build metadata stamping (Phase 02.6).** `next.config.mjs` reads `version` from `frontend/package.json` at build time and injects it as `NEXT_PUBLIC_APP_VERSION`. The value is exposed via `APP_VERSION` in `frontend/app/lib/config.ts` and rendered in both `SiteFooter` (citizen pages) and `AdminSidebar` (admin pages).
+
 ## Supplementary Design Notes
 
 **Ward lookup endpoint.** `GET /api/wards/lookup?lat={lat}&lng={lng}` is a public, no-auth endpoint handled by `backend/src/handlers/wards.rs`. It runs a PostGIS `ST_Within` point-in-polygon query and returns the matching `ward_number` and `ward_name`, or 404 when the coordinate falls outside all BBMP ward polygons. The frontend report page (`frontend/app/report/page.tsx`) calls this endpoint after the user confirms their map pin so the submission form can display the ward label before the report is submitted.
 
+**Ward hierarchy enrichment (Phase 03).** Migration 009 added eight columns to the `wards` table: `zone_name`, `ro_division`, `aro_sub_division`, `assembly_constituency`, `assembly_constituency_no`, `parliamentary_constituency`, `mla_name`, and `mp_name`. These are backfilled from `gba_wards_2025.geojson` for all 369 GBA wards. The public report detail page (`frontend/app/reports/[id]/page.tsx`) renders this data in a bureaucratic-hierarchy card, enabling citizens to identify their MLA, MP, and revenue officer.
+
 **Org-scoped report visibility.** Admin users can be assigned an `org_id` (via `PATCH /api/admin/users/:id/org`). When `org_id` is set, `list_admin_reports` and `count_admin_reports` in `backend/src/db/admin_queries.rs` append a `WITH RECURSIVE org_subtree` CTE that walks the `organizations` parent-child tree downward from the assigned org and then joins to `wards.org_id` to restrict the result to reports whose ward falls within that org's subtree. Super-admins and users with `org_id = NULL` see all reports unfiltered. This mechanism is implemented entirely in SQL (no application-layer filtering) so pagination totals remain accurate.
 
-**Next.js admin API rewrite (staging/Vercel proxy).** `next.config.mjs` defines a `rewrites()` rule that proxies `/api/admin/:path*` through the Next.js server to `INTERNAL_API_URL/api/admin/:path*`. This allows the backend's `Set-Cookie: admin_token` response to be scoped to the Vercel (or custom) domain so Next.js middleware can read the `admin_token` cookie for server-side auth guards. The rewrite deliberately excludes `POST /api/reports` because Vercel enforces a 4.5 MB request body limit while the app supports photo uploads up to 20 MB; those submissions call the backend directly via `NEXT_PUBLIC_API_URL`. In Docker, nginx handles all proxying and the rewrite rule has no effect.
+**Org seed (migration 010).** The initial organization structure is seeded idempotently in migration 010: one GBA root node and five corporation nodes (Bengaluru Central, North, East, South, West). Ward-office rows are out of scope until GBA finalises ward-office boundaries. The `OrgAssignPanel` admin component falls back to corporation-level assignment when no ward office exists.
+
+**Next.js uploads rewrite (split-deploy).** `next.config.mjs` defines a `rewrites()` rule that proxies `/uploads/:path*` through the Next.js server to `INTERNAL_API_URL/uploads/:path*`. This allows uploaded images to load correctly when the frontend (Vercel) and backend (Cloudflare Tunnel) are on different origins. In Docker, nginx handles all proxying and the rewrite rule has no effect.
+
+**Next.js admin API rewrite (staging/Vercel proxy).** A separate rewrite path is no longer needed for `/api/admin/*` — all admin calls use `ADMIN_API_BASE_URL = ""` (relative URLs) so the auth cookie is always scoped to the current origin. Server-side admin layout guards use `INTERNAL_API_URL` directly.
+
+**Intake sparkbars.** `GET /api/admin/stats/intake?days={n}` (default 14, clamp 1–90) returns per-day report counts for the requested window. The `Sparkbars` admin component (`frontend/app/admin/components/Sparkbars.tsx`) renders this as a miniature bar chart on the dashboard, giving at-a-glance submission velocity.
+
+**Public report detail page.** `frontend/app/reports/[id]/page.tsx` is a server component that fetches via `INTERNAL_API_URL`. It displays the report photo, category, severity, status (with a `status_history` timeline), ward hierarchy card (zone, RO division, ARO sub-division, AC, parliamentary constituency, MLA, MP), and the resolution after-photo when present. Status labels and colours are shared with the admin dashboard via `publicStatusLabel` / `publicStatusColor` exported from `frontend/app/lib/translations.ts`.
+
+**CI/CD pipeline.** `.github/workflows/ci.yml` runs three parallel jobs on every push and PR: `Frontend — lint + test` (Node 20, `npm run lint`, `npm test`, `npm audit --audit-level=critical`), `Backend — clippy + test` (`cargo clippy -D warnings`, `cargo test`, `cargo audit`), and `Docker — compose build` (verifies all images build). `.github/workflows/deploy.yml` triggers on pushes to `main`: it calls `ci.yml` as a reusable workflow, then deploys via `rsync` + SSH to an LXC container running `docker compose -f docker-compose.yml -f docker-compose.server.yml` on a self-hosted runner labelled `walkability-prod`.
 
 ## Frontend Design System
 
-The citizen-facing UI (Phase 02.3.1) uses a bespoke CSS custom-property token system defined in `frontend/app/globals.css`. No component library is used; all UI primitives are hand-written in `frontend/app/components/ui/`.
+The citizen-facing UI uses a bespoke CSS custom-property token system defined in `frontend/app/globals.css`. No component library is used; all UI primitives are hand-written in `frontend/app/components/ui/`.
 
 **Token system.** CSS custom properties define a warm neutral palette (`--bg`, `--surface`, `--ink`, `--muted`), a single civic accent colour in OKLCH (`--accent` at `oklch(0.62 0.14 145)`, a muted green), and semantic danger/warn colours sharing the same chroma and lightness with only hue varying. Radii (`--r-sm` through `--r-full`) and warm-toned shadows (`--shadow-sm/md/lg`) are also defined as tokens. Admin pages inherit the same token set, replacing the previous Tailwind system stack.
 
@@ -148,6 +193,8 @@ The citizen-facing UI (Phase 02.3.1) uses a bespoke CSS custom-property token sy
 
 **Homepage photo entry point.** `ReportCTA` (`frontend/app/components/ReportCTA.tsx`) is the primary citizen entry point on the homepage. It presents two photo input paths: a primary camera-capture button (`<input capture="environment">`) and a secondary gallery-upload link (no `capture` attribute). Both paths run EXIF extraction on the original file, optionally compress it via canvas if over 10 MB, then call `storePendingPhoto()` to write the prepared `PendingPhoto` object to `window.__pendingPhoto` before navigating to `/report`. This window-level hand-off (`frontend/app/lib/photo-store.ts`) is used instead of React state or URL params because Next.js App Router code-splitting does not share module-level variables across chunk boundaries.
 
+**Version display.** `APP_VERSION` from `frontend/app/lib/config.ts` (set to `NEXT_PUBLIC_APP_VERSION`, populated from `package.json` at build time) is rendered in `SiteFooter` (`frontend/app/components/SiteFooter.tsx`) on citizen pages and in `AdminSidebar` (`frontend/app/admin/components/AdminSidebar.tsx`) on admin pages. Falls back to `"0.0.0"` in development when `NEXT_PUBLIC_APP_VERSION` is unset.
+
 **Three URL constants.** `frontend/app/lib/config.ts` exports three URL constants: `API_BASE_URL` (public endpoint calls, equals `NEXT_PUBLIC_API_URL` or `""`), `ADMIN_API_BASE_URL` (always `""` — all admin calls use relative paths so the auth cookie is always scoped to the current origin), and `INTERNAL_API_URL` (server-side only, used by server components and Next.js rewrites to reach the backend container directly).
 
 ## PWA Configuration
@@ -158,6 +205,6 @@ The frontend ships a Web App Manifest at `frontend/public/manifest.json`, making
 - `orientation: "portrait"` — locks orientation to portrait, matching the mobile-first submission flow.
 - `theme_color: "#16a34a"` — matches the civic green accent used in the design system.
 - `start_url: "/"` — launches to the citizen homepage.
-- Icons at 192×192 and 512×512 are referenced in the manifest (`/icon-192.png`, `/icon-512.png`) but the PNG files have not yet been created in `frontend/public/`.
+- Icons at 192×192 and 512×512 are referenced in the manifest (`/icon-192.png`, `/icon-512.png`) and both PNG files are present in `frontend/public/`.
 
 The root layout (`frontend/app/layout.tsx`) includes `<link rel="manifest">`, `apple-mobile-web-app-capable`, and `apple-mobile-web-app-status-bar-style` meta tags. The `viewport` export omits `maximumScale` deliberately to allow browser zoom per WCAG 1.4.4.

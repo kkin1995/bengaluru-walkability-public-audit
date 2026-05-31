@@ -174,6 +174,7 @@ The `middleware` project runs under `node` because `next/server` requires the na
 | `app/__tests__/layout.test.ts` | Root layout metadata |
 | `app/__tests__/utils.test.ts` | Utility helpers |
 | `app/report/__tests__/page.honeypot.test.tsx` | ABUSE-02: honeypot field is `type=hidden`, not autofilled by browsers |
+| `app/reports/[id]/__tests__/page.test.tsx` | Public single-report detail page (MAP-03, D-17, D-28, D-29); asserts admin-only fields (resolution_notes, submitter_*) are never rendered |
 | `__tests__/middleware.test.ts` | Edge middleware: unauthenticated `/admin/*` → 307 redirect; authenticated → passthrough; non-admin routes unaffected |
 
 **Components**
@@ -202,6 +203,9 @@ The `middleware` project runs under `node` because `next/server` requires the na
 |---|---|
 | `app/admin/__tests__/adminApi.test.ts` | API client: `credentials: 'include'`, non-2xx rejection, JSON resolution, 11 named exports |
 | `app/admin/lib/__tests__/adminApi.phase2.test.ts` | Phase 2 admin API additions |
+| `app/admin/lib/__tests__/adminApi.intake.test.ts` | `getIntakeStats(days)` fetches `GET /api/admin/stats/intake?days=N` with credentials and parses `IntakeDayCount[]` (BUG-03.2-A) |
+| `app/admin/lib/__tests__/adminApi.relative-url.test.ts` | Regression: admin API always builds relative `/api/admin/*` URLs so Next.js rewrites proxy them correctly (same-origin cookie fix) |
+| `app/admin/lib/__tests__/useOnlineStatus.test.ts` | `useOnlineStatus` hook: offline state UI when `navigator.onLine === false` (ADMIN-UI-04) |
 | `app/admin/__tests__/dashboard.test.tsx` | Admin dashboard render |
 | `app/admin/__tests__/reports-page.test.tsx` | Reports list page |
 | `app/admin/__tests__/reports-page-ward.test.tsx` | Ward-filtered reports view |
@@ -217,6 +221,15 @@ The `middleware` project runs under `node` because `next/server` requires the na
 | `app/admin/components/__tests__/ReportsTable.subtable.test.tsx` | Deduplication subtable |
 | `app/admin/components/__tests__/StatsCards.test.tsx` | Stats cards render |
 | `app/admin/components/__tests__/StatusBadge.test.tsx` | Status badge variants |
+| `app/admin/components/__tests__/StatusActionPanel.test.tsx` | 6-value status lifecycle action button bar (WFLOW-01) |
+| `app/admin/components/__tests__/ResolveModal.test.tsx` | Resolution photo gate: resolved/closed transitions require a photo (WFLOW-05) |
+| `app/admin/components/__tests__/OrgAssignPanel.test.tsx` | Org assignment: admin assigns a report to an organization (WFLOW-03) |
+| `app/admin/components/__tests__/GbaHierarchyPanel.test.tsx` | Bureaucratic chain display: Ward → ARO Sub Division → RO Division → Zone → Corporation → GBA (D-23) |
+| `app/admin/components/__tests__/SeverityIndicator.test.tsx` | Severity indicator renders without crashing (ADMIN-UI-02) |
+| `app/admin/components/__tests__/Btn.test.tsx` | Admin `<Btn>` primitive: renders, `data-*` contract (ADMIN-UI-02) |
+| `app/admin/components/__tests__/Card.test.tsx` | Admin `<Card>` primitive: renders, `data-*` contract (ADMIN-UI-02) |
+| `app/admin/components/__tests__/Icon.test.tsx` | Admin `<Icon>` component: renders, aria contract (ADMIN-UI-02) |
+| `app/admin/components/__tests__/Pill.test.tsx` | Admin `<Pill>` primitive: renders, `data-*` contract (ADMIN-UI-02) |
 | `app/admin/components/__tests__/UserManagementTable.test.tsx` | User management table |
 | `app/admin/components/__tests__/UserManagementTable.phase2.test.tsx` | Phase 2 user management additions |
 
