@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import { BENGALURU_CENTER } from "../lib/constants";
 import { getCategoryLabel, publicStatusLabel, publicStatusColor } from "../lib/translations";
+// MAP-02: HeatmapLayer is safe here — ReportsMap is the ssr:false boundary.
+// Do NOT import HeatmapLayer from any page or server component directly.
+import HeatmapLayer from "./HeatmapLayer";
 
 const BENGALURU_MAP_CENTER: [number, number] = [BENGALURU_CENTER.lat, BENGALURU_CENTER.lng];
 
@@ -109,6 +112,8 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        {/* MAP-02/D-02: toggleable density heatmap — toggled via layer control top-right (D-03) */}
+        <HeatmapLayer reports={reports} />
         {!loading && !error && reports
           .filter((r) => !categoryFilter || categoryFilter === "all" || r.category === categoryFilter)
           .map((report) => (
