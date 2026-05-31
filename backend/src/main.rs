@@ -54,6 +54,9 @@ pub struct AppState {
     /// Per-IP+geohash-6 rate limiter: 2 report submissions per hour per cell.
     /// Shared across all request handlers via Arc. Keys are "{ip}:{geohash6}".
     pub rate_limiter: Arc<governor::DefaultKeyedRateLimiter<String>>,
+    /// Per-IP rate limiter for the public GeoJSON open-data endpoint: 2 req/min.
+    /// Defense-in-depth alongside the nginx geojson_public zone (D-18).
+    pub geojson_rate_limiter: Arc<governor::DefaultKeyedRateLimiter<String>>,
 }
 
 #[tokio::main]
@@ -125,6 +128,10 @@ async fn main() {
     let quota = governor::Quota::per_hour(std::num::NonZeroU32::new(2).unwrap());
     let rate_limiter = Arc::new(governor::RateLimiter::keyed(quota));
 
+    // EXPORT-03/D-18: Per-IP rate limiter for public GeoJSON endpoint — 2 req/min.
+    let geojson_quota = governor::Quota::per_minute(std::num::NonZeroU32::new(2).unwrap());
+    let geojson_rate_limiter = Arc::new(governor::RateLimiter::keyed(geojson_quota));
+
     let state = AppState {
         pool: Arc::new(pool),
         uploads_dir: config.uploads_dir.clone(),
@@ -132,6 +139,7 @@ async fn main() {
         jwt_secret: Arc::new(jwt_secret),
         jwt_session_hours,
         rate_limiter,
+        geojson_rate_limiter,
     };
 
     // CORS — allow_credentials(true) is required for the admin_token cookie to be
@@ -232,6 +240,9 @@ async fn main() {
         .route("/api/reports/:id", get(handlers::reports::get_report))
         // Public ward lookup — no auth required
         .route("/api/wards/lookup", get(handlers::wards::ward_lookup))
+        // EXPORT-03/ANALYTICS-01: public open-data endpoints — no auth required
+        .route("/api/stats", get(handlers::stats::public_get_stats))
+        .route("/api/reports.geojson", get(handlers::stats::public_get_geojson))
         // Admin routes (auth + protected)
         .merge(admin_auth_router)
         .merge(admin_protected_router)

@@ -32,4 +32,6 @@ pub struct AppState {
     pub jwt_secret: Arc<Vec<u8>>,
     pub jwt_session_hours: u64,
     pub rate_limiter: Arc<governor::DefaultKeyedRateLimiter<String>>,
+    /// Per-IP rate limiter for public GeoJSON endpoint — 2 req/min (EXPORT-03/D-18).
+    pub geojson_rate_limiter: Arc<governor::DefaultKeyedRateLimiter<String>>,
 }
