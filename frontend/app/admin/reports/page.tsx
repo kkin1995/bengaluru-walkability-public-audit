@@ -7,6 +7,8 @@ import {
   deleteReport,
   updateReportStatus,
   getMe,
+  downloadCsvExport,
+  downloadGeoJsonExport,
   type AdminReport,
   type AdminReportFilters,
 } from "../lib/adminApi";
@@ -139,6 +141,46 @@ function ReportsPageContent(props: PageProps) {
     }
   }
 
+  // Phase 04-01: Export download handlers (EXPORT-01, EXPORT-02)
+  // Build current filter state and trigger a Blob URL download.
+  async function handleCsvDownload() {
+    try {
+      const filters: AdminReportFilters = {};
+      if (category) filters.category = category;
+      if (status) filters.status = status;
+      const blob = await downloadCsvExport(filters);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "walkability-reports.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Silently ignore — export error does not disrupt the page UI
+    }
+  }
+
+  async function handleGeoJsonDownload() {
+    try {
+      const filters: AdminReportFilters = {};
+      if (category) filters.category = category;
+      if (status) filters.status = status;
+      const blob = await downloadGeoJsonExport(filters);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "walkability-reports.geojson";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Silently ignore — export error does not disrupt the page UI
+    }
+  }
+
   return (
     <div style={{ padding: "24px 32px", maxWidth: 1400, marginLeft: "auto", marginRight: "auto" }}>
       {/* Offline banner — per UI-SPEC Copywriting Contract */}
@@ -210,19 +252,40 @@ function ReportsPageContent(props: PageProps) {
           </Btn>
         </Card>
       ) : (
-        <ReportsTable
-          reports={reports}
-          role={role}
-          onStatusChange={handleStatusChange}
-          onUpdateStatus={handleUpdateStatus}
-          onDelete={handleDelete}
-          isLoading={isLoading}
-          onCategoryChange={handleCategoryChange}
-          totalCount={totalCount}
-          page={page}
-          totalPages={totalPages}
-          onPageChange={(pg) => fetchReports(categoryRef.current, statusRef.current, pg)}
-        />
+        <>
+          {/* Phase 04-01: Export buttons — below filter bar, above reports table (D-07) */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <Btn
+              variant="ghost"
+              size="sm"
+              onClick={handleCsvDownload}
+              disabled={isLoading}
+            >
+              Export CSV
+            </Btn>
+            <Btn
+              variant="ghost"
+              size="sm"
+              onClick={handleGeoJsonDownload}
+              disabled={isLoading}
+            >
+              Export GeoJSON
+            </Btn>
+          </div>
+          <ReportsTable
+            reports={reports}
+            role={role}
+            onStatusChange={handleStatusChange}
+            onUpdateStatus={handleUpdateStatus}
+            onDelete={handleDelete}
+            isLoading={isLoading}
+            onCategoryChange={handleCategoryChange}
+            totalCount={totalCount}
+            page={page}
+            totalPages={totalPages}
+            onPageChange={(pg) => fetchReports(categoryRef.current, statusRef.current, pg)}
+          />
+        </>
       )}
 
       {/* Status-change modal */}

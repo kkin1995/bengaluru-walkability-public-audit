@@ -159,10 +159,10 @@ async fn main() {
 
     use handlers::admin::{
         admin_assign_report_org, admin_assign_user_org, admin_change_password, admin_create_user,
-        admin_deactivate_user, admin_delete_report, admin_get_intake_stats, admin_get_report,
-        admin_get_stats, admin_list_organizations, admin_list_reports, admin_list_users,
-        admin_login, admin_logout, admin_me, admin_resolve_report, admin_update_profile,
-        admin_update_report_status,
+        admin_deactivate_user, admin_delete_report, admin_export_csv, admin_export_geojson,
+        admin_get_intake_stats, admin_get_report, admin_get_stats, admin_list_organizations,
+        admin_list_reports, admin_list_users, admin_login, admin_logout, admin_me,
+        admin_resolve_report, admin_update_profile, admin_update_report_status,
     };
     use middleware::auth::require_auth;
 
@@ -184,6 +184,17 @@ async fn main() {
             post(admin_change_password),
         )
         .route("/api/admin/reports", get(admin_list_reports))
+        // Phase 04-01: streaming export endpoints — MUST be registered before
+        // "/api/admin/reports/:id" so the literal path segment "export" is not
+        // interpreted as a :id parameter (Axum uses longest-prefix match for routes).
+        .route(
+            "/api/admin/reports/export/csv",
+            get(admin_export_csv),
+        )
+        .route(
+            "/api/admin/reports/export/geojson",
+            get(admin_export_geojson),
+        )
         .route("/api/admin/reports/:id", get(admin_get_report))
         .route(
             "/api/admin/reports/:id/status",

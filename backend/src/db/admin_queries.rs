@@ -672,7 +672,8 @@ pub async fn resolve_report(
         UPDATE reports
         SET status = $1::report_status,
             resolution_photo_path = $2,
-            resolution_notes = $3
+            resolution_notes = $3,
+            resolved_at = NOW()
         WHERE id = $4
         "#,
     )
@@ -1123,6 +1124,160 @@ pub fn attribution_sql_fragment() -> &'static str {
 #[allow(dead_code)]
 pub fn intake_sql_fragment() -> &'static str {
     INTAKE_SQL
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 04-01: Streaming export SQL constants and pure helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// CSV export query selecting all D-13 columns.
+///
+/// Security notes (T-04-01, T-04-02):
+/// - Explicit column whitelist — no SELECT * — so new sensitive columns never
+///   leak automatically.
+/// - Filter values are always bound via .bind() through build_report_where_clause;
+///   never string-interpolated.
+/// - ward_name and assigned_org are JOIN columns; no UUID exposure in CSV.
+///
+/// The {where_clause} placeholder is replaced at runtime by
+/// build_report_where_clause() output (the WHERE keyword is included in the
+/// returned string, or empty string when no filters apply).
+pub const EXPORT_CSV_SQL: &str = "SELECT \
+    reports.id, \
+    reports.created_at, \
+    reports.category::TEXT AS category, \
+    reports.severity::TEXT AS severity, \
+    reports.status::TEXT AS status, \
+    wards.ward_name AS ward_name, \
+    organizations.name AS assigned_org, \
+    reports.latitude, \
+    reports.longitude, \
+    reports.description, \
+    reports.photo_hash, \
+    reports.duplicate_count, \
+    reports.submitter_contact, \
+    reports.resolved_at, \
+    reports.resolution_notes \
+    FROM reports \
+    LEFT JOIN wards ON wards.id = reports.ward_id \
+    LEFT JOIN organizations ON organizations.id = reports.assigned_org_id \
+    {where_clause} \
+    ORDER BY reports.created_at DESC";
+
+/// GeoJSON export query selecting columns for admin FeatureCollection.
+///
+/// Security note (T-04-01): No SELECT * — explicit column whitelist.
+/// Coordinates are latitude, longitude (columns); the handler reverses to
+/// [longitude, latitude] per GeoJSON RFC 7946 (Pitfall 4).
+pub const EXPORT_GEOJSON_SQL: &str = "SELECT \
+    reports.id, \
+    reports.created_at, \
+    reports.category::TEXT AS category, \
+    reports.severity::TEXT AS severity, \
+    reports.status::TEXT AS status, \
+    wards.ward_name AS ward_name, \
+    organizations.name AS assigned_org, \
+    reports.latitude, \
+    reports.longitude, \
+    reports.description, \
+    reports.photo_hash, \
+    reports.duplicate_count, \
+    reports.submitter_contact, \
+    reports.resolved_at, \
+    reports.resolution_notes \
+    FROM reports \
+    LEFT JOIN wards ON wards.id = reports.ward_id \
+    LEFT JOIN organizations ON organizations.id = reports.assigned_org_id \
+    {where_clause} \
+    ORDER BY reports.created_at DESC";
+
+/// Format a DateTime<Utc> as DD/MM/YYYY (D-12).
+///
+/// Used by the CSV export handler for submission_date and resolved_at columns.
+/// Format string "%d/%m/%Y" produces zero-padded day and month per D-12.
+pub fn format_csv_date(dt: &DateTime<Utc>) -> String {
+    dt.format("%d/%m/%Y").to_string()
+}
+
+/// Format an optional DateTime<Utc> as DD/MM/YYYY, or empty string if None.
+///
+/// Used for resolved_at which may be NULL on open reports.
+#[allow(dead_code)]
+pub fn format_csv_date_opt(dt: Option<&DateTime<Utc>>) -> String {
+    dt.map(|d| d.format("%d/%m/%Y").to_string())
+        .unwrap_or_default()
+}
+
+/// Escape a free-text field for RFC 4180 CSV output.
+///
+/// Rules applied (T-04-CSV — CSV injection mitigation):
+/// 1. Trim whitespace.
+/// 2. Prefix fields starting with =, +, -, or @ with a single quote to
+///    neutralize Excel formula execution.
+/// 3. Replace any internal double-quotes with two double-quotes ("").
+/// 4. Strip newline and carriage return characters (prevent row splitting).
+/// 5. Wrap the entire value in double-quotes.
+///
+/// # Security
+/// Free-text report descriptions and resolution notes are untrusted citizen
+/// input that may contain arbitrary characters. Without this escaping:
+/// - Commas in field values would split into multiple CSV columns.
+/// - Embedded newlines would split rows in spreadsheet applications.
+/// - Formula triggers (=, +, -, @) would execute as Excel formulas.
+pub fn csv_escape(s: &str) -> String {
+    let trimmed = s.trim();
+    // CSV injection mitigation: prefix Excel formula triggers with single quote
+    let sanitized = if trimmed.starts_with(['=', '+', '-', '@']) {
+        format!("'{}", trimmed)
+    } else {
+        trimmed.to_string()
+    };
+    // Double internal quotes, strip newlines, wrap in double-quotes
+    format!(
+        "\"{}\"",
+        sanitized
+            .replace('"', "\"\"")
+            .replace('\n', " ")
+            .replace('\r', "")
+    )
+}
+
+/// Build the WHERE clause for export queries (same filter params as list_admin_reports).
+///
+/// Returns (where_clause, next_param_idx). The where_clause may be an empty string
+/// (no filters) or "WHERE condition1 AND condition2 ..." — the caller inserts
+/// this into the SQL via string replacement of `{where_clause}`.
+///
+/// Parameters are bound in this order: category, status, severity, date_from, date_to.
+/// Bound parameters prevent SQL injection (T-04-02).
+pub fn build_export_where_clause(
+    category: Option<&str>,
+    status: Option<&str>,
+    severity: Option<&str>,
+    date_from: Option<DateTime<Utc>>,
+    date_to: Option<DateTime<Utc>>,
+) -> (String, i32) {
+    build_report_where_clause(category, status, severity, date_from, date_to, 1)
+}
+
+/// Returns the CSV export SQL fragment used by the streaming handler.
+///
+/// Test-only hook so integration tests in backend/tests/ can verify the
+/// D-13 column set without executing any DB query.
+/// The same EXPORT_CSV_SQL constant is used by the runtime handler.
+#[allow(dead_code)]
+pub fn export_csv_sql_fragment() -> &'static str {
+    EXPORT_CSV_SQL
+}
+
+/// Returns the GeoJSON export SQL fragment used by the streaming handler.
+///
+/// Test-only hook so integration tests in backend/tests/ can verify the
+/// column whitelist (no SELECT *) without executing any DB query.
+/// The same EXPORT_GEOJSON_SQL constant is used by the runtime handler.
+#[allow(dead_code)]
+pub fn export_geojson_sql_fragment() -> &'static str {
+    EXPORT_GEOJSON_SQL
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
