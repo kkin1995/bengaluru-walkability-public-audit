@@ -62,7 +62,10 @@ export default function AnalyticsPage() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // CR-02: defer revocation so the browser has time to initiate the download
+      // before the Blob URL is invalidated. Synchronous revocation races the
+      // browser's download initiation and silently fails on some browsers.
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     } catch {
       /* non-critical */
     }
@@ -78,7 +81,8 @@ export default function AnalyticsPage() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // CR-02: defer revocation so the browser has time to initiate the download.
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     } catch {
       /* non-critical */
     }
