@@ -70,11 +70,13 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 - [ ] Status lifecycle: Open → Acknowledged → Assigned → In Progress → Resolved → Closed
 - [ ] Resolution notes and before/after photo on closing a report
 
-#### Data Export & Analytics
-- [ ] CSV export of reports with filters (date range, category, ward, status)
-- [ ] GeoJSON export for GIS tools and PWN algorithm input
-- [ ] Admin analytics dashboard: report counts by ward, category, status, trend over time
-- [ ] Public summary stats (total reports, resolved count, top issue categories)
+#### Data Export & Analytics — Validated in Phase 4
+- ✓ CSV export of reports with filters (date range, category, ward, status) — Phase 4
+- ✓ GeoJSON export for GIS tools and PWN algorithm input (streaming, no PII, 3dp coords) — Phase 4
+- ✓ Admin analytics dashboard: top 10 wards by unresolved count, corporation resolution rate, 12-week trend chart, ward choropleth with click-to-filter drilldown — Phase 4
+- ✓ Public summary stats (total reports, resolved count, top issue categories) via materialized view — Phase 4
+- ✓ Public open-data GeoJSON endpoint at /api/reports.geojson (rate-limited 2 req/min) — Phase 4
+- ✓ Toggleable issue-density heatmap on public /map (open reports only, Leaflet layer control) — Phase 4
 
 ### Out of Scope
 
@@ -117,4 +119,4 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 | PWN algorithm deferred | Need minimum 6–12 months of real report data to make algorithm meaningful | — Pending |
 
 ---
-*Last updated: 2026-05-31 — Phase 03.3 complete: fixed BUG-03.2-A (intake sparkbars now fetch real per-day data via GET /api/admin/stats/intake?days=N; STUB_SPARKBARS removed) and BUG-03.2-B (status history attribution uses COALESCE(au.display_name, au.email) so seeded admin shows email instead of "—")*
+*Last updated: 2026-05-31
