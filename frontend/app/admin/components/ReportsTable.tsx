@@ -55,6 +55,16 @@ type ViewMode = "card-stream" | "compact-rows" | "table";
 // Phase 03: Updated from 8 to 9 to include CORP column (UI-SPEC §F)
 const COLUMN_COUNT = 9;
 
+// Phase 03: Card-view status dot colour lookup — uses current 6-value enum tokens (D-37)
+const STATUS_DOT_COLORS: Record<string, string> = {
+  open:         "var(--status-open)",
+  acknowledged: "var(--status-acknowledged)",
+  assigned:     "var(--status-assigned)",
+  in_progress:  "var(--status-in-progress)",
+  resolved:     "var(--status-resolved)",
+  closed:       "var(--status-closed)",
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getRelativeTime(isoString: string): string {
@@ -261,10 +271,7 @@ function CardStreamRow({ report, role, onStatusChange, onDelete, onUpdateStatus,
                 width: 6,
                 height: 6,
                 borderRadius: 999,
-                background:
-                  report.status === "submitted" ? "var(--status-submitted)" :
-                  report.status === "under_review" ? "var(--status-review)" :
-                  "var(--status-resolved)",
+                background: STATUS_DOT_COLORS[report.status] ?? "var(--status-open)",
                 flexShrink: 0,
               }}
             />
@@ -609,21 +616,21 @@ export default function ReportsTable({
   }
 
   // ── Filter chips data ────────────────────────────────────────────────────────
-  const submittedCount = reports.filter((r) => r.status === "submitted").length;
-  const reviewCount = reports.filter((r) => r.status === "under_review").length;
+  const openCount = reports.filter((r) => r.status === "open").length;
+  const inReviewCount = reports.filter((r) => r.status === "acknowledged").length;
   const highSevCount = reports.filter((r) => r.severity === "high").length;
 
   const filterChips = [
     { key: "all",          label: "ALL",       count: reports.length },
-    { key: "submitted",    label: "SUBMITTED", count: submittedCount },
-    { key: "under_review", label: "REVIEW",    count: reviewCount },
+    { key: "open",         label: "OPEN",      count: openCount },
+    { key: "acknowledged", label: "IN REVIEW", count: inReviewCount },
     { key: "sev_high",     label: "SEV: HIGH", count: highSevCount },
   ];
 
   // ── Apply filters ────────────────────────────────────────────────────────────
   const filteredReports = reports.filter((r) => {
     if (activeFilters.includes("all")) return true;
-    const hasStatusFilter = activeFilters.some((f) => f === "submitted" || f === "under_review");
+    const hasStatusFilter = activeFilters.some((f) => f === "open" || f === "acknowledged");
     const hasSevFilter = activeFilters.includes("sev_high");
     const passesStatus = !hasStatusFilter || activeFilters.includes(r.status);
     const passesSev = !hasSevFilter || r.severity === "high";
