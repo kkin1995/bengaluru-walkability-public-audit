@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 02.4.1: Security Hardening** - JPEG magic-bytes upload validation, logout cookie SameSite fix, nginx Content-Type override, weekly backups (pg_dump + uploads) with systemd timer, secret rotation + restore docs, external uptime monitor (INSERTED — must complete before Phase 3) (completed 2026-05-20)
 - [x] **Phase 02.5: Admin Portal UI Redesign** - Implement the hybrid "B-voice × A-structure" design system for the admin portal at /admin — teal Console palette, JetBrains Mono chrome, A-pattern report cards, light+dark mode, full accessibility pass (INSERTED — visual polish before GBA handoff) (completed 2026-05-22)
 - [x] **Phase 02.6: Build Metadata & Version Stamping** - Inject `package.json` version into both the citizen-facing UI footer and the admin console brand string at build time via `NEXT_PUBLIC_APP_VERSION`; auto-update on every release (INSERTED — polish before GBA handoff) (gap closure 02.6-03 in progress — fixes UAT footer-whitespace on /report and admin logout soft-navigation) (completed 2026-05-25)
-- [ ] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status
+- [x] **Phase 3: Government Triage Workflow** - Full status lifecycle, org assignment, resolution notes and photo, public map reflects status (completed 2026-05-31)
 - [x] **Phase 3.1: Admin Report Detail — Split Layout** - Restructure /admin/reports/[id] into two-column split layout: fixed left column (photo + metadata) + independently-scrolling right rail (action panels + GBA hierarchy + history) — eliminates below-fold discoverability (F-07 / ISSUE-07 from Phase 03 UAT) (INSERTED — UAT polish after Phase 3 ships) (completed 2026-05-26)
 - [x] **Phase 3.2: Admin UAT Gap Fixes — Dashboard Chart Period Filter and Status History Attribution** - Wire up the 7D/14D/30D intake chart period filter buttons on the admin dashboard, implement real status_history timestamps and admin user attribution in the report detail view (INSERTED — UAT gap closure after Phase 3.1) (completed 2026-05-30)
 - [x] **Phase 3.3: Admin UAT Gap Fixes — Intake Chart Real Data and Attribution Fallback** - Replace dashboard INTAKE sparkbars stub data with a real per-day intake endpoint (GET /api/admin/stats/intake?days=N), and fix status history attribution to fall back to admin email when display_name is NULL (INSERTED — UAT gap closure after Phase 3.2) (completed 2026-05-30)
@@ -390,7 +390,7 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.4.1 Security Hardening | 3/3 | Complete   | 2026-05-20 |
 | 2.5 Admin Portal UI Redesign | 4/4 | Complete   | 2026-05-22 |
 | 2.6 Build Metadata & Version Stamping | 3/3 | Complete    | 2026-05-25 |
-| 3. Government Triage Workflow | 4/5 | In Progress|  |
+| 3. Government Triage Workflow | 5/5 | Complete   | 2026-05-31 |
 | 3.1 Admin Report Detail — Split Layout | 1/1 | Complete   | 2026-05-26 |
 | 3.2 Admin UAT Gap Fixes | 2/2 | Complete   | 2026-05-30 |
 | 3.3 Intake Chart + Attribution Fallback | 2/2 | Complete   | 2026-05-30 |
