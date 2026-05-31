@@ -8,7 +8,7 @@
  *   - All 11 named exports must be present and callable  (R-API-3)
  */
 
-import { ADMIN_API_BASE_URL as BASE } from "@/app/lib/config";
+import { ADMIN_API_BASE_URL as BASE, API_BASE_URL } from "@/app/lib/config";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -411,4 +411,22 @@ export async function downloadGeoJsonExport(
   const res = await fetch(url, { credentials: "include" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.blob();
+}
+
+// ── Public stats (ANALYTICS-01) ───────────────────────────────────────────────
+
+export interface PublicStats {
+  total_reports: number;
+  resolved_count: number;
+  top_categories: Array<{ category: string; cnt: number }> | null;
+}
+
+/**
+ * Fetch aggregate stats from the public /api/stats endpoint.
+ * No credentials required — this is a public unauthenticated endpoint.
+ */
+export async function getPublicStats(): Promise<PublicStats> {
+  const res = await fetch(`${API_BASE_URL}/api/stats`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
