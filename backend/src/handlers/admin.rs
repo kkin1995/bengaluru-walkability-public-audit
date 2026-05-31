@@ -679,6 +679,15 @@ pub async fn admin_resolve_report(
     validate_status(&status)?;
     validate_resolve_request(&status, photo_bytes.len())?;
 
+    // WR-03: validate JPEG magic bytes before stripping EXIF — mirrors the check in
+    // create_report. Without this, a PNG/WEBP reaches img-parts and returns a
+    // misleading "image processing failed" error rather than a clear 400.
+    if !photo_bytes.is_empty() && !crate::handlers::reports::is_jpeg(&photo_bytes) {
+        return Err(AppError::BadRequest(
+            "Only JPEG images are accepted for resolution photos".into(),
+        ));
+    }
+
     // Strip EXIF from photo bytes (T-03-02-01).
     let clean_bytes = crate::handlers::reports::strip_exif(&photo_bytes)?;
 

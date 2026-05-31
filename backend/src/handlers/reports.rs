@@ -69,7 +69,8 @@ fn extract_client_ip(
 /// Security note: this check must occur BEFORE `strip_exif`, because `img-parts`
 /// silently returns the original bytes on parse failure — a non-JPEG would be
 /// written to disk verbatim if it were allowed past this guard (see RESEARCH.md Pitfall 1).
-fn is_jpeg(bytes: &[u8]) -> bool {
+// WR-03: pub(crate) so admin handlers can validate resolution photos the same way.
+pub(crate) fn is_jpeg(bytes: &[u8]) -> bool {
     bytes.len() >= 2 && bytes[0] == 0xFF && bytes[1] == 0xD8
 }
 
