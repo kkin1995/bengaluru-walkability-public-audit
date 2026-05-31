@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 03-government-triage-workflow
 source: [03-01-SUMMARY.md, 03-02-SUMMARY.md]
 started: 2026-05-31T00:00:00Z
@@ -68,21 +68,54 @@ blocked: 0
   reason: "User reported: No corporation column visible in Cards view. Filter tabs still show old enum labels 'SUBMITTED 0' and 'REVIEW 0' instead of new values. Plan 03-03 (admin frontend update) was never executed."
   severity: major
   test: 3
-  artifacts: []
-  missing: []
+  root_cause: |
+    frontend/app/admin/components/ReportsTable.tsx:611-620 — filter chips use old status enum
+    values "submitted" and "under_review" as both key and filter predicate. Since migration 008
+    renamed these to "open" and "acknowledged", no report ever matches these filters, counts
+    show 0, and labels show the old names. Additionally, no corporation column is rendered in
+    Cards or Rows view — backend sends `corporation` in list JSON (plan 03-02) but the
+    ReportsTable component never reads or displays it.
+  artifacts:
+    - path: "frontend/app/admin/components/ReportsTable.tsx:611-620"
+      issue: "Filter chips keyed on 'submitted'/'under_review' — both enum values no longer exist in DB; counts always 0; labels stale"
+  missing:
+    - "Update filter chips: 'submitted' → 'open' (label: OPEN), 'under_review' → multi-value or 'acknowledged' (label: IN REVIEW)"
+    - "Add corporation display to ReportsTable card/row — field already in API response"
 
 - truth: "Admin can assign a report to an organization — POST /api/admin/reports/:id/assign-org succeeds and report shows assigned org"
   status: failed
-  reason: "User reported: 'Failed to save assignment. Please try again.' — assign-org API call is returning an error. Org panel and dropdown are visible and functional."
+  reason: "User reported: 'Failed to save assignment. Please try again.' — assign-org API call returns an error."
   severity: major
   test: 4
-  artifacts: []
-  missing: []
+  root_cause: |
+    SHARED ROOT CAUSE with test 5 (resolve HTTP 500). Both assign-org and resolve UPDATE the
+    reports table, which fires trigger trg_refresh_public_stats (migration 011). The trigger
+    calls REFRESH MATERIALIZED VIEW CONCURRENTLY public_stats_mv. PostgreSQL rejects CONCURRENTLY
+    because the unique index on the view uses a constant expression (1) rather than actual view
+    columns. PostgreSQL requires CONCURRENTLY indexes to cover real columns, not expressions.
+    Verified: manual REFRESH MATERIALIZED VIEW CONCURRENTLY public_stats_mv produces identical
+    error; the index exists but does not satisfy PostgreSQL's concurrent refresh requirement.
+    Fix: remove CONCURRENTLY from refresh_public_stats_mv() function.
+  artifacts:
+    - path: "backend/migrations/011_analytics_mv.sql:57-63"
+      issue: "refresh_public_stats_mv() uses REFRESH MATERIALIZED VIEW CONCURRENTLY — fails because idx_public_stats_mv is on constant expression (1), not a real column"
+    - path: "backend/migrations/011_analytics_mv.sql:50"
+      issue: "CREATE UNIQUE INDEX ... ON public_stats_mv ((1)) — constant expression index not accepted by PostgreSQL for CONCURRENTLY"
+  missing:
+    - "Change 'REFRESH MATERIALIZED VIEW CONCURRENTLY public_stats_mv' to 'REFRESH MATERIALIZED VIEW public_stats_mv' in the trigger function"
+    - "Deploy via CREATE OR REPLACE FUNCTION refresh_public_stats_mv() in a new migration or direct fix"
 
 - truth: "Admin can resolve a report with a resolution photo — POST /api/admin/reports/:id/resolve succeeds, status changes to resolved, photo stored"
   status: failed
-  reason: "Photo-required client-side validation works correctly. But submitting with a photo returns HTTP 500 from the backend. Both resolve and assign-org endpoints are failing — likely a shared root cause (uploads directory, DB transaction, or Docker config)."
+  reason: "Photo-required client-side validation works correctly. But submitting with a photo returns HTTP 500 — same trigger root cause as assign-org."
   severity: major
   test: 5
-  artifacts: []
-  missing: []
+  root_cause: |
+    Same as test 4 — REFRESH MATERIALIZED VIEW CONCURRENTLY fails. The resolve handler updates
+    report status in the DB, triggering trg_refresh_public_stats, which fails. Both mutations
+    share this single fix point.
+  artifacts:
+    - path: "backend/migrations/011_analytics_mv.sql:57-63"
+      issue: "CONCURRENTLY keyword in refresh_public_stats_mv() — same as test 4"
+  missing:
+    - "Same fix as test 4: drop CONCURRENTLY from the trigger function"
