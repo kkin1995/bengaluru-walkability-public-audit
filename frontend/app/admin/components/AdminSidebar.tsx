@@ -15,18 +15,20 @@ interface AdminSidebarProps {
 }
 
 const NAV_ITEMS = [
-  { key: "dashboard", href: "/admin",          icon: "activity" as const, label: "OPS"   },
-  { key: "reports",   href: "/admin/reports",  icon: "inbox"    as const, label: "QUEUE" },
-  { key: "map",       href: "/admin/reports/map", icon: "map"   as const, label: "MAP"   },
-  { key: "users",     href: "/admin/users",    icon: "users"    as const, label: "USERS", roleGated: true },
+  { key: "dashboard", href: "/admin",             icon: "activity" as const, label: "OPS"       },
+  { key: "reports",   href: "/admin/reports",     icon: "inbox"    as const, label: "QUEUE"     },
+  { key: "analytics", href: "/admin/analytics",   icon: "activity" as const, label: "ANALYTICS" },
+  { key: "map",       href: "/admin/reports/map", icon: "map"      as const, label: "MAP"       },
+  { key: "users",     href: "/admin/users",       icon: "users"    as const, label: "USERS", roleGated: true },
 ];
 
 const MOBILE_TABS = [
-  { key: "dashboard", href: "/admin",          icon: "activity" as const, label: "OPS"   },
-  { key: "reports",   href: "/admin/reports",  icon: "inbox"    as const, label: "QUEUE" },
-  { key: "map",       href: "/admin/reports/map", icon: "map"   as const, label: "MAP"   },
-  { key: "users",     href: "/admin/users",    icon: "users"    as const, label: "USERS", roleGated: true },
-  { key: "logout",    href: "/api/admin/auth/logout", icon: "logout" as const, label: "OUT" },
+  { key: "dashboard", href: "/admin",             icon: "activity" as const, label: "OPS"       },
+  { key: "reports",   href: "/admin/reports",     icon: "inbox"    as const, label: "QUEUE"     },
+  { key: "analytics", href: "/admin/analytics",   icon: "activity" as const, label: "ANALYTICS" },
+  { key: "map",       href: "/admin/reports/map", icon: "map"      as const, label: "MAP"       },
+  { key: "users",     href: "/admin/users",       icon: "users"    as const, label: "USERS", roleGated: true },
+  { key: "logout",    href: "/api/admin/auth/logout", icon: "logout" as const, label: "OUT"     },
 ];
 
 function isActive(href: string, pathname: string): boolean {
