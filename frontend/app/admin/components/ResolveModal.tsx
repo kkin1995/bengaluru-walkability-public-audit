@@ -31,30 +31,36 @@ export function ResolveModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // CR-05: Track the active object URL in a ref so cleanup is never stale.
+  // Both effects previously operated on photoPreviewUrl via closure; the close-modal
+  // effect suppressed its exhaustive-deps lint and could revoke the wrong URL on
+  // rapid open→false→true transitions.
+  const previewUrlRef = useRef<string | null>(null);
 
-  // Clean up object URL on unmount or when photo changes
+  // Single cleanup effect — fires only on unmount (CR-05).
   useEffect(() => {
     return () => {
-      if (photoPreviewUrl) {
-        URL.revokeObjectURL(photoPreviewUrl);
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photoPreviewUrl]);
+  }, []); // intentionally empty — unmount only
 
-  // Reset state when modal opens/closes
+  // Reset state when modal closes.
   useEffect(() => {
     if (!open) {
-      setPhotoFile(null);
-      if (photoPreviewUrl) {
-        URL.revokeObjectURL(photoPreviewUrl);
-        setPhotoPreviewUrl(null);
+      // Revoke via ref — always points at the current URL, never stale (CR-05).
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
       }
+      setPhotoFile(null);
+      setPhotoPreviewUrl(null);
       setNotes("");
       setError(null);
       setSubmitting(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   if (!open) return null;
@@ -76,17 +82,20 @@ export function ResolveModal({
       return;
     }
     setError(null);
-    // Revoke previous preview
-    if (photoPreviewUrl) {
-      URL.revokeObjectURL(photoPreviewUrl);
+    // Revoke previous preview via ref — always current (CR-05).
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
     }
+    const newUrl = URL.createObjectURL(file);
+    previewUrlRef.current = newUrl;
     setPhotoFile(file);
-    setPhotoPreviewUrl(URL.createObjectURL(file));
+    setPhotoPreviewUrl(newUrl);
   }
 
   function handleRemovePhoto() {
-    if (photoPreviewUrl) {
-      URL.revokeObjectURL(photoPreviewUrl);
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
     }
     setPhotoFile(null);
     setPhotoPreviewUrl(null);
