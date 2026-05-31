@@ -268,7 +268,13 @@ pub async fn count_admin_reports(
     };
     let _ = param_idx; // suppress unused-variable warning for count query
 
-    let full_where = format!("{}{}", where_clause, org_clause);
+    // WR-07: org_clause starts with " AND ..." — prepend WHERE when where_clause is empty
+    // so the SQL is valid when org_id is Some but no other filters are active.
+    let full_where = if where_clause.is_empty() && !org_clause.is_empty() {
+        format!("WHERE{}", &org_clause[" AND".len()..])
+    } else {
+        format!("{}{}", where_clause, org_clause)
+    };
 
     let sql = format!(
         r#"
@@ -348,7 +354,13 @@ pub async fn list_admin_reports(
         (String::new(), String::new())
     };
 
-    let full_where = format!("{}{}", where_clause, org_clause);
+    // WR-07: org_clause starts with " AND ..." — prepend WHERE when where_clause is empty
+    // so the SQL is valid when org_id is Some but no other filters are active.
+    let full_where = if where_clause.is_empty() && !org_clause.is_empty() {
+        format!("WHERE{}", &org_clause[" AND".len()..])
+    } else {
+        format!("{}{}", where_clause, org_clause)
+    };
 
     let offset = (page - 1) * limit;
     // param_idx currently points to the next free slot after filter + org params
