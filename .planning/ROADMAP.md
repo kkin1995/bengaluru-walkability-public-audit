@@ -364,8 +364,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 04-02-PLAN.md — Public GeoJSON endpoint + public /stats page (rate-limited unauthenticated endpoint, materialized view + trigger, both nginx configs)
-- [ ] 04-04-PLAN.md — Public map heatmap layer (leaflet.heat integration, native Leaflet layer-control toggle)
+- [x] 04-02-PLAN.md — Public GeoJSON endpoint + public /stats page (rate-limited unauthenticated endpoint, materialized view + trigger, both nginx configs)
+- [x] 04-04-PLAN.md — Public map heatmap layer (leaflet.heat integration, native Leaflet layer-control toggle)
 
 **Wave 3** *(blocked on Wave 1 + Wave 2 — shared main.rs/admin_queries.rs/adminApi.ts)*
 
@@ -394,7 +394,7 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 3.1 Admin Report Detail — Split Layout | 1/1 | Complete   | 2026-05-26 |
 | 3.2 Admin UAT Gap Fixes | 2/2 | Complete   | 2026-05-30 |
 | 3.3 Intake Chart + Attribution Fallback | 2/2 | Complete   | 2026-05-30 |
-| 4. Export and Public Analytics | 1/5 | In Progress|  |
+| 4. Export and Public Analytics | 3/5 | In Progress|  |
 
 ### Phase 5: Coming Soon Homepage + Branching Workflow Setup
 
