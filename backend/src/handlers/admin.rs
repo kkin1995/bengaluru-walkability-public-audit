@@ -1090,12 +1090,21 @@ pub async fn admin_export_geojson(
                     }
                 }
                 Err(e) => {
-                    // WR-05: HTTP 200 header is already sent; cannot change status.
-                    // Log the error and break — the closing `]}` below will still be
-                    // sent so the GeoJSON remains syntactically valid (though truncated).
-                    // Consumers should compare feature count against known totals to
-                    // detect truncation; there is no in-band error signal for GeoJSON.
-                    tracing::error!(error = %e, "GeoJSON export: mid-stream DB error; closing stream");
+                    // CR-05: HTTP 200 header is already sent; cannot change status.
+                    // Append an error sentinel feature before the closing `]}` so
+                    // consumers can detect truncation (mirrors the #ERROR: sentinel
+                    // in the CSV export handler). The GeoJSON remains syntactically
+                    // valid; the sentinel feature carries _stream_truncated: true.
+                    tracing::error!(error = %e, "GeoJSON export: mid-stream DB error; appending error feature");
+                    let error_feature = serde_json::json!({
+                        "type": "Feature",
+                        "geometry": null,
+                        "properties": {
+                            "_stream_truncated": true,
+                            "_stream_error": e.to_string()
+                        }
+                    });
+                    let _ = tx.send(Ok(Bytes::from(format!(",{}\n", error_feature)))).await;
                     break;
                 }
             }
