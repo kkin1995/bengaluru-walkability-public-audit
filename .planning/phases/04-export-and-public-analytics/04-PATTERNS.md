@@ -246,6 +246,8 @@ pub async fn admin_get_ward_analytics(
 }
 ```
 
+The ward-boundaries handler `admin_get_wards_boundaries` follows the same non-streaming pattern and is registered under admin auth (see main.rs router section below — `/api/wards/boundaries` lives in the admin protected block, NOT the public block, because the choropleth is an admin-only feature).
+
 ---
 
 ### `backend/src/handlers/stats.rs` (NEW — public unauthenticated stats + public GeoJSON)
@@ -343,14 +345,17 @@ let geojson_rate_limiter = Arc::new(governor::RateLimiter::keyed(geojson_quota))
 // Public routes — add alongside existing /api/reports routes:
 .route("/api/stats", get(handlers::stats::public_get_stats))
 .route("/api/reports.geojson", get(handlers::stats::public_get_geojson))
-.route("/api/wards/boundaries", get(handlers::admin::admin_get_wards_boundaries))
 
-// Protected admin routes — add export + analytics:
+// Protected admin routes — add export + analytics + ward boundaries.
+// NOTE: /api/wards/boundaries is ADMIN-ONLY — the choropleth is an admin
+// analytics feature (D-04/D-05), so the endpoint lives inside
+// admin_protected_router (require_auth applied). It is NOT a public route.
 .route("/api/admin/reports/export/csv", get(admin_export_csv))
 .route("/api/admin/reports/export/geojson", get(admin_export_geojson))
 .route("/api/admin/analytics/wards", get(admin_get_ward_analytics))
 .route("/api/admin/analytics/corporations", get(admin_get_corporation_analytics))
 .route("/api/admin/analytics/trend", get(admin_get_trend_data))
+.route("/api/wards/boundaries", get(admin_get_wards_boundaries))
 ```
 
 ---
@@ -505,6 +510,8 @@ export async function getTrendData(category?: string): Promise<TrendDataPoint[]>
   return apiFetch<TrendDataPoint[]>(`${BASE}/api/admin/analytics/trend${qs ? `?${qs}` : ""}`);
 }
 
+// Ward boundaries is an ADMIN endpoint — route through apiFetch so the
+// admin session cookie (credentials: 'include') is sent.
 export async function getWardBoundaries(): Promise<GeoJSON.FeatureCollection> {
   return apiFetch<GeoJSON.FeatureCollection>(`${BASE}/api/wards/boundaries`);
 }
@@ -663,11 +670,14 @@ export default async function StatsPage() {
 
 **Nav item extension pattern** (lines 17–22):
 ```typescript
-// Add "analytics" entry to NAV_ITEMS array:
+// Add "analytics" entry to NAV_ITEMS array.
+// Icon name MUST be one of the existing IconName union members in Icon.tsx.
+// There is NO "chart" icon — use "activity" (the line/pulse glyph, semantically
+// the analytics/metrics icon already used for the OPS dashboard entry).
 const NAV_ITEMS = [
   { key: "dashboard", href: "/admin",            icon: "activity" as const, label: "OPS"       },
   { key: "reports",   href: "/admin/reports",    icon: "inbox"    as const, label: "QUEUE"     },
-  { key: "analytics", href: "/admin/analytics",  icon: "chart"    as const, label: "ANALYTICS" },  // NEW
+  { key: "analytics", href: "/admin/analytics",  icon: "activity" as const, label: "ANALYTICS" },  // NEW — icon "activity" (no "chart" icon exists)
   { key: "map",       href: "/admin/reports/map",icon: "map"      as const, label: "MAP"       },
   { key: "users",     href: "/admin/users",      icon: "users"    as const, label: "USERS", roleGated: true },
 ];
@@ -866,8 +876,11 @@ export default function ChoroplethMap({ onWardClick }: ChoroplethMapProps) {
 
 **Dynamic import guard** (map/page.tsx lines 36–52):
 ```typescript
-// HeatmapLayer must be imported by map/page.tsx with ssr:false:
-// const HeatmapLayer = dynamic(() => import("../components/HeatmapLayer"), { ssr: false });
+// HeatmapLayer is window-dependent (leaflet.heat). Per CLAUDE.md, every
+// map component must be reached through a dynamic(ssr:false) boundary.
+// HeatmapLayer is reached ONLY as a child of ReportsMap (already imported
+// with dynamic(ssr:false) from map/page.tsx). It must NOT be imported
+// directly from map/page.tsx or any server component.
 // Inside this file, side-effect import leaflet.heat:
 import "leaflet.heat";  // attaches L.heatLayer() to the leaflet namespace
 import { useMap } from "react-leaflet";
@@ -968,10 +981,11 @@ async function handleCsvDownload() {
 
 ### Authentication (admin endpoints)
 **Source:** `backend/src/middleware/auth.rs` + `backend/src/main.rs` lines 210–214
-**Apply to:** All handlers in `admin_protected_router` — export handlers, analytics handlers
+**Apply to:** All handlers in `admin_protected_router` — export handlers, analytics handlers, ward-boundaries handler
 ```rust
-// All admin export/analytics handlers are registered inside admin_protected_router
-// which already applies require_auth middleware. No per-handler auth check needed.
+// All admin export/analytics handlers — AND admin_get_wards_boundaries — are
+// registered inside admin_protected_router which already applies require_auth
+// middleware. No per-handler auth check needed.
 // Handler signature receives Extension(claims): Extension<AuthJwtClaims> for user identity.
 .layer(axum::middleware::from_fn_with_state(arc_state.clone(), require_auth))
 ```
@@ -1005,6 +1019,8 @@ async function handleCsvDownload() {
 **Apply to:** All new `adminApi.ts` functions (getWardAnalytics, getTrendData, getWardBoundaries)
 ```typescript
 // All admin API calls route through apiFetch so credentials: 'include' is automatic.
+// getWardBoundaries hits the ADMIN endpoint /api/wards/boundaries — must send the
+// session cookie, so it routes through apiFetch (not a bare public fetch).
 // Export downloads (Blob responses) call fetch() directly but must include credentials: 'include'.
 // Public /api/stats call does NOT need credentials.
 ```
@@ -1017,6 +1033,9 @@ async function handleCsvDownload() {
 // loaded with: dynamic(() => import("./ComponentName"), { ssr: false })
 // The component file itself does NOT need "use client" when imported this way,
 // but the wrapping page does (or must be a server component that delegates rendering).
+// HeatmapLayer satisfies this transitively: it is only ever rendered as a child of
+// ReportsMap, which map/page.tsx already imports via dynamic(ssr:false). It must
+// never be imported directly outside that boundary.
 ```
 
 ### SQL const + test helper pattern

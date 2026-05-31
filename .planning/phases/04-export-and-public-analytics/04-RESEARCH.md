@@ -866,27 +866,33 @@ GROUP BY w.id, w.ward_name, w.ward_number, w.boundary
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All four questions are resolved by the phase plans. Resolutions recorded below.
 
 1. **resolved_at column approach**
    - What we know: EXPORT-01/D-13 requires `resolved_at` in the CSV; the column does not exist
    - What's unclear: Whether to add `resolved_at` to reports table (migration 011) or derive it via subquery on status_history
    - Recommendation: Add the column to reports in migration 011; set it in `resolve_report()` DB function. Direct column is simpler and faster to query.
+   - RESOLVED (by plan 04-01): Add a `resolved_at TIMESTAMPTZ` column to the reports table in migration 011 and set it in `resolve_report()`. Plan 04-01 owns migration 011 and the export query that reads the column.
 
 2. **Public GeoJSON URL: `/api/reports.geojson` vs `/api/reports/export.geojson`**
    - What we know: Both paths work technically; nginx exact-match is cleaner for `/api/reports.geojson`
    - What's unclear: The CONTEXT.md leaves this to planner discretion
    - Recommendation: `/api/reports.geojson` — cleaner, REST-semantically reads as "the GeoJSON representation of the reports resource"
+   - RESOLVED (by plan 04-02): Use `/api/reports.geojson`. Plan 04-02 registers this exact-match public route and the matching nginx `geojson_public` zone on `location = /api/reports.geojson`.
 
-3. **leaflet.heat `resolved_at` data timing**
+3. **leaflet.heat data timing** (heatmap data source)
    - What we know: D-02 says heatmap shows open/unresolved only; resolved reports' pins remain green on pin layer
    - What's unclear: When the heatmap receives data — does it share the same API call as the pin layer, or fetch separately?
    - Recommendation: Reuse the same `/api/reports` fetch that drives the pin layer; filter client-side to `status === 'open'` before passing to leaflet.heat. No new API call needed.
+   - RESOLVED (by plan 04-04): Reuse the existing `/api/reports` fetch that drives the pin layer; HeatmapLayer filters to `status === 'open'` client-side. No new API call is added.
 
 4. **StatsCards component vs new KPI components for /admin/analytics**
    - What we know: `StatsCards.tsx` uses old 3-value status shape (`submitted`, `under_review`, `resolved`) which is outdated post-Phase 3
    - What's unclear: Whether to update StatsCards for the analytics KPI row or create new components
    - Recommendation: Create new dedicated KPI card components for the analytics page with Phase 3 6-value status semantics. The existing StatsCards on the dashboard can remain as-is to avoid regression.
+   - RESOLVED (by plan 04-03b): Create a new dedicated `KpiCards` component with Phase 3 6-value status semantics; do not reuse or modify `StatsCards.tsx`. The dashboard's existing StatsCards remain untouched.
 
 ---
 

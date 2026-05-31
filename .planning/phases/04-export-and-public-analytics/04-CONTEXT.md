@@ -37,9 +37,9 @@ Road network KML import (road_segments, road_width_segments) is explicitly out o
 - **D-11:** Category filter on trend chart: **multi-select with legend toggle** — multiple category lines on one chart; recharts built-in legend click-to-hide handles this natively. Default: all categories shown.
 
 ### CSV Export (EXPORT-01)
-- **D-12:** CSV uses English category labels — **no Kannada text** in CSV exports (overrides REQUIREMENTS.md EXPORT-01 mention of "Kannada category labels")
+- **D-12:** [informational] CSV uses English category labels — **no Kannada text** in CSV exports (overrides REQUIREMENTS.md EXPORT-01 mention of "Kannada category labels")
 - **D-13:** Full audit export column set: `id`, `submission_date` (DD/MM/YYYY), `category` (English label), `severity`, `status`, `ward_name`, `corporation`, `latitude`, `longitude`, `description`, `assigned_org`, `photo_hash`, `duplicate_count`, `submitter_contact` (name/phone when present), `resolved_at` (DD/MM/YYYY when present), `resolution_notes` (when present)
-- **D-14:** UTF-8 encoding without BOM (no Kannada text means no Excel Kannada rendering issue)
+- **D-14:** [informational] UTF-8 encoding without BOM (no Kannada text means no Excel Kannada rendering issue)
 - **D-15:** Streaming response — no buffering all rows in memory (use `tokio-util` + `bytes` pattern, already in Cargo.toml)
 
 ### GeoJSON Export (EXPORT-02, EXPORT-03)
@@ -53,7 +53,7 @@ Road network KML import (road_segments, road_width_segments) is explicitly out o
 - **D-19:** Public stats materialized view refreshes automatically via a **PostgreSQL trigger on the reports table** after each insert — `REFRESH MATERIALIZED VIEW CONCURRENTLY`. Data is always current. No pg_cron dependency needed at MVP scale.
 
 ### Road Network KML
-- **D-20:** Road network KML import (road_segments + road_width_segments, reports-per-km analytics, corridor clustering) is **deferred to Phase 6** — Phase 5 already has a defined scope. Phase 4 already has 9 requirements; road network would be a significant parallel scope addition.
+- **D-20:** [informational] Road network KML import (road_segments + road_width_segments, reports-per-km analytics, corridor clustering) is **deferred to Phase 6** — Phase 5 already has a defined scope. Phase 4 already has 9 requirements; road network would be a significant parallel scope addition.
 
 ### Claude's Discretion
 - Exact recharts component props, ResponsiveContainer sizing, and tooltip formatting for the trend chart

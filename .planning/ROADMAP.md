@@ -355,7 +355,7 @@ Plans:
   5. The admin analytics view shows top 10 wards by unresolved report count, resolution rate per corporation, and a trend chart of reports per week over the last 12 weeks
   6. A heatmap layer on the public map shows issue density by geographic area and can be toggled on or off by the user
 
-**Plans**: 4 plans
+**Plans**: 5 plans
 
 Plans:
 **Wave 1**
@@ -369,7 +369,8 @@ Plans:
 
 **Wave 3** *(blocked on Wave 1 + Wave 2 — shared main.rs/admin_queries.rs/adminApi.ts)*
 
-- [ ] 04-03-PLAN.md — Admin analytics dashboard (top wards, corporation resolution rate, recharts trend chart, interactive ward choropleth)
+- [ ] 04-03a-PLAN.md — Admin analytics backend (top wards, corporation resolution rate, weekly trend, ward-boundaries GeoJSON endpoint — all admin-authenticated)
+- [ ] 04-03b-PLAN.md — Admin analytics frontend (recharts trend chart, KPI cards, ward table, interactive choropleth + Analytics sidebar entry) — depends on 04-03a
 
 ## Progress
 
