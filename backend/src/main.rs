@@ -51,6 +51,13 @@ pub struct AppState {
     /// JWT_SESSION_HOURS env var (default 24, clamped to 1–168). Stored here so
     /// the login handler does not re-read the env on every request.
     pub jwt_session_hours: u64,
+    /// WR-01: COOKIE_SECURE flag, read once at startup from the COOKIE_SECURE env var
+    /// (default false). Stored here so the login and logout handlers do not incur a
+    /// pointless syscall on every request. Environment variables do not change after
+    /// process start; reading them per-request is both wasteful and opens a window
+    /// for attribute mismatch between login and logout cookies if any future caching
+    /// were introduced.
+    pub cookie_secure: bool,
     /// Per-IP+geohash-6 rate limiter: 2 report submissions per hour per cell.
     /// Shared across all request handlers via Arc. Keys are "{ip}:{geohash6}".
     pub rate_limiter: Arc<governor::DefaultKeyedRateLimiter<String>>,
@@ -132,12 +139,19 @@ async fn main() {
     let geojson_quota = governor::Quota::per_minute(std::num::NonZeroU32::new(2).unwrap());
     let geojson_rate_limiter = Arc::new(governor::RateLimiter::keyed(geojson_quota));
 
+    // WR-01: Read COOKIE_SECURE once at startup; store in AppState so the login
+    // and logout handlers do not call std::env::var on every request.
+    let cookie_secure = std::env::var("COOKIE_SECURE")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+
     let state = AppState {
         pool: Arc::new(pool),
         uploads_dir: config.uploads_dir.clone(),
         api_base_url,
         jwt_secret: Arc::new(jwt_secret),
         jwt_session_hours,
+        cookie_secure,
         rate_limiter,
         geojson_rate_limiter,
     };

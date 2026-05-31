@@ -315,9 +315,8 @@ pub async fn admin_login(
     .map_err(|_| AppError::Internal("JWT encoding failed".to_string()))?;
 
     // Build the HttpOnly cookie.
-    let cookie_secure = std::env::var("COOKIE_SECURE")
-        .map(|v| v == "true" || v == "1")
-        .unwrap_or(false);
+    // WR-01: use state.cookie_secure read once at startup instead of std::env::var per-request.
+    let cookie_secure = state.cookie_secure;
 
     let mut cookie = axum_extra::extract::cookie::Cookie::new("admin_token", token);
     cookie.set_http_only(true);
@@ -350,13 +349,15 @@ pub async fn admin_login(
 ///
 /// `CookieJar::remove` sets Max-Age=0 and an expired date so the browser
 /// immediately discards the cookie.
-pub async fn admin_logout(jar: CookieJar) -> impl axum::response::IntoResponse {
+pub async fn admin_logout(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+) -> impl axum::response::IntoResponse {
     // Mirror the login cookie attributes on the removal cookie so the browser
     // recognises it as clearing the same cookie (D-09: SameSite=None + conditional Secure).
     // SameSite=None required for cross-domain Vercel + Cloudflare tunnel production setup.
-    let cookie_secure = std::env::var("COOKIE_SECURE")
-        .map(|v| v == "true" || v == "1")
-        .unwrap_or(false);
+    // WR-01: use state.cookie_secure read once at startup instead of std::env::var per-request.
+    let cookie_secure = state.cookie_secure;
 
     let mut removal = axum_extra::extract::cookie::Cookie::build(("admin_token", ""))
         .path("/")
