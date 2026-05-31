@@ -1130,19 +1130,19 @@ pub fn intake_sql_fragment() -> &'static str {
 // Phase 04-01: Streaming export SQL constants and pure helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// CSV export query selecting all D-13 columns.
+/// Base SELECT + FROM + JOIN fragment for CSV export.
 ///
-/// Security notes (T-04-01, T-04-02):
+/// Security notes (T-04-01, T-04-02, CR-01):
 /// - Explicit column whitelist — no SELECT * — so new sensitive columns never
 ///   leak automatically.
 /// - Filter values are always bound via .bind() through build_report_where_clause;
-///   never string-interpolated.
+///   never string-interpolated into the SQL string.
 /// - ward_name and assigned_org are JOIN columns; no UUID exposure in CSV.
 ///
-/// The {where_clause} placeholder is replaced at runtime by
-/// build_report_where_clause() output (the WHERE keyword is included in the
-/// returned string, or empty string when no filters apply).
-pub const EXPORT_CSV_SQL: &str = "SELECT \
+/// Use `build_export_sql` to append the WHERE clause and ORDER BY at runtime.
+/// Never use `.replace()` on this string — that approach was removed in CR-01
+/// because it bypassed the parameterisation contract.
+const EXPORT_CSV_BASE: &str = "SELECT \
     reports.id, \
     reports.created_at, \
     reports.category::TEXT AS category, \
@@ -1160,16 +1160,15 @@ pub const EXPORT_CSV_SQL: &str = "SELECT \
     reports.resolution_notes \
     FROM reports \
     LEFT JOIN wards ON wards.id = reports.ward_id \
-    LEFT JOIN organizations ON organizations.id = reports.assigned_org_id \
-    {where_clause} \
-    ORDER BY reports.created_at DESC";
+    LEFT JOIN organizations ON organizations.id = reports.assigned_org_id";
 
-/// GeoJSON export query selecting columns for admin FeatureCollection.
+/// Base SELECT + FROM + JOIN fragment for GeoJSON export.
 ///
-/// Security note (T-04-01): No SELECT * — explicit column whitelist.
+/// Security note (T-04-01, CR-01): No SELECT * — explicit column whitelist.
+/// Use `build_export_sql` to append the WHERE clause and ORDER BY at runtime.
 /// Coordinates are latitude, longitude (columns); the handler reverses to
 /// [longitude, latitude] per GeoJSON RFC 7946 (Pitfall 4).
-pub const EXPORT_GEOJSON_SQL: &str = "SELECT \
+const EXPORT_GEOJSON_BASE: &str = "SELECT \
     reports.id, \
     reports.created_at, \
     reports.category::TEXT AS category, \
@@ -1187,9 +1186,42 @@ pub const EXPORT_GEOJSON_SQL: &str = "SELECT \
     reports.resolution_notes \
     FROM reports \
     LEFT JOIN wards ON wards.id = reports.ward_id \
-    LEFT JOIN organizations ON organizations.id = reports.assigned_org_id \
-    {where_clause} \
-    ORDER BY reports.created_at DESC";
+    LEFT JOIN organizations ON organizations.id = reports.assigned_org_id";
+
+/// Build a complete export SQL string from a base fragment and a WHERE clause.
+///
+/// # Security contract (CR-01)
+/// - `base` must be one of `EXPORT_CSV_BASE` or `EXPORT_GEOJSON_BASE` (trusted consts).
+/// - `where_clause` must contain only `$N` parameter placeholders produced by
+///   `build_report_where_clause` — never raw user values.
+/// - No raw user input ever enters the SQL string; all values are bound separately
+///   via `.bind()` in the handler after this function returns.
+///
+/// This replaces the previous `.replace("{where_clause}", ...)` approach which,
+/// while safe today, was structurally fragile: any future change that accidentally
+/// interpolated a value instead of a `$N` index would have silently produced
+/// injectable SQL.
+pub fn build_export_sql(base: &str, where_clause: &str) -> String {
+    if where_clause.is_empty() {
+        format!("{} ORDER BY reports.created_at DESC", base)
+    } else {
+        format!("{} {} ORDER BY reports.created_at DESC", base, where_clause)
+    }
+}
+
+/// Build a complete CSV export SQL string.
+///
+/// Convenience wrapper around `build_export_sql` for the CSV export handler.
+pub fn build_csv_export_sql(where_clause: &str) -> String {
+    build_export_sql(EXPORT_CSV_BASE, where_clause)
+}
+
+/// Build a complete GeoJSON export SQL string.
+///
+/// Convenience wrapper around `build_export_sql` for the GeoJSON export handler.
+pub fn build_geojson_export_sql(where_clause: &str) -> String {
+    build_export_sql(EXPORT_GEOJSON_BASE, where_clause)
+}
 
 /// Format a DateTime<Utc> as DD/MM/YYYY (D-12).
 ///
@@ -1260,24 +1292,26 @@ pub fn build_export_where_clause(
     build_report_where_clause(category, status, severity, date_from, date_to, 1)
 }
 
-/// Returns the CSV export SQL fragment used by the streaming handler.
+/// Returns the CSV export SQL base fragment used by the streaming handler.
 ///
 /// Test-only hook so integration tests in backend/tests/ can verify the
 /// D-13 column set without executing any DB query.
-/// The same EXPORT_CSV_SQL constant is used by the runtime handler.
+/// The runtime handler calls `build_csv_export_sql()` which appends the
+/// WHERE clause and ORDER BY to this base at request time.
 #[allow(dead_code)]
 pub fn export_csv_sql_fragment() -> &'static str {
-    EXPORT_CSV_SQL
+    EXPORT_CSV_BASE
 }
 
-/// Returns the GeoJSON export SQL fragment used by the streaming handler.
+/// Returns the GeoJSON export SQL base fragment used by the streaming handler.
 ///
 /// Test-only hook so integration tests in backend/tests/ can verify the
 /// column whitelist (no SELECT *) without executing any DB query.
-/// The same EXPORT_GEOJSON_SQL constant is used by the runtime handler.
+/// The runtime handler calls `build_geojson_export_sql()` which appends the
+/// WHERE clause and ORDER BY to this base at request time.
 #[allow(dead_code)]
 pub fn export_geojson_sql_fragment() -> &'static str {
-    EXPORT_GEOJSON_SQL
+    EXPORT_GEOJSON_BASE
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

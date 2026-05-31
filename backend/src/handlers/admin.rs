@@ -861,8 +861,9 @@ submitter_contact,resolved_at,resolution_notes\n";
             date_to,
         );
 
-        let sql = crate::db::admin_queries::EXPORT_CSV_SQL
-            .replace("{where_clause}", &where_clause);
+        // CR-01: use build_csv_export_sql() instead of .replace() on a template const.
+        // The where_clause contains only "$N" placeholders — never raw user values.
+        let sql = crate::db::admin_queries::build_csv_export_sql(&where_clause);
 
         // 3. Build query and bind filter values in param order
         let mut q = sqlx::query(&sql);
@@ -1001,8 +1002,9 @@ pub async fn admin_export_geojson(
             date_to,
         );
 
-        let sql = crate::db::admin_queries::EXPORT_GEOJSON_SQL
-            .replace("{where_clause}", &where_clause);
+        // CR-01: use build_geojson_export_sql() instead of .replace() on a template const.
+        // The where_clause contains only "$N" placeholders — never raw user values.
+        let sql = crate::db::admin_queries::build_geojson_export_sql(&where_clause);
 
         let mut q = sqlx::query(&sql);
         if let Some(ref v) = category {
