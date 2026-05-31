@@ -32,16 +32,16 @@ decisions:
   - "OPEN chip maps to status='open'; IN REVIEW chip maps to status='acknowledged' — preserves 2-chip shape while fixing the zero-count bug from stale enum values"
   - "STATUS_DOT_COLORS defined at module scope (not inside render) to avoid recreation per render"
 metrics:
-  duration: "~12 minutes"
+  duration: "~45 minutes (split across two executor invocations with human-verify checkpoint)"
   completed: "2026-05-31"
-  tasks_completed: 2
+  tasks_completed: 3
   tasks_total: 3
   files_modified: 2
 ---
 
 # Phase 03 Plan 05: UAT Gap Closure (Tests 3, 4, 5) Summary
 
-Fix two confirmed bugs from the 2026-05-31 UAT session: a PostgreSQL CONCURRENTLY trigger crash causing HTTP 500 on assign-org and resolve endpoints, and stale filter chip enum references in ReportsTable causing zero-count chips labelled "SUBMITTED" and "REVIEW".
+Fixed two confirmed bugs from the 2026-05-31 UAT session — PostgreSQL CONCURRENTLY trigger crash causing HTTP 500 on assign-org and resolve, and stale filter chip enum references causing zero-count "SUBMITTED"/"REVIEW" chips — closing Phase 03 UAT at 8/8 passed.
 
 ## Tasks Completed
 
@@ -90,9 +90,9 @@ Acceptance criteria verified:
 
 ---
 
-### Task 3: Re-run UAT tests 3, 4, 5 — AWAITING HUMAN VERIFICATION
+### Task 3: Re-run UAT tests 3, 4, 5 — PASSED (human-verified 2026-05-31)
 
-This task is a checkpoint. The executor has completed all automated tasks and is paused. Human must re-run UAT tests 3, 4, and 5 against the updated local stack to confirm all 3 UAT gaps are closed.
+Human verified against the updated local stack. All 3 re-run UAT tests passed. User responded "approved".
 
 ## Deviations from Plan
 
@@ -120,15 +120,21 @@ None. No new network endpoints, auth paths, or schema trust boundaries introduce
 
 ## UAT Re-run Results
 
-**Status:** Awaiting human verification (Task 3 checkpoint not yet reached)
+**Status:** COMPLETE — all 3 re-run tests passed (human-verified 2026-05-31, user response: "approved")
 
 | Test | Description | Pre-fix Status | Post-fix Status |
 |------|-------------|----------------|-----------------|
-| Test 3 | Filter chips show OPEN/IN REVIEW with correct counts | FAIL (zero-count SUBMITTED/REVIEW) | Pending re-run |
-| Test 4 | Assign-org POST /api/admin/reports/:id/assign-org returns 200 | FAIL (HTTP 500) | Pending re-run |
-| Test 5 | Resolve with photo returns 200 | FAIL (HTTP 500) | Pending re-run |
+| Test 3 | Filter chips show OPEN/IN REVIEW with correct counts; CORP column intact | FAIL (zero-count SUBMITTED/REVIEW) | PASS |
+| Test 4 | Assign-org (Bengaluru North Corporation saved, no HTTP 500, status → assigned) | FAIL (HTTP 500) | PASS |
+| Test 5 | Resolve with photo (no HTTP 500, status persists on reload) | FAIL (HTTP 500) | PASS |
 
-Final UAT score will be 8/8 after Task 3 human verification passes.
+**Final Phase 03 UAT score: 8/8 passed**
+
+| Session | Score |
+|---------|-------|
+| Original UAT (03-04 session, tests 1-2 + 6-8) | 5/8 |
+| Re-run UAT this plan (tests 3, 4, 5) | +3/8 |
+| **Total** | **8/8** |
 
 ## Self-Check
 
