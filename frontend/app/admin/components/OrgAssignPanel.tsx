@@ -26,16 +26,19 @@ export function OrgAssignPanel({ report, onAssigned }: OrgAssignPanelProps): JSX
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch orgs when entering edit mode (or on first render for preloading)
+  // WR-04: Pre-fetch orgs on mount (not just on edit mode entry) so view mode can
+  // display the full corporation↳ward-office cascade without requiring the user to
+  // click "Change". The previous mode === "edit" guard left orgs=null in view mode,
+  // so assignedCorp was always null and only the flat assigned_org_name was shown.
   useEffect(() => {
-    if (mode === "edit" && orgs === null) {
+    if (orgs === null) {
       setLoading(true);
       listOrganizations()
         .then(setOrgs)
         .catch(() => setError("Failed to load organisations"))
         .finally(() => setLoading(false));
     }
-  }, [mode, orgs]);
+  }, [orgs]);
 
   const corporations = orgs ? orgs.filter((o) => o.org_type === "corporation") : [];
   const wardOffices = selectedCorpId && orgs
