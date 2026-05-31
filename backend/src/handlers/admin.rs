@@ -737,7 +737,10 @@ pub async fn admin_resolve_report(
     let changed_by = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized)?;
 
     // Persist to DB atomically (UPDATE reports + INSERT status_history in one transaction).
-    let found = admin_queries::resolve_report(
+    // WR-05: use explicit match so both Err and Ok(false) paths delete the written file
+    // before returning. The previous .await? would early-return on Err without cleanup,
+    // leaving an orphaned file on disk for the lifetime of the server.
+    let found = match admin_queries::resolve_report(
         &state.pool,
         id,
         &status,
@@ -745,13 +748,20 @@ pub async fn admin_resolve_report(
         resolution_notes.as_deref(),
         changed_by,
     )
-    .await?;
-
-    if !found {
-        // Clean up the written file since the report was not found.
-        let _ = tokio::fs::remove_file(&write_path).await;
-        return Err(AppError::NotFound);
-    }
+    .await
+    {
+        Err(e) => {
+            let _ = tokio::fs::remove_file(&write_path).await;
+            return Err(e);
+        }
+        Ok(false) => {
+            let _ = tokio::fs::remove_file(&write_path).await;
+            return Err(AppError::NotFound);
+        }
+        Ok(true) => true,
+    };
+    // found is always true here — the match above returns early otherwise.
+    let _ = found;
 
     // Return the updated report.
     let report = admin_queries::get_admin_report_by_id(&state.pool, id)
