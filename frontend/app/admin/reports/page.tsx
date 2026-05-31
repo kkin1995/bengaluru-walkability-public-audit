@@ -61,7 +61,8 @@ function ReportsPageContent(props: PageProps) {
 
   // Status-change modal state
   const [changingStatusId, setChangingStatusId] = useState<string | null>(null);
-  const [pendingStatus, setPendingStatus] = useState<string>("submitted");
+  // CR-04: default to "open" — the Phase-03 enum starts at "open", not "submitted"
+  const [pendingStatus, setPendingStatus] = useState<string>("open");
   const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
 
@@ -121,7 +122,8 @@ function ReportsPageContent(props: PageProps) {
 
   function handleUpdateStatus(id: string) {
     const report = reports.find((r) => r.id === id);
-    setPendingStatus(report?.status ?? "submitted");
+    // CR-04: fall back to "open" (Phase-03 enum first value), not old "submitted"
+    setPendingStatus(report?.status ?? "open");
     setStatusUpdateError(null);
     setChangingStatusId(id);
   }
@@ -367,9 +369,13 @@ function ReportsPageContent(props: PageProps) {
                 fontFamily: "var(--font-sans)",
               }}
             >
-              <option value="submitted">Submitted</option>
-              <option value="under_review">Under Review</option>
+              {/* CR-04: Phase-03 status enum — open/acknowledged/assigned/in_progress/resolved/closed */}
+              <option value="open">Open</option>
+              <option value="acknowledged">Acknowledged</option>
+              <option value="assigned">Assigned</option>
+              <option value="in_progress">In Progress</option>
               <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
             </select>
 
             {statusUpdateError && (
