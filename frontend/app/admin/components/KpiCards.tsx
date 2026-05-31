@@ -99,8 +99,9 @@ export default function KpiCards({ wardData = [], corpData = [], isLoading }: Kp
         <SectionLabel>Resolution Rate</SectionLabel>
         <p style={countStyle}>{resolutionRate}%</p>
       </Card>
+      {/* WR-02: sum of top-10 wards only (WARD_ANALYTICS_SQL has LIMIT 10), not system-wide total */}
       <Card>
-        <SectionLabel>Total Reports</SectionLabel>
+        <SectionLabel>Reports in Top 10 Wards</SectionLabel>
         <p style={countStyle}>{totalReports}</p>
       </Card>
     </div>
