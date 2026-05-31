@@ -109,10 +109,6 @@ pub async fn public_get_geojson(
                     let corporation: Option<String> = row.get("corporation");
                     let created_at: chrono::DateTime<chrono::Utc> = row.get("created_at");
                     let description: Option<String> = row.get("description");
-                    let resolution_photo_path: Option<String> = row.get("resolution_photo_path");
-                    let resolution_notes: Option<String> = row.get("resolution_notes");
-                    let resolved_at: Option<chrono::DateTime<chrono::Utc>> =
-                        row.get("resolved_at");
                     let latitude: f64 = row.get("latitude");
                     let longitude: f64 = row.get("longitude");
 
@@ -133,9 +129,6 @@ pub async fn public_get_geojson(
                             "corporation": corporation,
                             "created_at": created_at,
                             "description": description,
-                            "resolution_photo_path": resolution_photo_path,
-                            "resolution_notes": resolution_notes,
-                            "resolved_at": resolved_at,
                         }
                     });
 

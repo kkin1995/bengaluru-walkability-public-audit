@@ -433,9 +433,6 @@ SELECT
     w.corporation             AS corporation,
     r.created_at,
     r.description,
-    r.resolution_photo_path,
-    r.resolution_notes,
-    r.resolved_at,
     r.latitude,
     r.longitude
 FROM reports r

@@ -34,6 +34,10 @@ fn public_geojson_no_pii() {
         "submitter_ip",
         "ip_address",
         "photo_hash",
+        // Admin-only fields per D-17 — must not appear in public GeoJSON (CR-01)
+        "resolution_notes",
+        "resolution_photo_path",
+        "resolved_at",
     ];
 
     for col in &pii_columns {
@@ -72,7 +76,9 @@ fn public_geojson_coords_rounded() {
 
 /// EXPORT-03/D-17 — The public GeoJSON SQL must select all required fields from
 /// the D-17 whitelist: id, category, severity, status, ward_name, corporation,
-/// description, resolution_notes, resolved_at, latitude, longitude.
+/// description, latitude, longitude.
+/// Note: resolution_notes, resolution_photo_path, and resolved_at were removed
+/// per CR-01 (admin-only fields must not appear in the public stream).
 #[test]
 fn public_geojson_fields_present() {
     let sql = public_geojson_sql_fragment();
@@ -85,8 +91,6 @@ fn public_geojson_fields_present() {
         "ward_name",
         "corporation",
         "description",
-        "resolution_notes",
-        "resolved_at",
         "latitude",
         "longitude",
     ];
