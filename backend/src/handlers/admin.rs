@@ -806,6 +806,311 @@ pub async fn admin_get_intake_stats(
     Ok(Json(serde_json::json!(rows)))
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// § 3c — Phase 04-01: Streaming export handlers (EXPORT-01, EXPORT-02)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// GET /api/admin/reports/export/csv — stream a filtered CSV export of reports.
+///
+/// # Contract (EXPORT-01, D-13, T-04-01, T-04-02, T-04-CSV)
+/// - Requires admin auth (route is inside admin_protected_router).
+/// - Accepts same AdminReportFilters as admin_list_reports (category, status,
+///   severity, date_from, date_to).
+/// - Streams rows without buffering the full result set (D-15).
+/// - First line is the CSV header; subsequent lines are one row per report.
+/// - Content-Type: text/csv; charset=utf-8 (D-14, UTF-8 without BOM).
+/// - Dates formatted as DD/MM/YYYY (D-12).
+/// - Free-text fields (description, resolution_notes) are csv_escape()d to
+///   prevent CSV injection (T-04-CSV) and field-splitting.
+/// - Bound parameters via build_report_where_clause (T-04-02, no SQL injection).
+pub async fn admin_export_csv(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+    Query(filters): Query<AdminReportFilters>,
+) -> Result<axum::response::Response, AppError> {
+    use axum::{body::Body, http::header};
+    use bytes::Bytes;
+    use futures::StreamExt;
+    use tokio_stream::wrappers::ReceiverStream;
+
+    // Channel buffer=32: prevents writer from racing too far ahead of TCP send buffer.
+    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(32);
+
+    let pool = Arc::clone(&state.pool);
+    let category = filters.category.clone();
+    let status = filters.status.clone();
+    let severity = filters.severity.clone();
+    let date_from = filters.date_from;
+    let date_to = filters.date_to;
+
+    tokio::spawn(async move {
+        // 1. CSV header line (D-13 column set)
+        let header_line = "id,submission_date,category,severity,status,ward_name,\
+assigned_org,latitude,longitude,description,photo_hash,duplicate_count,\
+submitter_contact,resolved_at,resolution_notes\n";
+        if tx.send(Ok(Bytes::from(header_line))).await.is_err() {
+            return;
+        }
+
+        // 2. Build dynamic WHERE clause (T-04-02: bound params, no string interpolation)
+        let (where_clause, _next_idx) = crate::db::admin_queries::build_export_where_clause(
+            category.as_deref(),
+            status.as_deref(),
+            severity.as_deref(),
+            date_from,
+            date_to,
+        );
+
+        let sql = crate::db::admin_queries::EXPORT_CSV_SQL
+            .replace("{where_clause}", &where_clause);
+
+        // 3. Build query and bind filter values in param order
+        let mut q = sqlx::query(&sql);
+        if let Some(ref v) = category {
+            q = q.bind(v.as_str());
+        }
+        if let Some(ref v) = status {
+            q = q.bind(v.as_str());
+        }
+        if let Some(ref v) = severity {
+            q = q.bind(v.as_str());
+        }
+        if let Some(v) = date_from {
+            q = q.bind(v);
+        }
+        if let Some(v) = date_to {
+            q = q.bind(v);
+        }
+
+        // 4. Stream rows (fetch() not fetch_all() — no OOM on large datasets)
+        let mut rows = q.fetch(&*pool);
+        while let Some(row_result) = rows.next().await {
+            match row_result {
+                Ok(row) => {
+                    use sqlx::Row;
+                    use crate::db::admin_queries::{csv_escape, format_csv_date, format_csv_date_opt};
+
+                    let id: uuid::Uuid = row.get("id");
+                    let created_at: chrono::DateTime<chrono::Utc> = row.get("created_at");
+                    let category: String = row.get("category");
+                    let severity: String = row.get("severity");
+                    let status: String = row.get("status");
+                    let ward_name: Option<String> = row.get("ward_name");
+                    let assigned_org: Option<String> = row.get("assigned_org");
+                    let latitude: f64 = row.get("latitude");
+                    let longitude: f64 = row.get("longitude");
+                    let description: Option<String> = row.get("description");
+                    let photo_hash: Option<String> = row.get("photo_hash");
+                    let duplicate_count: i32 = row.try_get("duplicate_count").unwrap_or(0);
+                    let submitter_contact: Option<String> = row.get("submitter_contact");
+                    let resolved_at: Option<chrono::DateTime<chrono::Utc>> = row.get("resolved_at");
+                    let resolution_notes: Option<String> = row.get("resolution_notes");
+
+                    let line = format!(
+                        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+                        id,
+                        format_csv_date(&created_at),
+                        csv_escape(&category),
+                        csv_escape(&severity),
+                        csv_escape(&status),
+                        ward_name.as_deref().map(csv_escape).unwrap_or_default(),
+                        assigned_org.as_deref().map(csv_escape).unwrap_or_default(),
+                        latitude,
+                        longitude,
+                        description.as_deref().map(csv_escape).unwrap_or_default(),
+                        photo_hash.as_deref().map(csv_escape).unwrap_or_default(),
+                        duplicate_count,
+                        submitter_contact.as_deref().map(csv_escape).unwrap_or_default(),
+                        format_csv_date_opt(resolved_at.as_ref()),
+                        resolution_notes.as_deref().map(csv_escape).unwrap_or_default(),
+                    );
+
+                    if tx.send(Ok(Bytes::from(line))).await.is_err() {
+                        break; // Client disconnected
+                    }
+                }
+                Err(e) => {
+                    let _ = tx
+                        .send(Err(std::io::Error::other(e.to_string())))
+                        .await;
+                    break;
+                }
+            }
+        }
+    });
+
+    let stream = ReceiverStream::new(rx);
+    let body = Body::from_stream(stream);
+
+    Ok(axum::response::Response::builder()
+        .status(axum::http::StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/csv; charset=utf-8")
+        .header(
+            header::CONTENT_DISPOSITION,
+            "attachment; filename=\"walkability-reports.csv\"",
+        )
+        .body(body)
+        .map_err(|e| AppError::Internal(e.to_string()))?)
+}
+
+/// GET /api/admin/reports/export/geojson — stream a filtered GeoJSON export.
+///
+/// # Contract (EXPORT-02, T-04-01, T-04-02)
+/// - Requires admin auth (route is inside admin_protected_router).
+/// - Accepts same AdminReportFilters as CSV export.
+/// - Streams a valid GeoJSON FeatureCollection without buffering (D-16).
+/// - Coordinates are [longitude, latitude] per RFC 7946 (Pitfall 4).
+/// - Content-Type: application/geo+json.
+/// - No SELECT * — column whitelist enforced (T-04-01).
+pub async fn admin_export_geojson(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+    Query(filters): Query<AdminReportFilters>,
+) -> Result<axum::response::Response, AppError> {
+    use axum::{body::Body, http::header};
+    use bytes::Bytes;
+    use futures::StreamExt;
+    use tokio_stream::wrappers::ReceiverStream;
+
+    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(32);
+
+    let pool = Arc::clone(&state.pool);
+    let category = filters.category.clone();
+    let status = filters.status.clone();
+    let severity = filters.severity.clone();
+    let date_from = filters.date_from;
+    let date_to = filters.date_to;
+
+    tokio::spawn(async move {
+        // GeoJSON opening delimiter
+        if tx
+            .send(Ok(Bytes::from_static(
+                b"{\"type\":\"FeatureCollection\",\"features\":[\n",
+            )))
+            .await
+            .is_err()
+        {
+            return;
+        }
+
+        let (where_clause, _next_idx) = crate::db::admin_queries::build_export_where_clause(
+            category.as_deref(),
+            status.as_deref(),
+            severity.as_deref(),
+            date_from,
+            date_to,
+        );
+
+        let sql = crate::db::admin_queries::EXPORT_GEOJSON_SQL
+            .replace("{where_clause}", &where_clause);
+
+        let mut q = sqlx::query(&sql);
+        if let Some(ref v) = category {
+            q = q.bind(v.as_str());
+        }
+        if let Some(ref v) = status {
+            q = q.bind(v.as_str());
+        }
+        if let Some(ref v) = severity {
+            q = q.bind(v.as_str());
+        }
+        if let Some(v) = date_from {
+            q = q.bind(v);
+        }
+        if let Some(v) = date_to {
+            q = q.bind(v);
+        }
+
+        let mut rows = q.fetch(&*pool);
+        let mut first = true;
+
+        while let Some(row_result) = rows.next().await {
+            match row_result {
+                Ok(row) => {
+                    use sqlx::Row;
+
+                    let id: uuid::Uuid = row.get("id");
+                    let created_at: chrono::DateTime<chrono::Utc> = row.get("created_at");
+                    let category: String = row.get("category");
+                    let severity: String = row.get("severity");
+                    let status: String = row.get("status");
+                    let ward_name: Option<String> = row.get("ward_name");
+                    let assigned_org: Option<String> = row.get("assigned_org");
+                    let latitude: f64 = row.get("latitude");
+                    let longitude: f64 = row.get("longitude");
+                    let description: Option<String> = row.get("description");
+                    let photo_hash: Option<String> = row.get("photo_hash");
+                    let duplicate_count: i32 = row.try_get("duplicate_count").unwrap_or(0);
+                    let submitter_contact: Option<String> = row.get("submitter_contact");
+                    let resolved_at: Option<chrono::DateTime<chrono::Utc>> = row.get("resolved_at");
+                    let resolution_notes: Option<String> = row.get("resolution_notes");
+
+                    // Build GeoJSON feature — note [longitude, latitude] coordinate order (RFC 7946 / Pitfall 4)
+                    let feature = serde_json::json!({
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [longitude, latitude]
+                        },
+                        "properties": {
+                            "id": id,
+                            "created_at": created_at,
+                            "category": category,
+                            "severity": severity,
+                            "status": status,
+                            "ward_name": ward_name,
+                            "assigned_org": assigned_org,
+                            "description": description,
+                            "photo_hash": photo_hash,
+                            "duplicate_count": duplicate_count,
+                            "submitter_contact": submitter_contact,
+                            "resolved_at": resolved_at,
+                            "resolution_notes": resolution_notes,
+                        }
+                    });
+
+                    // Comma-separate features (prepend comma for all but the first)
+                    let mut chunk = if first {
+                        first = false;
+                        feature.to_string()
+                    } else {
+                        format!(",{}", feature)
+                    };
+                    chunk.push('\n');
+
+                    if tx.send(Ok(Bytes::from(chunk))).await.is_err() {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    let _ = tx
+                        .send(Err(std::io::Error::other(e.to_string())))
+                        .await;
+                    break;
+                }
+            }
+        }
+
+        // GeoJSON closing delimiter
+        let _ = tx
+            .send(Ok(Bytes::from_static(b"]}")))
+            .await;
+    });
+
+    let stream = ReceiverStream::new(rx);
+    let body = Body::from_stream(stream);
+
+    Ok(axum::response::Response::builder()
+        .status(axum::http::StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/geo+json")
+        .header(
+            header::CONTENT_DISPOSITION,
+            "attachment; filename=\"walkability-reports.geojson\"",
+        )
+        .body(body)
+        .map_err(|e| AppError::Internal(e.to_string()))?)
+}
+
 // ── Admin user management handlers ───────────────────────────────────────────
 
 /// GET /api/admin/users — list all admin users. Admin role required.
