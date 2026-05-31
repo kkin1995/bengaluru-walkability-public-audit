@@ -70,22 +70,22 @@ Requirements for MVP — scoped for soft launch with Walkaluru / GBA.
 ### Public Map
 
 - [ ] **MAP-01**: Public map pins are color-coded by report status (distinct colors for Open, In Progress, Resolved)
-- [ ] **MAP-02**: A heatmap layer on the public map shows issue density by geographic area, togglable by the user
+- [x] **MAP-02**: A heatmap layer on the public map shows issue density by geographic area, togglable by the user
 - [ ] **MAP-03**: Report status is visible in the popup when a map pin is clicked
 
 ### Data Export
 
-- [ ] **EXPORT-01**: Admin can export filtered reports as CSV (filters: ward, category, status, date range); CSV uses DD/MM/YYYY date format and includes ward name column
-- [ ] **EXPORT-02**: Admin can export filtered reports as GeoJSON FeatureCollection (streaming response, no memory buffering)
-- [ ] **EXPORT-03**: A public unauthenticated GeoJSON endpoint returns all reports with coordinates rounded to 3 decimal places and no PII fields
+- [x] **EXPORT-01**: Admin can export filtered reports as CSV (filters: ward, category, status, date range); CSV uses DD/MM/YYYY date format and includes ward name column
+- [x] **EXPORT-02**: Admin can export filtered reports as GeoJSON FeatureCollection (streaming response, no memory buffering)
+- [x] **EXPORT-03**: A public unauthenticated GeoJSON endpoint returns all reports with coordinates rounded to 3 decimal places and no PII fields
 
 ### Public Analytics
 
-- [ ] **ANALYTICS-01**: A public stats page shows total report count, resolved count, and top 3 issue categories — updated from a materialized view
-- [ ] **ANALYTICS-02**: Admin analytics view shows top 10 wards by unresolved report count
-- [ ] **ANALYTICS-03**: Admin analytics view shows resolution rate per corporation (resolved / total reports in their wards)
-- [ ] **ANALYTICS-04**: Admin analytics view shows trend chart: reports submitted per week over the last 12 weeks, filterable by category
-- [ ] **ANALYTICS-05**: Admin analytics map shows ward choropleth: ward fill color by unresolved report density
+- [x] **ANALYTICS-01**: A public stats page shows total report count, resolved count, and top 3 issue categories — updated from a materialized view
+- [x] **ANALYTICS-02**: Admin analytics view shows top 10 wards by unresolved report count
+- [x] **ANALYTICS-03**: Admin analytics view shows resolution rate per corporation (resolved / total reports in their wards)
+- [x] **ANALYTICS-04**: Admin analytics view shows trend chart: reports submitted per week over the last 12 weeks, filterable by category
+- [x] **ANALYTICS-05**: Admin analytics map shows ward choropleth: ward fill color by unresolved report density
 
 ---
 
@@ -180,16 +180,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WFLOW-04 | Phase 3 | Complete |
 | WFLOW-05 | Phase 3 | Complete |
 | MAP-01 | Phase 3 | Pending |
-| MAP-02 | Phase 4 | Pending |
+| MAP-02 | Phase 4 | Complete |
 | MAP-03 | Phase 3 | Pending |
-| EXPORT-01 | Phase 4 | Pending |
-| EXPORT-02 | Phase 4 | Pending |
-| EXPORT-03 | Phase 4 | Pending |
-| ANALYTICS-01 | Phase 4 | Pending |
-| ANALYTICS-02 | Phase 4 | Pending |
-| ANALYTICS-03 | Phase 4 | Pending |
-| ANALYTICS-04 | Phase 4 | Pending |
-| ANALYTICS-05 | Phase 4 | Pending |
+| EXPORT-01 | Phase 4 | Complete |
+| EXPORT-02 | Phase 4 | Complete |
+| EXPORT-03 | Phase 4 | Complete |
+| ANALYTICS-01 | Phase 4 | Complete |
+| ANALYTICS-02 | Phase 4 | Complete |
+| ANALYTICS-03 | Phase 4 | Complete |
+| ANALYTICS-04 | Phase 4 | Complete |
+| ANALYTICS-05 | Phase 4 | Complete |
 
 **Coverage:**
 - Total requirements: 48 (26 v1 feature + 17 hardening/staging/UAT + 5 infra from inserted phases)
