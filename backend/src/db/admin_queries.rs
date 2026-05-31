@@ -514,6 +514,7 @@ pub async fn get_admin_report_by_id(
             r.assigned_org_id,
             r.ward_id,
             w.ward_name,
+            w.ward_number,
             w.zone_name,
             w.ro_division,
             w.aro_sub_division,
@@ -568,6 +569,7 @@ pub async fn get_admin_report_by_id(
     let ward_hierarchy = if ward_id.is_some() {
         serde_json::json!({
             "ward_name":                  r.get::<Option<String>, _>("ward_name"),
+            "ward_number":                r.try_get::<Option<i32>, _>("ward_number").unwrap_or(None), // CR-03
             "zone_name":                  r.get::<Option<String>, _>("zone_name"),
             "ro_division":                r.get::<Option<String>, _>("ro_division"),
             "aro_sub_division":           r.get::<Option<String>, _>("aro_sub_division"),
