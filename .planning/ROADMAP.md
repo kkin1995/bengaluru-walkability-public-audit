@@ -23,7 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3.1: Admin Report Detail — Split Layout** - Restructure /admin/reports/[id] into two-column split layout: fixed left column (photo + metadata) + independently-scrolling right rail (action panels + GBA hierarchy + history) — eliminates below-fold discoverability (F-07 / ISSUE-07 from Phase 03 UAT) (INSERTED — UAT polish after Phase 3 ships) (completed 2026-05-26)
 - [x] **Phase 3.2: Admin UAT Gap Fixes — Dashboard Chart Period Filter and Status History Attribution** - Wire up the 7D/14D/30D intake chart period filter buttons on the admin dashboard, implement real status_history timestamps and admin user attribution in the report detail view (INSERTED — UAT gap closure after Phase 3.1) (completed 2026-05-30)
 - [x] **Phase 3.3: Admin UAT Gap Fixes — Intake Chart Real Data and Attribution Fallback** - Replace dashboard INTAKE sparkbars stub data with a real per-day intake endpoint (GET /api/admin/stats/intake?days=N), and fix status history attribution to fall back to admin email when display_name is NULL (INSERTED — UAT gap closure after Phase 3.2) (completed 2026-05-30)
-- [ ] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap
+- [x] **Phase 4: Export and Public Analytics** - Streaming CSV/GeoJSON export, public stats page, admin analytics dashboard, heatmap (completed 2026-05-31)
 
 ## Phase Details
 
@@ -369,8 +369,8 @@ Plans:
 
 **Wave 3** *(blocked on Wave 1 + Wave 2 — shared main.rs/admin_queries.rs/adminApi.ts)*
 
-- [ ] 04-03a-PLAN.md — Admin analytics backend (top wards, corporation resolution rate, weekly trend, ward-boundaries GeoJSON endpoint — all admin-authenticated)
-- [ ] 04-03b-PLAN.md — Admin analytics frontend (recharts trend chart, KPI cards, ward table, interactive choropleth + Analytics sidebar entry) — depends on 04-03a
+- [x] 04-03a-PLAN.md — Admin analytics backend (top wards, corporation resolution rate, weekly trend, ward-boundaries GeoJSON endpoint — all admin-authenticated)
+- [x] 04-03b-PLAN.md — Admin analytics frontend (recharts trend chart, KPI cards, ward table, interactive choropleth + Analytics sidebar entry) — depends on 04-03a
 
 ## Progress
 
@@ -394,7 +394,7 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 3.1 Admin Report Detail — Split Layout | 1/1 | Complete   | 2026-05-26 |
 | 3.2 Admin UAT Gap Fixes | 2/2 | Complete   | 2026-05-30 |
 | 3.3 Intake Chart + Attribution Fallback | 2/2 | Complete   | 2026-05-30 |
-| 4. Export and Public Analytics | 3/5 | In Progress|  |
+| 4. Export and Public Analytics | 5/5 | Complete   | 2026-05-31 |
 
 ### Phase 5: Coming Soon Homepage + Branching Workflow Setup
 
