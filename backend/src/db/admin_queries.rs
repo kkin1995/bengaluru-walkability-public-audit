@@ -672,7 +672,8 @@ pub async fn resolve_report(
         UPDATE reports
         SET status = $1::report_status,
             resolution_photo_path = $2,
-            resolution_notes = $3
+            resolution_notes = $3,
+            resolved_at = NOW()
         WHERE id = $4
         "#,
     )
