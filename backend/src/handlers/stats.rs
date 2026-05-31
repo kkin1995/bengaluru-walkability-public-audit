@@ -145,9 +145,11 @@ pub async fn public_get_geojson(
                     }
                 }
                 Err(e) => {
-                    let _ = tx
-                        .send(Err(std::io::Error::other(e.to_string())))
-                        .await;
+                    // WR-03: sending Err to the stream propagates as a body-level
+                    // IO error, causing Hyper to reset the TCP connection rather than
+                    // closing cleanly. Log and break so the post-loop `]}` sends a
+                    // clean close with a valid (though possibly truncated) response.
+                    tracing::error!(error = %e, "Public GeoJSON: mid-stream DB error");
                     break;
                 }
             }
