@@ -154,7 +154,6 @@ export default function AnalyticsPage() {
             }}
           />
         ) : (
-          {/* WR-06: selectedWard prop removed — trend data is always system-wide */}
           <TrendChart data={trendData} />
         )}
       </Card>
