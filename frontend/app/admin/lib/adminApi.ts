@@ -149,7 +149,10 @@ async function apiFetch<T>(
   });
 
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
+    // WR-02: read the response body so backend 400/409 error details reach the UI.
+    let detail = "";
+    try { detail = await res.text(); } catch { /* ignore read errors */ }
+    throw new Error(`HTTP ${res.status}${detail ? `: ${detail}` : ""}`);
   }
 
   // 204 No Content — nothing to parse
