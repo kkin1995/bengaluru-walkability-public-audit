@@ -10,14 +10,25 @@ import { render, screen, waitFor } from "@testing-library/react";
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
+const mockGetWardAnalytics = jest.fn();
+const mockGetCorporationAnalytics = jest.fn();
+const mockGetTrendData = jest.fn();
+
 jest.mock("../../lib/adminApi", () => ({
-  getWardAnalytics: jest.fn().mockResolvedValue([]),
-  getCorporationAnalytics: jest.fn().mockResolvedValue([]),
-  getTrendData: jest.fn().mockResolvedValue([]),
+  getWardAnalytics: (...args: unknown[]) => mockGetWardAnalytics(...args),
+  getCorporationAnalytics: (...args: unknown[]) => mockGetCorporationAnalytics(...args),
+  getTrendData: (...args: unknown[]) => mockGetTrendData(...args),
   getWardBoundaries: jest.fn().mockResolvedValue({ type: "FeatureCollection", features: [] }),
   downloadCsvExport: jest.fn().mockResolvedValue(new Blob()),
   downloadGeoJsonExport: jest.fn().mockResolvedValue(new Blob()),
 }));
+
+beforeEach(() => {
+  // Default: all API calls succeed with empty data
+  mockGetWardAnalytics.mockResolvedValue([]);
+  mockGetCorporationAnalytics.mockResolvedValue([]);
+  mockGetTrendData.mockResolvedValue([]);
+});
 
 jest.mock("../../components/TrendChart", () => {
   const MockTrendChart = () => <div data-testid="trend-chart-mock">TrendChart</div>;
@@ -65,5 +76,19 @@ describe("AnalyticsPage", () => {
       expect(screen.getByTestId("kpi-cards-mock")).toBeInTheDocument();
       expect(screen.getByTestId("ward-table-mock")).toBeInTheDocument();
     });
+  });
+
+  // IN-02: error state coverage — previously untested
+  it("displays failure message and retry button when getWardAnalytics rejects", async () => {
+    mockGetWardAnalytics.mockRejectedValue(new Error("network error"));
+
+    render(<AnalyticsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/failed to load analytics data/i)).toBeInTheDocument();
+    });
+
+    // Retry button should also be rendered
+    expect(screen.getByText(/retry/i)).toBeInTheDocument();
   });
 });
