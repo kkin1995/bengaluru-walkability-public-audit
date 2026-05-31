@@ -1136,19 +1136,25 @@ pub fn intake_sql_fragment() -> &'static str {
 // Phase 04-01: Streaming export SQL constants and pure helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Base SELECT + FROM + JOIN fragment for CSV export.
+/// Base SELECT + FROM + JOIN fragment shared by both CSV and GeoJSON export handlers.
+///
+/// IN-01: Previously duplicated as EXPORT_CSV_BASE and EXPORT_GEOJSON_BASE with
+/// identical SQL. A single constant prevents silent drift when columns change.
 ///
 /// Security notes (T-04-01, T-04-02, CR-01):
 /// - Explicit column whitelist — no SELECT * — so new sensitive columns never
 ///   leak automatically.
 /// - Filter values are always bound via .bind() through build_report_where_clause;
 ///   never string-interpolated into the SQL string.
-/// - ward_name and assigned_org are JOIN columns; no UUID exposure in CSV.
+/// - ward_name and assigned_org are JOIN columns; no UUID exposure in export.
+/// - Coordinates are latitude, longitude (columns); the GeoJSON handler reverses
+///   to [longitude, latitude] per GeoJSON RFC 7946 (Pitfall 4).
 ///
-/// Use `build_export_sql` to append the WHERE clause and ORDER BY at runtime.
+/// Use `build_csv_export_sql` or `build_geojson_export_sql` to append the WHERE
+/// clause and ORDER BY at runtime.
 /// Never use `.replace()` on this string — that approach was removed in CR-01
 /// because it bypassed the parameterisation contract.
-const EXPORT_CSV_BASE: &str = "SELECT \
+const EXPORT_BASE: &str = "SELECT \
     reports.id, \
     reports.created_at, \
     reports.category::TEXT AS category, \
@@ -1168,31 +1174,13 @@ const EXPORT_CSV_BASE: &str = "SELECT \
     LEFT JOIN wards ON wards.id = reports.ward_id \
     LEFT JOIN organizations ON organizations.id = reports.assigned_org_id";
 
-/// Base SELECT + FROM + JOIN fragment for GeoJSON export.
-///
-/// Security note (T-04-01, CR-01): No SELECT * — explicit column whitelist.
-/// Use `build_export_sql` to append the WHERE clause and ORDER BY at runtime.
-/// Coordinates are latitude, longitude (columns); the handler reverses to
-/// [longitude, latitude] per GeoJSON RFC 7946 (Pitfall 4).
-const EXPORT_GEOJSON_BASE: &str = "SELECT \
-    reports.id, \
-    reports.created_at, \
-    reports.category::TEXT AS category, \
-    reports.severity::TEXT AS severity, \
-    reports.status::TEXT AS status, \
-    wards.ward_name AS ward_name, \
-    organizations.name AS assigned_org, \
-    reports.latitude, \
-    reports.longitude, \
-    reports.description, \
-    reports.photo_hash, \
-    reports.duplicate_count, \
-    reports.submitter_contact, \
-    reports.resolved_at, \
-    reports.resolution_notes \
-    FROM reports \
-    LEFT JOIN wards ON wards.id = reports.ward_id \
-    LEFT JOIN organizations ON organizations.id = reports.assigned_org_id";
+/// Alias retained for any test or external references to the old CSV constant name.
+#[allow(dead_code)]
+const EXPORT_CSV_BASE: &str = EXPORT_BASE;
+
+/// Alias retained for any test or external references to the old GeoJSON constant name.
+#[allow(dead_code)]
+const EXPORT_GEOJSON_BASE: &str = EXPORT_BASE;
 
 /// Build a complete export SQL string from a base fragment and a WHERE clause.
 ///
