@@ -121,6 +121,29 @@ pub fn validate_status(status: &str) -> Result<(), AppError> {
     }
 }
 
+/// Validate that `category` is a known `issue_category` enum value (WR-02).
+/// Returns `Err(AppError::BadRequest)` for unrecognised values so export
+/// handlers return 400 instead of a silent empty result set.
+#[allow(dead_code)]
+pub fn validate_category(category: &str) -> Result<(), AppError> {
+    match category {
+        "no_footpath" | "broken_footpath" | "blocked_footpath"
+        | "unsafe_crossing" | "poor_lighting" | "other" => Ok(()),
+        _ => Err(AppError::BadRequest("Invalid category".to_string())),
+    }
+}
+
+/// Validate that `severity` is a known `severity_level` enum value (WR-02).
+/// Returns `Err(AppError::BadRequest)` for unrecognised values so export
+/// handlers return 400 instead of a silent empty result set.
+#[allow(dead_code)]
+pub fn validate_severity(severity: &str) -> Result<(), AppError> {
+    match severity {
+        "low" | "medium" | "high" => Ok(()),
+        _ => Err(AppError::BadRequest("Invalid severity".to_string())),
+    }
+}
+
 /// Validate that a resolve/close status transition is accompanied by a resolution photo.
 ///
 /// # Contract (D-13, D-14, WFLOW-05)
@@ -837,6 +860,18 @@ pub async fn admin_export_csv(
     // Channel buffer=32: prevents writer from racing too far ahead of TCP send buffer.
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(32);
 
+    // WR-02: validate enum filter values before spawning — returns 400 for unknown
+    // values rather than silently producing an empty export with no feedback.
+    if let Some(ref s) = filters.status {
+        validate_status(s)?;
+    }
+    if let Some(ref c) = filters.category {
+        validate_category(c)?;
+    }
+    if let Some(ref s) = filters.severity {
+        validate_severity(s)?;
+    }
+
     let pool = Arc::clone(&state.pool);
     let category = filters.category.clone();
     let status = filters.status.clone();
@@ -979,6 +1014,18 @@ pub async fn admin_export_geojson(
     use tokio_stream::wrappers::ReceiverStream;
 
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(32);
+
+    // WR-02: validate enum filter values before spawning — returns 400 for unknown
+    // values rather than silently producing an empty export with no feedback.
+    if let Some(ref s) = filters.status {
+        validate_status(s)?;
+    }
+    if let Some(ref c) = filters.category {
+        validate_category(c)?;
+    }
+    if let Some(ref s) = filters.severity {
+        validate_severity(s)?;
+    }
 
     let pool = Arc::clone(&state.pool);
     let category = filters.category.clone();
