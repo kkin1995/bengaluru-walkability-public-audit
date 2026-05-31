@@ -42,7 +42,14 @@ export function OrgAssignPanel({ report, onAssigned }: OrgAssignPanelProps): JSX
     ? orgs.filter((o) => o.org_type === "ward_office" && o.parent_id === selectedCorpId)
     : [];
 
-  // Find names for display in view mode
+  // Resolve org name for view mode.
+  // Prefer the server-provided assigned_org_name (avoids a client-side orgs list fetch on
+  // initial render). Fall back to the in-memory orgs list only if the report is in edit
+  // mode (orgs already loaded) and the name is missing for some reason.
+  const assignedOrgName = report.assigned_org_name
+    ?? (orgs ? (orgs.find((o) => o.id === report.assigned_org_id)?.name ?? null) : null);
+
+  // Also resolve from orgs list when in edit mode (needed for cascade parent lookup).
   const assignedOrg = report.assigned_org_id && orgs
     ? orgs.find((o) => o.id === report.assigned_org_id) ?? null
     : null;
@@ -84,12 +91,14 @@ export function OrgAssignPanel({ report, onAssigned }: OrgAssignPanelProps): JSX
       <Card style={{ marginBottom: 16 }}>
         <SectionLabel style={{ marginBottom: 8 }}>Organisation Assignment</SectionLabel>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          {report.assigned_org_id && assignedCorp ? (
+          {report.assigned_org_id && assignedOrgName ? (
             <div
               data-testid="org-status"
               style={{ fontSize: 13, color: "var(--ink)" }}
             >
-              <span style={{ fontWeight: 600 }}>{assignedCorp.name}</span>
+              <span style={{ fontWeight: 600 }}>
+                {assignedCorp ? assignedCorp.name : assignedOrgName}
+              </span>
               {assignedOrg && assignedOrg.org_type === "ward_office" && (
                 <span style={{ color: "var(--muted)" }}> ↳ {assignedOrg.name}</span>
               )}

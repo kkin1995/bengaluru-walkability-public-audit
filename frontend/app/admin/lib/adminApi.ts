@@ -82,6 +82,7 @@ export interface AdminReport {
   resolution_notes: string | null;
   // Phase 03 (D-08, D-09): Org assignment
   assigned_org_id: string | null;
+  assigned_org_name: string | null;
   // Phase 03 (D-21, D-23): Ward hierarchy for bureaucratic + elected chain display
   ward_hierarchy?: WardHierarchy | null;
   // ABUSE-06: Deduplication signals (Phase 02-02)

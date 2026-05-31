@@ -522,10 +522,12 @@ pub async fn get_admin_report_by_id(
             w.parliamentary_constituency,
             w.mla_name,
             w.mp_name,
-            o.name AS corporation
+            o.name AS corporation,
+            ao.name AS assigned_org_name
         FROM reports r
         LEFT JOIN wards w ON w.id = r.ward_id
         LEFT JOIN organizations o ON o.id = w.org_id
+        LEFT JOIN organizations ao ON ao.id = r.assigned_org_id
         WHERE r.id = $1
         "#,
     )
@@ -597,6 +599,7 @@ pub async fn get_admin_report_by_id(
         "resolution_photo_path": r.get::<Option<String>, _>("resolution_photo_path"),
         "resolution_notes":     r.get::<Option<String>, _>("resolution_notes"),
         "assigned_org_id":      r.get::<Option<Uuid>, _>("assigned_org_id"),
+        "assigned_org_name":    r.get::<Option<String>, _>("assigned_org_name"),
         "ward_id":              ward_id,
         "ward_name":            r.get::<Option<String>, _>("ward_name"),
         "corporation":          r.get::<Option<String>, _>("corporation"),
