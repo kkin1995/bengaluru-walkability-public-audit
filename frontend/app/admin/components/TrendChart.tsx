@@ -16,7 +16,9 @@ import type { TrendDataPoint } from "../lib/adminApi";
 
 interface TrendChartProps {
   data: TrendDataPoint[];
-  selectedWard?: string | null;
+  // WR-06: selectedWard was previously accepted but never used for actual data filtering.
+  // Displaying "FILTERED: {wardName}" while showing unfiltered global data was misleading.
+  // The prop has been removed; trend data is always system-wide.
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -41,7 +43,7 @@ function transformTrendData(data: TrendDataPoint[]): Record<string, unknown>[] {
   );
 }
 
-export default function TrendChart({ data, selectedWard }: TrendChartProps) {
+export default function TrendChart({ data }: TrendChartProps) {
   const [hiddenLines, setHiddenLines] = useState<Set<string>>(new Set());
 
   const handleLegendClick = (entry: LegendPayload) => {
@@ -59,19 +61,6 @@ export default function TrendChart({ data, selectedWard }: TrendChartProps) {
 
   return (
     <div>
-      {selectedWard && (
-        <p
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            color: "var(--muted)",
-            marginBottom: 8,
-            letterSpacing: "0.04em",
-          }}
-        >
-          FILTERED: {selectedWard}
-        </p>
-      )}
       <ResponsiveContainer width="100%" height={280}>
         <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
