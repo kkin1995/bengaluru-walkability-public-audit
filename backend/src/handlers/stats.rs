@@ -55,7 +55,18 @@ pub async fn public_get_geojson(
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    // IP extraction: X-Real-IP (nginx) > TCP peer address
+    // IP extraction: X-Real-IP (nginx) > TCP peer address.
+    //
+    // CR-03: X-Real-IP is trusted here because in production the backend port is
+    // NOT published to the host (no `ports:` in docker-compose.yml — only `expose:`).
+    // Requests must arrive through nginx, which sets X-Real-IP from its own
+    // $remote_addr (nginx/nginx.conf: `proxy_set_header X-Real-IP $remote_addr`).
+    // A client cannot forge this header through nginx.
+    //
+    // In dev (docker-compose.dev.yml) port 3001 IS published to the host for
+    // convenience, so X-Real-IP CAN be forged by a local process. This is
+    // acceptable in dev — the rate limiter is a production security control.
+    // Never publish port 3001 to the host in staging or production.
     let client_ip = headers
         .get("x-real-ip")
         .and_then(|v| v.to_str().ok())

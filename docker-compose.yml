@@ -43,6 +43,14 @@ services:
       ADMIN_SEED_PASSWORD: "${ADMIN_SEED_PASSWORD:-}"
     volumes:
       - uploads:/app/uploads
+    # CR-03: Intentionally NO `ports:` mapping for the backend in production.
+    # Port 3001 is reachable only from other containers on the internal Docker network
+    # (via nginx). Publishing it to the host would allow any process on the host to
+    # connect directly and forge X-Real-IP / X-Forwarded-For headers, bypassing the
+    # per-IP rate limiter in the GeoJSON endpoint (and any future IP-keyed logic).
+    # Use `expose:` to document the container-internal port without host binding.
+    expose:
+      - "3001"
     # P1-2: Health check so nginx only starts once the API is genuinely accepting connections.
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"]
