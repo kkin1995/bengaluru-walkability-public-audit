@@ -1363,7 +1363,7 @@ pub async fn get_ward_analytics(pool: &PgPool) -> Result<Vec<WardAnalyticsRow>, 
         .iter()
         .map(|r| WardAnalyticsRow {
             ward_name: r.get::<String, _>("ward_name"),
-            ward_number: r.get::<i32, _>("ward_number"),
+            ward_number: r.try_get::<i32, _>("ward_number").unwrap_or(0),
             unresolved_count: r.get::<i64, _>("unresolved_count"),
             total_count: r.get::<i64, _>("total_count"),
         })
@@ -1591,7 +1591,7 @@ pub async fn get_ward_boundaries(pool: &PgPool) -> Result<Vec<WardBoundaryRow>, 
         .map(|r| WardBoundaryRow {
             id: r.get::<Uuid, _>("id"),
             ward_name: r.get::<String, _>("ward_name"),
-            ward_number: r.get::<i32, _>("ward_number"),
+            ward_number: r.try_get::<i32, _>("ward_number").unwrap_or(0),
             boundary_geojson: r.try_get::<String, _>("boundary_geojson").ok(),
             unresolved_count: r.get::<i64, _>("unresolved_count"),
         })
