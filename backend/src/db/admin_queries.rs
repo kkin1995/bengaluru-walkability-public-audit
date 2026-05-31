@@ -244,25 +244,27 @@ pub async fn count_admin_reports(
     let (where_clause, mut param_idx) =
         build_report_where_clause(category, status, severity, date_from, date_to, 1);
 
-    // Append org-scoping condition when the caller has an org assignment.
-    let org_clause = if org_id.is_some() {
+    // WR-01: use a top-level CTE so the query is compatible with PostgreSQL 11
+    // and earlier. Inline CTEs inside IN(...) subqueries are non-standard and
+    // rejected by PG < 12.
+    let (cte_prefix, org_clause) = if org_id.is_some() {
         let cte = format!(
-            " AND reports.ward_id IN (\
-                WITH RECURSIVE org_subtree AS (\
-                    SELECT id FROM organizations WHERE id = ${}\
-                    UNION ALL\
-                    SELECT o.id FROM organizations o\
-                      JOIN org_subtree s ON o.parent_id = s.id\
-                )\
-                SELECT w.id FROM wards w\
-                  JOIN org_subtree s ON w.org_id = s.id\
-            )",
+            "WITH RECURSIVE org_subtree AS (\
+                SELECT id FROM organizations WHERE id = ${}\
+                UNION ALL\
+                SELECT o.id FROM organizations o\
+                  JOIN org_subtree s ON o.parent_id = s.id\
+            ) ",
             param_idx
         );
         param_idx += 1;
-        cte
+        let clause = " AND reports.ward_id IN (\
+                SELECT w.id FROM wards w\
+                  JOIN org_subtree s ON w.org_id = s.id\
+            )".to_string();
+        (cte, clause)
     } else {
-        String::new()
+        (String::new(), String::new())
     };
     let _ = param_idx; // suppress unused-variable warning for count query
 
@@ -270,11 +272,12 @@ pub async fn count_admin_reports(
 
     let sql = format!(
         r#"
-        SELECT COUNT(*)
+        {}SELECT COUNT(*)
         FROM reports
         LEFT JOIN wards ON wards.id = reports.ward_id
         {}
         "#,
+        cte_prefix,
         full_where
     );
 
@@ -322,25 +325,27 @@ pub async fn list_admin_reports(
     let (where_clause, mut param_idx) =
         build_report_where_clause(category, status, severity, date_from, date_to, 1);
 
-    // Append org-scoping condition when the caller has an org assignment.
-    let org_clause = if org_id.is_some() {
+    // WR-01: use a top-level CTE so the query is compatible with PostgreSQL 11
+    // and earlier. Inline CTEs inside IN(...) subqueries are non-standard and
+    // rejected by PG < 12.
+    let (cte_prefix, org_clause) = if org_id.is_some() {
         let cte = format!(
-            " AND reports.ward_id IN (\
-                WITH RECURSIVE org_subtree AS (\
-                    SELECT id FROM organizations WHERE id = ${}\
-                    UNION ALL\
-                    SELECT o.id FROM organizations o\
-                      JOIN org_subtree s ON o.parent_id = s.id\
-                )\
-                SELECT w.id FROM wards w\
-                  JOIN org_subtree s ON w.org_id = s.id\
-            )",
+            "WITH RECURSIVE org_subtree AS (\
+                SELECT id FROM organizations WHERE id = ${}\
+                UNION ALL\
+                SELECT o.id FROM organizations o\
+                  JOIN org_subtree s ON o.parent_id = s.id\
+            ) ",
             param_idx
         );
         param_idx += 1;
-        cte
+        let clause = " AND reports.ward_id IN (\
+                SELECT w.id FROM wards w\
+                  JOIN org_subtree s ON w.org_id = s.id\
+            )".to_string();
+        (cte, clause)
     } else {
-        String::new()
+        (String::new(), String::new())
     };
 
     let full_where = format!("{}{}", where_clause, org_clause);
@@ -352,7 +357,7 @@ pub async fn list_admin_reports(
 
     let sql = format!(
         r#"
-        SELECT
+        {cte_prefix}SELECT
             reports.id,
             reports.created_at,
             reports.image_path,
@@ -374,6 +379,7 @@ pub async fn list_admin_reports(
         ORDER BY reports.created_at DESC
         LIMIT ${limit_idx} OFFSET ${offset_idx}
         "#,
+        cte_prefix = cte_prefix,
         dedup_cols = ADMIN_REPORT_DEDUP_COLS,
         where_clause = full_where,
         limit_idx = limit_idx,
