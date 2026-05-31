@@ -28,7 +28,7 @@ const MOBILE_TABS = [
   { key: "analytics", href: "/admin/analytics",   icon: "activity" as const, label: "ANALYTICS" },
   { key: "map",       href: "/admin/reports/map", icon: "map"      as const, label: "MAP"       },
   { key: "users",     href: "/admin/users",       icon: "users"    as const, label: "USERS", roleGated: true },
-  { key: "logout",    href: "/api/admin/auth/logout", icon: "logout" as const, label: "OUT"     },
+  { key: "logout",    icon: "logout" as const, label: "OUT"     },
 ];
 
 function isActive(href: string, pathname: string): boolean {
@@ -337,11 +337,11 @@ export default function AdminSidebar({ role }: AdminSidebarProps) {
             </button>
           );
         }
-        const active = isActive(tab.href, pathname);
+        const active = isActive(tab.href!, pathname);
         return (
           <a
             key={tab.key}
-            href={tab.href}
+            href={tab.href!}
             style={{
               display: "flex",
               flexDirection: "column",
