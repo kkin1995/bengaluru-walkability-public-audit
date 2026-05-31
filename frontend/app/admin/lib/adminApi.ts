@@ -8,6 +8,8 @@
  *   - All 11 named exports must be present and callable  (R-API-3)
  */
 
+import type { FeatureCollection } from "geojson";
+
 import { ADMIN_API_BASE_URL as BASE, API_BASE_URL } from "@/app/lib/config";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
@@ -411,6 +413,50 @@ export async function downloadGeoJsonExport(
   const res = await fetch(url, { credentials: "include" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.blob();
+}
+
+// ─── Phase 04-03: Admin analytics (ANALYTICS-02/03/04/05) ────────────────────
+
+export interface WardAnalytics {
+  ward_name: string;
+  ward_number: number;
+  unresolved_count: number;
+  total_count: number;
+}
+
+export interface CorporationAnalytics {
+  corporation: string;
+  total_reports: number;
+  resolved_count: number;
+  resolution_rate_pct: number | null;
+}
+
+export interface TrendDataPoint {
+  week_start: string; // "YYYY-MM-DD"
+  category: string;
+  count: number;
+}
+
+export async function getWardAnalytics(): Promise<WardAnalytics[]> {
+  const data = await apiFetch<{ data: WardAnalytics[] }>(`${BASE}/api/admin/analytics/wards`);
+  return data.data;
+}
+
+export async function getCorporationAnalytics(): Promise<CorporationAnalytics[]> {
+  const data = await apiFetch<{ data: CorporationAnalytics[] }>(`${BASE}/api/admin/analytics/corporations`);
+  return data.data;
+}
+
+export async function getTrendData(category?: string): Promise<TrendDataPoint[]> {
+  const params = new URLSearchParams();
+  if (category) params.set("category", category);
+  const qs = params.toString();
+  const data = await apiFetch<{ data: TrendDataPoint[] }>(`${BASE}/api/admin/analytics/trend${qs ? `?${qs}` : ""}`);
+  return data.data;
+}
+
+export async function getWardBoundaries(): Promise<FeatureCollection> {
+  return apiFetch<FeatureCollection>(`${BASE}/api/wards/boundaries`);
 }
 
 // ── Public stats (ANALYTICS-01) ───────────────────────────────────────────────
