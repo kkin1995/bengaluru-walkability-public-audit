@@ -279,12 +279,12 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03-02-PLAN.md — Backend: resolve_report + assign_report_org DB fns, admin_resolve_report (multipart) + admin_assign_report_org (JSON) handlers, public GET /api/reports/:id extension (history + ward_hierarchy)
+- [x] 03-02-PLAN.md — Backend: resolve_report + assign_report_org DB fns, admin_resolve_report (multipart) + admin_assign_report_org (JSON) handlers, public GET /api/reports/:id extension (history + ward_hierarchy)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 03-03-PLAN.md — Admin frontend (Direction B): StatusBadge 6-value extension, StatusActionPanel + OrgAssignPanel + GbaHierarchyPanel + ResolveModal components, /admin/reports/[id] panel wiring, CORP column on reports list, adminApi extension
-- [ ] 03-04-PLAN.md — Public frontend (Direction A): ReportsMap STATUS_COLORS pin coloring, extended popup (corporation + ward + status + Read More), status-based map legend, NEW public /reports/[id] server component page
+- [x] 03-03-PLAN.md — Admin frontend (Direction B): StatusBadge 6-value extension, StatusActionPanel + OrgAssignPanel + GbaHierarchyPanel + ResolveModal components, /admin/reports/[id] panel wiring, CORP column on reports list, adminApi extension
+- [x] 03-04-PLAN.md — Public frontend (Direction A): ReportsMap STATUS_COLORS pin coloring, extended popup (corporation + ward + status + Read More), status-based map legend, NEW public /reports/[id] server component page
 
 ### Phase 3.1: Admin Report Detail — Split Layout (INSERTED)
 
@@ -390,7 +390,7 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 2.4.1 Security Hardening | 3/3 | Complete   | 2026-05-20 |
 | 2.5 Admin Portal UI Redesign | 4/4 | Complete   | 2026-05-22 |
 | 2.6 Build Metadata & Version Stamping | 3/3 | Complete    | 2026-05-25 |
-| 3. Government Triage Workflow | 2/4 | Complete (merged PR #12) | 2026-05-30 |
+| 3. Government Triage Workflow | 4/5 | In Progress|  |
 | 3.1 Admin Report Detail — Split Layout | 1/1 | Complete   | 2026-05-26 |
 | 3.2 Admin UAT Gap Fixes | 2/2 | Complete   | 2026-05-30 |
 | 3.3 Intake Chart + Attribution Fallback | 2/2 | Complete   | 2026-05-30 |
