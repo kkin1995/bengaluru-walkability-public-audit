@@ -168,9 +168,10 @@ async fn main() {
     use handlers::admin::{
         admin_assign_report_org, admin_assign_user_org, admin_change_password, admin_create_user,
         admin_deactivate_user, admin_delete_report, admin_export_csv, admin_export_geojson,
-        admin_get_intake_stats, admin_get_report, admin_get_stats, admin_list_organizations,
-        admin_list_reports, admin_list_users, admin_login, admin_logout, admin_me,
-        admin_resolve_report, admin_update_profile, admin_update_report_status,
+        admin_get_corporation_analytics, admin_get_intake_stats, admin_get_report, admin_get_stats,
+        admin_get_trend_data, admin_get_ward_analytics, admin_get_wards_boundaries,
+        admin_list_organizations, admin_list_reports, admin_list_users, admin_login, admin_logout,
+        admin_me, admin_resolve_report, admin_update_profile, admin_update_report_status,
     };
     use middleware::auth::require_auth;
 
@@ -226,6 +227,25 @@ async fn main() {
         .route("/api/admin/users/:id", delete(admin_deactivate_user))
         .route("/api/admin/users/:id/org", patch(admin_assign_user_org))
         .route("/api/admin/organizations", get(admin_list_organizations))
+        // Phase 04-03a: analytics endpoints — ANALYTICS-02/03/04/05 (T-04-08: admin-only)
+        .route(
+            "/api/admin/analytics/wards",
+            get(admin_get_ward_analytics),
+        )
+        .route(
+            "/api/admin/analytics/corporations",
+            get(admin_get_corporation_analytics),
+        )
+        .route(
+            "/api/admin/analytics/trend",
+            get(admin_get_trend_data),
+        )
+        // NOTE: /api/wards/boundaries is ADMIN-ONLY — the choropleth is an admin
+        // analytics feature (D-04/D-05). It must NOT be in the public route block.
+        .route(
+            "/api/wards/boundaries",
+            get(admin_get_wards_boundaries),
+        )
         .layer(axum::middleware::from_fn_with_state(
             arc_state.clone(),
             require_auth,

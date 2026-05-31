@@ -1331,6 +1331,108 @@ pub async fn admin_assign_user_org(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// § 3d — Phase 04-03a: Admin analytics + ward-boundaries handlers
+// Requirements: ANALYTICS-02, ANALYTICS-03, ANALYTICS-04, ANALYTICS-05
+// Security: All four registered under admin_protected_router (T-04-08)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Query params for GET /api/admin/analytics/trend (optional category filter).
+#[derive(serde::Deserialize)]
+pub struct TrendParams {
+    pub category: Option<String>,
+}
+
+/// GET /api/admin/analytics/wards — top 10 wards by unresolved report count.
+///
+/// # Contract (ANALYTICS-02, T-04-08)
+/// - Requires admin auth (route is inside admin_protected_router).
+/// - Returns up to 10 wards ordered by unresolved_count DESC.
+/// - unresolved_count excludes reports with status 'resolved' or 'closed'.
+pub async fn admin_get_ward_analytics(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let rows = admin_queries::get_ward_analytics(&state.pool).await?;
+    Ok(Json(serde_json::json!({ "data": rows })))
+}
+
+/// GET /api/admin/analytics/corporations — resolution rate per corporation.
+///
+/// # Contract (ANALYTICS-03, T-04-08)
+/// - Requires admin auth (route is inside admin_protected_router).
+/// - Returns one row per corporation (org_type = 'corporation').
+/// - resolution_rate_pct is null when total_reports = 0 (NULLIF guard).
+pub async fn admin_get_corporation_analytics(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let rows = admin_queries::get_corporation_analytics(&state.pool).await?;
+    Ok(Json(serde_json::json!({ "data": rows })))
+}
+
+/// GET /api/admin/analytics/trend — reports per week × 12 weeks.
+///
+/// # Contract (ANALYTICS-04, T-04-08, T-04-09)
+/// - Requires admin auth (route is inside admin_protected_router).
+/// - Optional ?category=<value> filter passed as a bound parameter — never
+///   interpolated into SQL (T-04-09).
+/// - Returns one row per (week_start, category) pair with at least one report.
+pub async fn admin_get_trend_data(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<TrendParams>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let rows = admin_queries::get_trend_data(&state.pool, params.category.as_deref()).await?;
+    Ok(Json(serde_json::json!({ "data": rows })))
+}
+
+/// GET /api/wards/boundaries — ward GeoJSON FeatureCollection with unresolved counts.
+///
+/// # Contract (ANALYTICS-05, T-04-08, T-04-10)
+/// - Requires admin auth (route is inside admin_protected_router — the choropleth
+///   is an admin analytics feature per D-04/D-05; NOT a public endpoint).
+/// - Returns a GeoJSON FeatureCollection where each feature's geometry is the
+///   ward polygon (ST_Simplified to 0.001 degrees — T-04-10) and properties
+///   include ward_name, ward_number, and unresolved_count.
+/// - Wards with NULL boundary (missing geometry) are included with null geometry.
+pub async fn admin_get_wards_boundaries(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let rows = admin_queries::get_ward_boundaries(&state.pool).await?;
+
+    // Assemble a GeoJSON FeatureCollection from the DB rows.
+    let features: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|row| {
+            // boundary_geojson is already a valid GeoJSON geometry string from PostGIS.
+            // Parse it so it embeds correctly into the Feature (not as a string literal).
+            let geometry: serde_json::Value = row
+                .boundary_geojson
+                .as_deref()
+                .and_then(|s| serde_json::from_str(s).ok())
+                .unwrap_or(serde_json::Value::Null);
+
+            serde_json::json!({
+                "type": "Feature",
+                "geometry": geometry,
+                "properties": {
+                    "id": row.id,
+                    "ward_name": row.ward_name,
+                    "ward_number": row.ward_number,
+                    "unresolved_count": row.unresolved_count,
+                }
+            })
+        })
+        .collect();
+
+    Ok(Json(serde_json::json!({
+        "type": "FeatureCollection",
+        "features": features,
+    })))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // § 4 — Pure unit tests
 //
 // Requirements covered:
