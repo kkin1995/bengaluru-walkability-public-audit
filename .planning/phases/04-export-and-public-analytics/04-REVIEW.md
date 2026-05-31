@@ -1,12 +1,17 @@
 ---
 phase: 04-export-and-public-analytics
-reviewed: 2026-05-31T10:45:00Z
+reviewed: 2026-05-31T13:30:48Z
 depth: standard
-files_reviewed: 20
+files_reviewed: 29
 files_reviewed_list:
+  - backend/Cargo.toml
+  - backend/migrations/011_analytics_mv.sql
   - backend/src/db/admin_queries.rs
+  - backend/src/db/queries.rs
   - backend/src/handlers/admin.rs
+  - backend/src/handlers/mod.rs
   - backend/src/handlers/stats.rs
+  - backend/src/lib.rs
   - backend/src/main.rs
   - backend/tests/analytics_tests.rs
   - backend/tests/export_tests.rs
@@ -20,527 +25,426 @@ files_reviewed_list:
   - frontend/app/admin/components/WardTable.tsx
   - frontend/app/admin/lib/adminApi.ts
   - frontend/app/admin/reports/page.tsx
+  - frontend/app/components/HeatmapLayer/__tests__/HeatmapLayer.test.tsx
   - frontend/app/components/HeatmapLayer.tsx
   - frontend/app/components/ReportsMap.tsx
   - frontend/app/stats/page.tsx
+  - frontend/app/stats/__tests__/StatsPage.test.tsx
+  - frontend/__mocks__/leaflet.js
+  - frontend/package.json
   - nginx/nginx.conf
+  - nginx/nginx.server.conf
 findings:
   critical: 5
-  warning: 7
+  warning: 6
   info: 4
-  total: 16
+  total: 15
 status: issues_found
 ---
 
 # Phase 04: Code Review Report
 
-**Reviewed:** 2026-05-31T10:45:00Z
+**Reviewed:** 2026-05-31T13:30:48Z
 **Depth:** standard
-**Files Reviewed:** 20
+**Files Reviewed:** 29
 **Status:** issues_found
 
 ## Summary
 
-This phase adds streaming CSV/GeoJSON export, public open-data endpoints, admin
-analytics (ward ranking, corporation resolution rate, weekly trend, choropleth),
-and a public heatmap layer. The implementation is broadly sound — parameterised
-queries, explicit column whitelists, and EXIF stripping are all present. However,
-five blockers were found: a SQL template-injection hole in the export handlers
-that bypasses all the careful parameterisation work, an unrevoked Blob URL memory
-leak in every download handler, missing `X-Forwarded-For` trust leading to trivial
-rate-limit bypass, stale deprecated status values in the report modal, and a silent
-error swallow in `ChoroplethMap` that gives users no feedback on fetch failure. Seven
-additional quality/robustness issues are noted as warnings.
+Phase 04 added streaming CSV/GeoJSON export endpoints, public `/api/stats` and
+`/api/reports.geojson` endpoints, an admin analytics backend (ward analytics,
+corporation stats, trend data, ward boundaries), an admin analytics frontend
+dashboard, and a public heatmap layer on the map page.
+
+The overall quality is solid: SQL injection is properly guarded through
+parameterised queries, PII exclusion is carefully enforced across most of the
+public endpoints, and the streaming architecture is sound. However, several
+issues were found that require attention before this code ships.
+
+The most serious findings are:
+
+1. **PII leak in public GeoJSON** — `resolution_notes` is fetched and emitted
+   in the public `/api/reports.geojson` stream. This is an admin-only field per
+   D-17.
+2. **Broken JSX comment syntax** — `{/* ... */}` embedded inside a JSX
+   conditional expression body crashes the production build of the analytics
+   page.
+3. **`X-Forwarded-Proto` missing from `nginx.server.conf` login block** — the
+   WR-07 fix was applied only to `nginx.conf`; the production server config
+   file was not updated.
+4. **`get_ward_analytics` panics on NULL `ward_number`** — uses `.get()` with
+   no try-fallback on a nullable column.
+5. **Admin GeoJSON export silently truncates on mid-stream DB error** — the
+   resulting file is syntactically valid JSON with no in-band truncation signal.
 
 ---
 
 ## Critical Issues
 
-### CR-01: SQL injection via `{where_clause}` string interpolation in export handlers
+### CR-01: PII field `resolution_notes` emitted in public GeoJSON stream
 
-**File:** `backend/src/handlers/admin.rs:864-865` and `:1004-1005`
-**Issue:** `EXPORT_CSV_SQL` and `EXPORT_GEOJSON_SQL` contain a literal
-`{where_clause}` placeholder that is replaced at runtime via `.replace()`:
+**File:** `backend/src/db/queries.rs:435-443` and `backend/src/handlers/stats.rs:113-139`
 
-```rust
-let sql = crate::db::admin_queries::EXPORT_CSV_SQL
-    .replace("{where_clause}", &where_clause);
+**Issue:** `PUBLIC_GEOJSON_SQL` explicitly selects `r.resolution_notes` and
+`r.resolution_photo_path` and `r.resolved_at` (queries.rs lines 435-443). The
+streaming handler in `stats.rs` then reads those values and emits them
+verbatim in the public FeatureCollection properties (lines 112-139 of
+stats.rs). `resolution_notes` is explicitly designated admin-only per D-17:
+the comment in `get_report_with_detail` (queries.rs line 404) states
+"resolution_notes (admin-only per D-17) is NEVER included" for the public
+single-report endpoint. That same field is included in the unbounded public
+GeoJSON stream, meaning any citizen can download internal admin notes for every
+resolved report by fetching `/api/reports.geojson`.
+
+The `public_geojson_no_pii` test does not check for `resolution_notes`,
+`resolution_photo_path`, or `resolved_at`, which is why this was not caught
+by the existing test suite.
+
+**Fix:** Remove the three fields from `PUBLIC_GEOJSON_SQL` and from the handler
+variable reads and property emissions in `stats.rs`:
+
+```sql
+-- Remove from PUBLIC_GEOJSON_SQL in queries.rs:
+--    r.resolution_photo_path,
+--    r.resolution_notes,
+--    r.resolved_at,
 ```
 
-`where_clause` is built by `build_export_where_clause` which itself calls
-`build_report_where_clause`. That function produces strings like
-`"WHERE reports.category::TEXT = $1"` — safe under normal inputs. However the
-`{where_clause}` replacement is a raw string substitution into the SQL template,
-not a bound parameter. If `where_clause` is ever non-empty but contains adversarial
-content (e.g. a crafted `category` value that produces a malformed condition string
-through a future code path), the resulting SQL executes unescaped.
-
-More concretely: the current `build_report_where_clause` implementation constructs
-the condition strings `format!("reports.category::TEXT = ${}", param_idx)` using
-only the *index* — not the value — so actual field values are still bound later.
-But the composite SQL string is assembled first via `.replace()` which sidesteps the
-SQL parameterisation contract and makes this fragile. Any future addition to
-`build_report_where_clause` that accidentally interpolates a value (instead of a
-`$N` placeholder) will silently produce injectable SQL because there is no
-compile-time or runtime guard.
-
-Additionally, `EXPORT_CSV_SQL` and `EXPORT_GEOJSON_SQL` contain `{where_clause}`
-literally baked into a `const` string (lines 1145-1165 and 1172-1192 of
-`admin_queries.rs`). If the placeholder is somehow left un-replaced (e.g. because
-the `replace` call is not reached due to early return), the query will fail with a
-PostgreSQL syntax error instead of returning an empty result — a latent reliability
-bug independent of injection risk.
-
-**Fix:** Remove the `{where_clause}` template approach entirely. Build the full SQL
-dynamically in the handler using `format!`, keeping the WHERE clause components as
-simple `$N` slots populated by the binding loop that already exists:
-
 ```rust
-// admin_queries.rs — expose a builder function instead of a template const
-pub fn build_export_sql(base: &str, where_clause: &str) -> String {
-    // where_clause contains only "$N" placeholders, never raw values
-    if where_clause.is_empty() {
-        format!("{} ORDER BY reports.created_at DESC", base)
-    } else {
-        format!("{} {} ORDER BY reports.created_at DESC", base, where_clause)
-    }
-}
+// Remove from the stats.rs spawned task:
+// let resolution_photo_path: Option<String> = row.get("resolution_photo_path");
+// let resolution_notes: Option<String> = row.get("resolution_notes");
+// let resolved_at: Option<chrono::DateTime<chrono::Utc>> = row.get("resolved_at");
+// And remove them from the feature properties json! block.
 ```
 
-This makes the boundary explicit: the `base` is a trusted const, the `where_clause`
-contains only `$N` tokens, and no raw user value ever enters the SQL string.
+Also extend the `public_geojson_no_pii` test to assert these fields are absent.
 
 ---
 
-### CR-02: Blob URL memory leak in every download handler (six call sites)
+### CR-02: Broken JSX comment syntax causes `next build` crash on analytics page
 
-**File:** `frontend/app/admin/analytics/page.tsx:58-68` and `:71-84`;
-`frontend/app/admin/reports/page.tsx:152-162` and `:168-181`
+**File:** `frontend/app/admin/analytics/page.tsx:157-159`
 
-**Issue:** All download handlers create a Blob URL with `URL.createObjectURL(blob)`,
-click the anchor, and then call `URL.revokeObjectURL(url)` synchronously — but the
-revocation happens *before* the browser has had a chance to start the download.
-The `<a>` element is clicked, immediately removed from the DOM, and the URL is
-revoked in the same synchronous tick. On some browsers (notably Chrome) this works
-by luck because the download is initiated before garbage collection. On others the
-file download silently fails because the URL has already been revoked.
+**Issue:** Lines 157-159 contain:
 
-Additionally, on any code path that throws before `URL.revokeObjectURL(url)` (which
-cannot happen here since the revoke is after the click, but illustrates the
-structural fragility), the URL is leaked permanently for the lifetime of the page.
-
-**Fix:** Revoke the URL asynchronously after the browser has had time to act on it:
-
-```typescript
-async function handleCsvDownload() {
-  try {
-    const blob = await downloadCsvExport();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "walkability-reports.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    // Defer revocation so the browser can initiate the download
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-  } catch {
-    /* non-critical */
-  }
-}
+```tsx
+        ) : (
+          {/* WR-06: selectedWard prop removed — trend data is always system-wide */}
+          <TrendChart data={trendData} />
+        )}
 ```
 
-All six download handlers (`handleCsvDownload` and `handleGeoJsonDownload` in both
-`analytics/page.tsx` and `reports/page.tsx`, plus `downloadCsvExport` and
-`downloadGeoJsonExport` in `adminApi.ts` — though the latter two return the Blob to
-the caller who manages the URL) need the same fix.
+A `{/* ... */}` block inside a JSX expression that is expected to return a
+single React node creates a two-child expression (the comment node + the
+TrendChart node), which is a JSX syntax error. This will fail with a
+compilation error during `next build` or when TypeScript/Babel processes the
+file. The development server may also error depending on the SWC configuration.
+
+**Fix:** Delete the comment line entirely, or move it outside the expression:
+
+```tsx
+        ) : (
+          <TrendChart data={trendData} />
+        )}
+```
 
 ---
 
-### CR-03: Rate-limit bypass via `X-Real-IP` trust without proxy validation
+### CR-03: `nginx.server.conf` login block missing `X-Forwarded-Proto` header
 
-**File:** `backend/src/handlers/stats.rs:59-63`
+**File:** `nginx/nginx.server.conf:97-108`
 
-**Issue:** The public GeoJSON rate limiter uses the client IP extracted from the
-`X-Real-IP` header with no validation that the request actually came through the
-trusted nginx proxy:
+**Issue:** The WR-07 fix (commit `4d0f1d8`) added
+`proxy_set_header X-Forwarded-Proto $scheme;` to the `= /api/admin/auth/login`
+location block in `nginx/nginx.conf` (line 122). The identical location block
+in `nginx/nginx.server.conf` (the production Cloudflare-tunnel deployment
+config, lines 97-108) was not updated. In the production environment this means
+the login endpoint does not receive `X-Forwarded-Proto`, leaving any
+audit-logging or HTTPS detection on that handler without the required header.
+The two config files are supposed to be kept in sync for security headers.
 
-```rust
-let client_ip = headers
-    .get("x-real-ip")
-    .and_then(|v| v.to_str().ok())
-    .map(|s| s.to_string())
-    .unwrap_or_else(|| peer.ip().to_string());
+**Fix:** Add the missing header to `nginx/nginx.server.conf` at line 104
+(between the `X-Forwarded-For` and `X-Request-ID` lines):
+
+```nginx
+proxy_set_header X-Forwarded-Proto $scheme;
 ```
-
-Any client that connects directly to port 3001 (bypassing nginx) can set
-`X-Real-IP: 1.2.3.4` to an arbitrary value and completely evade the rate limiter.
-Even in Docker Compose the backend port is often exposed to the host for dev
-purposes (`ports: - "3001:3001"`). An attacker on the host can hit `localhost:3001`
-directly and forge any IP.
-
-The `geojson_rate_limiter` key becomes `"1.2.3.4"`, `"5.6.7.8"` etc. — the
-attacker can rotate values to achieve unlimited requests.
-
-**Fix:** Either:
-(a) Only trust the header when the TCP peer is the known proxy address (e.g. the
-Docker internal IP range), or
-(b) Bind the backend to `0.0.0.0` only inside Docker and ensure the host port is
-not published in production (`expose:` not `ports:` in docker-compose.yml), combined
-with a comment that the header is trusted only from nginx.
-
-The nginx config already sets `proxy_set_header X-Real-IP $remote_addr` (lines
-98,115,133,147) and the value comes from nginx's own `$remote_addr`, so the header
-is not forgeable *through* nginx. The vulnerability is the direct-access path.
 
 ---
 
-### CR-04: Status modal in reports page uses stale/invalid status values
+### CR-04: `get_ward_analytics` panics on NULL `ward_number` column
 
-**File:** `frontend/app/admin/reports/page.tsx:64,365-369`
+**File:** `backend/src/db/admin_queries.rs:1362-1372` and `backend/src/db/admin_queries.rs:1588-1598`
 
-**Issue:** The status-change modal initialises `pendingStatus` with
-`"submitted"` (line 64) and offers three `<option>` values:
-`"submitted"`, `"under_review"`, and `"resolved"` (lines 366-368).
-
-These are the *pre-Phase-03* status values. The backend's `validate_status`
-explicitly rejects both `"submitted"` and `"under_review"` as renamed values
-(Phase 03 migration 008). Attempting to use this modal will consistently produce a
-400 Bad Request from the backend for any of the three options shown, except
-`"resolved"` which happens to still be valid.
-
-The Phase-03 enum is: `open`, `acknowledged`, `assigned`, `in_progress`,
-`resolved`, `closed`. None of the other five options appear in the modal.
+**Issue:** Both `get_ward_analytics` (line 1366) and `get_ward_boundaries`
+(line 1593) use `r.get::<i32, _>("ward_number")` with no error handling. If
+any ward row has a NULL `ward_number` — which is structurally possible since
+the wards table is populated by CSV import and there is no NOT NULL constraint
+visible in the migration files reviewed — sqlx will return a
+`RowNotFound`-equivalent type decode error. This causes the `?` propagation to
+fail the entire query and return a 500 to the analytics dashboard, making the
+entire ward analytics and choropleth map fail for all users whenever one ward
+has a missing number. There is no defensive coding here unlike the
+`try_get(...).ok()` pattern used elsewhere in the same file.
 
 **Fix:**
-```tsx
-// Initial state
-const [pendingStatus, setPendingStatus] = useState<string>("open");
 
-// Select options
-<option value="open">Open</option>
-<option value="acknowledged">Acknowledged</option>
-<option value="assigned">Assigned</option>
-<option value="in_progress">In Progress</option>
-<option value="resolved">Resolved</option>
-<option value="closed">Closed</option>
+```rust
+// In get_ward_analytics mapping closure:
+ward_number: r.try_get::<i32, _>("ward_number").unwrap_or(0),
+
+// In get_ward_boundaries mapping closure:
+ward_number: r.try_get::<i32, _>("ward_number").unwrap_or(0),
 ```
 
 ---
 
-### CR-05: Silent error swallow in `ChoroplethMap` — fetch failures are invisible
+### CR-05: Admin GeoJSON export silently produces valid but truncated JSON on mid-stream DB error
 
-**File:** `frontend/app/admin/analytics/ChoroplethMap.tsx:24`
+**File:** `backend/src/handlers/admin.rs:1092-1108`
 
-**Issue:**
+**Issue:** When a DB error occurs mid-stream in the admin GeoJSON export
+handler, the code breaks out of the row loop and sends the closing `]}` bytes,
+producing a syntactically valid but data-incomplete GeoJSON FeatureCollection.
+The HTTP status 200 was already sent. There is no in-band signal to the caller
+that truncation occurred. A consumer who imports this file into a GIS tool sees
+a valid FeatureCollection and cannot distinguish truncated data from a complete
+export.
 
-```tsx
-useEffect(() => {
-  getWardBoundaries().then(setBoundaries).catch(() => null);
-}, []);
-```
+This is worse than the CSV export handler, which correctly appends a `#ERROR:`
+sentinel comment on mid-stream error (admin.rs lines 937-941). The GeoJSON
+handler should apply the same principle.
 
-The `.catch(() => null)` discards the error entirely. When the ward boundaries
-fetch fails (network error, 401, 500), the map renders with no polygons and no
-indication to the user that anything went wrong. Because `ChoroplethMap` has no
-error state or prop to signal failure upward to `AnalyticsPage`, the parent also
-has no way to show a retry or error message for this specific panel.
+**Fix:** Before sending `]}`, emit an error signal feature:
 
-This is a correctness issue: the choropleth silently renders as a blank tile layer
-with no data, which looks identical to a city with zero ward geometry — misleading
-to analytics users.
-
-**Fix:** Add an error state and surface it to the user:
-
-```tsx
-const [error, setError] = useState<boolean>(false);
-
-useEffect(() => {
-  getWardBoundaries()
-    .then(setBoundaries)
-    .catch(() => setError(true));
-}, []);
-
-// In render:
-{error && (
-  <div style={{ padding: 12, color: "var(--danger)" }}>
-    Failed to load ward boundaries.
-  </div>
-)}
+```rust
+Err(e) => {
+    tracing::error!(error = %e, "GeoJSON export: mid-stream DB error; appending error feature");
+    let error_feature = serde_json::json!({
+        "type": "Feature",
+        "geometry": null,
+        "properties": {
+            "_stream_truncated": true,
+            "_stream_error": e.to_string()
+        }
+    });
+    let _ = tx.send(Ok(Bytes::from(format!(",{}\n", error_feature)))).await;
+    break;
+}
 ```
 
 ---
 
 ## Warnings
 
-### WR-01: `COOKIE_SECURE` read from environment on every login and logout request
+### WR-01: `count_admin_reports` with org scoping builds a CTE in a subquery — non-portable SQL
 
-**File:** `backend/src/handlers/admin.rs:318-319` and `:357-358`
+**File:** `backend/src/db/admin_queries.rs:248-302`
 
-**Issue:** Both `admin_login` and `admin_logout` call `std::env::var("COOKIE_SECURE")`
-at request time. Environment variables do not change after process start; this is a
-pointless syscall on every login/logout. More importantly, inconsistency between the
-login and logout cookie attributes (which must match for the browser to recognise the
-removal) is possible if any thread-local caching or environment mutation were
-introduced. The `AppState` already stores `jwt_session_hours` read once at startup;
-`cookie_secure` should be treated the same way.
+**Issue:** When `org_id` is `Some`, both `count_admin_reports` and
+`list_admin_reports` construct SQL with a `WITH RECURSIVE` CTE embedded inside
+an `IN (...)` subquery clause. The resulting SQL looks like:
 
-**Fix:** Add `pub cookie_secure: bool` to `AppState`, read it once in `main()`, and
-reference `state.cookie_secure` in both handlers.
-
----
-
-### WR-02: `KpiCards` `totalReports` derived from ward analytics data — mismatches global count
-
-**File:** `frontend/app/admin/components/KpiCards.tsx:75`
-
-**Issue:**
-
-```tsx
-const totalReports = wardData.reduce((s, w) => s + w.total_count, 0);
+```sql
+SELECT COUNT(*) FROM reports LEFT JOIN wards ...
+WHERE ... AND reports.ward_id IN (
+    WITH RECURSIVE org_subtree AS (...) SELECT w.id FROM wards w ...
+)
 ```
 
-`wardData` comes from `GET /api/admin/analytics/wards` which returns only the
-**top 10** wards by unresolved count (LIMIT 10 in `WARD_ANALYTICS_SQL`). The
-`totalReports` KPI card therefore shows the sum of reports across only those 10
-wards, not the actual system-wide total. The label reads "Total Reports" but
-contains a misleadingly small number on any deployment with more than 10 wards.
+While PostgreSQL 12+ supports inline CTEs in subqueries, this is
+non-standard SQL. PostgreSQL 11 and earlier will reject this with a syntax
+error, silently breaking all org-scoped pagination and listing for
+any deployment running an older PostgreSQL version. Since the project targets
+a self-hosted setup, the Postgres version is not pinned, making this a latent
+compatibility risk.
 
-**Fix:** Either derive the total from the existing `GET /api/admin/stats` response
-(already fetched on the main dashboard), or add a dedicated count to the analytics
-API response, or display the label as "Reports in top 10 wards" to match what is
-actually shown.
+**Fix:** Refactor to use a top-level CTE pattern:
 
----
-
-### WR-03: `HeatmapLayer` filters only `status === "open"` — misses 4 unresolved statuses
-
-**File:** `frontend/app/components/HeatmapLayer.tsx:40-41`
-
-**Issue:**
-
-```tsx
-const openPoints = reports
-  .filter((r) => r.status === "open")
-  .map((r): [number, number, number] => [r.latitude, r.longitude, 1.0]);
-```
-
-The comment says "D-02: filter to open/unresolved reports only" but the filter
-includes only `"open"`. The Phase-03 status enum has five unresolved states:
-`open`, `acknowledged`, `assigned`, `in_progress` — all of these represent issues
-that still need attention and should contribute to the heatmap density. `resolved`
-and `closed` are the only states that should be excluded.
-
-A report that has been `acknowledged` or is `in_progress` would vanish from the
-heatmap, giving a misleadingly sparse density picture.
-
-**Fix:**
-
-```tsx
-const UNRESOLVED_STATUSES = new Set(["open", "acknowledged", "assigned", "in_progress"]);
-const openPoints = reports
-  .filter((r) => UNRESOLVED_STATUSES.has(r.status))
-  .map((r): [number, number, number] => [r.latitude, r.longitude, 1.0]);
+```sql
+WITH RECURSIVE org_subtree AS (
+    SELECT id FROM organizations WHERE id = $N
+    UNION ALL
+    SELECT o.id FROM organizations o JOIN org_subtree s ON o.parent_id = s.id
+)
+SELECT COUNT(*) FROM reports
+LEFT JOIN wards ON wards.id = reports.ward_id
+WHERE ... AND reports.ward_id IN (
+    SELECT w.id FROM wards w JOIN org_subtree s ON w.org_id = s.id
+)
 ```
 
 ---
 
-### WR-04: `ReportsMap` fetches from the public reports list endpoint, not the GeoJSON endpoint
+### WR-02: `admin_export_csv` and `admin_export_geojson` do not validate filter enum values
 
-**File:** `frontend/app/components/ReportsMap.tsx:72`
+**File:** `backend/src/handlers/admin.rs:856-885` and `backend/src/handlers/admin.rs:1001-1030`
 
-**Issue:**
+**Issue:** Both export handlers accept `status`, `category`, and `severity`
+query parameters and pass them directly to `build_export_where_clause` without
+validating that the values are valid enum members. An admin who submits
+`?status=typo_value` will get a 200 response with only the CSV/GeoJSON header
+and zero data rows, with no indication the filter was invalid. This silent
+empty-export scenario is a usability defect that could cause an admin to
+incorrectly conclude there are no reports matching their criteria.
 
-```tsx
-const res = await fetch(`${apiUrl}/api/reports?limit=200`);
-```
-
-The public map fetches from `GET /api/reports` (the paginated JSON list endpoint)
-with a hard-coded `limit=200`. This caps the visible reports at 200 regardless of
-how many exist, silently dropping all reports beyond the 200th. The codebase also
-has a purpose-built streaming GeoJSON endpoint (`GET /api/reports.geojson`) that is
-explicitly designed for this use case and includes privacy-protected rounded
-coordinates. The map is using the wrong endpoint.
-
-**Fix:** Switch to the GeoJSON endpoint:
-
-```tsx
-const res = await fetch(`${apiUrl}/api/reports.geojson`);
-const data: { type: string; features: Array<...> } = await res.json();
-const items: Report[] = data.features.map((f) => ({
-  id: f.properties.id,
-  latitude: f.geometry.coordinates[1],
-  longitude: f.geometry.coordinates[0],
-  ...f.properties,
-}));
-```
-
----
-
-### WR-05: `admin_export_csv` spawned task silently swallows mid-stream DB errors
-
-**File:** `backend/src/handlers/admin.rs:932-938`
-
-**Issue:** When a row fetch error occurs mid-stream, the handler sends an
-`io::Error` chunk into the channel and breaks. However the HTTP response has
-already been sent with `200 OK` and `Content-Type: text/csv`. The client receives a
-200 response with a partial CSV that may not be parseable, and no indication that
-an error occurred. The error is logged to stderr only inside the spawned task.
+**Fix:** Add lightweight validation before the DB call:
 
 ```rust
+if let Some(ref s) = filters.status {
+    validate_status(s)?;  // already defined in this file, returns AppError::BadRequest
+}
+```
+
+---
+
+### WR-03: `public_get_geojson` sends an `Err` variant to the stream on DB error — abruptly resets TCP connection
+
+**File:** `backend/src/handlers/stats.rs:154-159`
+
+**Issue:** On a DB row error the public GeoJSON handler sends:
+```rust
+let _ = tx.send(Err(std::io::Error::other(e.to_string()))).await;
+```
+The stream channel type is `Result<Bytes, std::io::Error>`. `Body::from_stream`
+propagates the `Err` variant as a body-level IO error to Hyper, which resets
+the TCP connection rather than completing the HTTP response cleanly. This will
+manifest as a connection reset error on the client, which is harder to
+diagnose than a clean close with a truncated but parseable body. The admin
+export handler closes cleanly with `]}` on error; the public handler should
+match.
+
+**Fix:**
+```rust
 Err(e) => {
-    let _ = tx
-        .send(Err(std::io::Error::other(e.to_string())))
-        .await;
+    tracing::error!(error = %e, "Public GeoJSON: mid-stream DB error");
+    let _ = tx.send(Ok(Bytes::from_static(b"]}"))  ).await;
     break;
 }
 ```
 
-**Fix:** This is a fundamental limitation of streaming responses: once the 200
-header is sent, the status code cannot be changed. The minimal mitigation is to
-append an error sentinel comment at the end of the CSV (e.g. `#ERROR: stream
-interrupted`) so that consumers can detect truncation. Alternatively, buffer the
-entire result set first and only send the 200 if the query succeeds — at the cost
-of memory for large datasets. The same issue applies to `admin_export_geojson` which
-would produce malformed GeoJSON on mid-stream error (missing `]}`).
-
 ---
 
-### WR-06: `TrendChart` `selectedWard` prop is accepted but never used for filtering
+### WR-04: `ChoroplethMap` `key` prop on GeoJSON layer is effectively constant across different data
 
-**File:** `frontend/app/admin/components/TrendChart.tsx:19,63-75`
+**File:** `frontend/app/admin/analytics/ChoroplethMap.tsx:61`
 
-**Issue:** `TrendChart` accepts a `selectedWard` prop and renders a "FILTERED:
-{selectedWard}" text when it is set, but the underlying `chartData` is derived
-solely from `data` — the full trend dataset — with no filtering by ward name:
+**Issue:** The `key` prop is set to `JSON.stringify(boundaries).slice(0, 40)`.
+Every valid GeoJSON `FeatureCollection` response will start with
+`{"type":"FeatureCollection","features":[`, meaning the first 40 characters
+are identical for all responses regardless of content. When the `boundaries`
+state is updated with a new fetch result (e.g., after a data refresh), the key
+will not change, React will not unmount-and-remount the `GeoJSON` layer, and
+the choropleth map will not re-render with the new data.
 
+**Fix:** Use the feature count or a timestamp-based key:
 ```tsx
-const chartData = transformTrendData(data);  // no ward filter applied
+key={boundaries.features.length + '_' + Date.now()}
+```
+Or derive a more stable key from meaningful content:
+```tsx
+key={boundaries.features.map(f => f.properties?.ward_number).join(',')}
 ```
 
-The ward filter text is displayed but the chart itself is not filtered. This misleads
-the user: clicking a ward on the choropleth shows the "FILTERED: Ward Name" label
-in the chart but the chart data does not change, making it appear the filter is
-broken.
+---
 
-**Fix:** Either:
-(a) Remove the `selectedWard` prop and its render entirely from `TrendChart` if the
-  trend data is intentionally global.
-(b) Pass a ward-specific query to the trend API when a ward is selected:
-  `getTrendData(undefined, selectedWard)` and update the API endpoint to support
-  `?ward_name=` filtering.
+### WR-05: `AdminSidebar` mobile tabs dead `href` on logout entry
+
+**File:** `frontend/app/admin/components/AdminSidebar.tsx:31`
+
+**Issue:** The `MOBILE_TABS` array item for logout has `href: "/api/admin/auth/logout"`.
+The rendering code correctly catches `tab.key === "logout"` and renders a
+`<button>` instead, so the `href` is never used in the anchor. However, if the
+`key` check were ever refactored or the entry were rendered as a link, the
+browser would make a full-page GET request to the logout API endpoint (which
+only accepts POST), receiving an HTTP 405 Method Not Allowed without executing
+the JS logout flow. This is a latent defect in the defensive structure.
+
+**Fix:** Remove the `href` field from the logout tab entry:
+```ts
+{ key: "logout", icon: "logout" as const, label: "OUT" },
+```
 
 ---
 
-### WR-07: Admin `/api/admin/` nginx location block missing `X-Forwarded-Proto` header on login
+### WR-06: `HeatmapLayer` test comment contradicts implementation — `in_progress` wrongly documented as excluded
 
-**File:** `nginx/nginx.conf:116-120`
+**File:** `frontend/app/components/HeatmapLayer/__tests__/HeatmapLayer.test.tsx:37-39`
 
-**Issue:** The exact-match location for `/api/admin/auth/login` (lines 110-121)
-sets `Host`, `X-Real-IP`, `X-Forwarded-For`, and `X-Request-ID` headers but does
-**not** set `X-Forwarded-Proto`. All other proxy blocks include
-`proxy_set_header X-Forwarded-Proto $scheme`. This means the login handler cannot
-determine if the request was made over HTTPS, which is relevant for the
-`COOKIE_SECURE` decision (if it were ever made server-side) and for any upstream
-audit logging that records the originating scheme.
+**Issue:** The `REPORTS` test fixture at line 37 annotates the `in_progress`
+report with the comment "should be filtered out", and the assertion at line 68
+verifies that latitude 12.974 (`in_progress`) is absent from heatmap points.
+However, the actual `HeatmapLayer.tsx` implementation correctly includes
+`in_progress` in `UNRESOLVED_STATUSES` and therefore in heatmap points. The
+test passes only because the fixture happens to have exactly 2 `open` reports
+which produce the 2 expected points — but the `in_progress` report at 12.974
+would also be included if present in the actual code. The test comment and
+assertion are actively wrong and will mislead future maintainers about the
+intended behaviour.
 
-**Fix:** Add `proxy_set_header X-Forwarded-Proto $scheme;` to the login location
-block at line 119.
+**Fix:** Update the test comment and assertion to reflect that `in_progress`
+should appear in heatmap data. Add fixture entries for `acknowledged` and
+`assigned` statuses to confirm they are also included.
 
 ---
 
 ## Info
 
-### IN-01: `public_geojson_tests.rs` test 4 asserts against a hardcoded string literal, not the live query
+### IN-01: `EXPORT_CSV_BASE` and `EXPORT_GEOJSON_BASE` are identical SQL — duplicated constant
 
-**File:** `backend/tests/public_geojson_tests.rs:112-135`
+**File:** `backend/src/db/admin_queries.rs:1145-1189`
 
-**Issue:** The `stats_mv_includes_top_categories` test constructs its own SQL
-string literal:
+**Issue:** Both constants contain the exact same SQL text. Any future column
+addition or deletion must be applied to both constants independently, with no
+compiler or test enforcement that they stay in sync.
 
-```rust
-let stats_sql = "SELECT total_reports, resolved_count, top_categories FROM public_stats_mv";
-```
-
-It does not call a `sql_fragment()` helper that references the actual query constant
-used at runtime (unlike the other tests in this file which call `public_geojson_sql_fragment()`
-and `round3()`). If the live query in `queries::get_public_stats` is changed, this
-test will not catch the drift. The test is structurally checking a string it wrote
-itself, not the production code path.
-
-**Fix:** Expose a `pub fn public_stats_sql_fragment() -> &'static str` from
-`db/queries.rs` (analogous to `intake_sql_fragment()`) and assert on that in the
-test.
+**Fix:** Declare a single `EXPORT_BASE` constant and reference it from both
+wrapper functions.
 
 ---
 
-### IN-02: `WardTable` uses `w.ward_name` as React key — non-unique if two wards share a name
+### IN-02: `AnalyticsPage` test suite does not cover error or loading states
 
-**File:** `frontend/app/admin/components/WardTable.tsx:49`
+**File:** `frontend/app/admin/analytics/__tests__/AnalyticsPage.test.tsx`
 
-**Issue:**
+**Issue:** Only two test cases exist: title rendering and KPI/WardTable mock
+presence. The `isError` branch (retry button, failure message) and `isLoading`
+skeleton state are not tested.
 
-```tsx
-{filtered.map((w) => (
-  <tr key={w.ward_name} ...>
-```
-
-Ward names are assumed to be unique. If two wards ever share the same name (unlikely
-but possible with BBMP sub-ward numbering), React will produce duplicate key
-warnings and potentially incorrect reconciliation. The `ward_number` field is also
-available and is more likely to be a database-level unique identifier.
-
-**Fix:** Use a composite key or `ward_number` as the primary key:
-
-```tsx
-<tr key={`${w.ward_number}-${w.ward_name}`} ...>
-```
+**Fix:** Add a test case that mocks `getWardAnalytics` to reject and asserts
+"Failed to load analytics data" is displayed.
 
 ---
 
-### IN-03: `AnalyticsPage` test mocks from wrong path
+### IN-03: `geojson` type import relies on transitive `@types/leaflet` dependency
 
-**File:** `frontend/app/admin/analytics/__tests__/AnalyticsPage.test.tsx:13`
+**File:** `frontend/app/admin/lib/adminApi.ts:11`
 
-**Issue:**
+**Issue:** `import type { FeatureCollection } from "geojson"` works because
+`@types/geojson` is a peer dependency of `@types/leaflet`. If `@types/leaflet`
+is ever updated to drop or change that dependency, this import will silently
+break TypeScript compilation.
 
-```tsx
-jest.mock("../../lib/adminApi", () => ({
-```
-
-The test file lives at `frontend/app/admin/analytics/__tests__/AnalyticsPage.test.tsx`.
-The `adminApi` module lives at `frontend/app/admin/lib/adminApi.ts`. From the test
-file's location `../../lib/adminApi` resolves to
-`frontend/app/admin/lib/adminApi` — which is correct. However, the production code
-in `analytics/page.tsx` imports from `"../lib/adminApi"`. Jest resolves mocks by
-the module path used in the module under test, not the path in the mock call. If
-jest module resolution does not alias these two relative paths to the same module
-identity, the mock may not intercept the calls from `page.tsx`. This depends on
-the Jest config; it should be verified that the mock actually intercepts.
-
-**Fix:** Use the module path as it appears in the source file under test, or use
-an absolute alias (e.g. `@/app/admin/lib/adminApi`) consistently in both the
-production code and the mock.
+**Fix:** Add `@types/geojson` as an explicit `devDependency` in `package.json`.
 
 ---
 
-### IN-04: `AdminSidebar` uses `<a>` tags instead of Next.js `<Link>` for nav items
+### IN-04: `KpiCards` "Reports in Top 10 Wards" label is misleading
 
-**File:** `frontend/app/admin/components/AdminSidebar.tsx:144,174`
+**File:** `frontend/app/admin/components/KpiCards.tsx:103-106`
 
-**Issue:** Navigation items in the sidebar use raw `<a href="...">` anchors instead
-of Next.js `<Link>`. This forces full page reloads on every admin navigation click,
-discarding client-side state and defeating Next.js's client-side routing optimisation
-(prefetching, scroll preservation, no full HTML reload). `AdminSidebar` imports
-`Link` (line 4) and uses it only for the profile link (line 230), but not for the
-main nav items.
+**Issue:** The label says "Reports in Top 10 Wards" and the comment correctly
+notes this is a top-10-only sum (not a system-wide total). However, an admin
+skimming the dashboard may read this as the overall report count, especially
+since KPI dashboards conventionally show totals. This could cause incorrect
+reporting to civic bodies.
 
-**Fix:** Replace nav item `<a>` elements with `<Link>` from `next/link` for all
-internal routes. The organisations link (`/admin/organizations`, line 173) and all
-`NAV_ITEMS` entries are internal and should use `<Link>`.
+**Fix:** Rename to "Total Reports (Top 10 Wards)" or add a sub-label "top 10
+wards only" to make the scope explicit at a glance.
 
 ---
 
-_Reviewed: 2026-05-31T10:45:00Z_
+_Reviewed: 2026-05-31T13:30:48Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
