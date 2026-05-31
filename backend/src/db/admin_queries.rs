@@ -751,7 +751,17 @@ pub async fn assign_report_org(
     .bind(org_id)
     .bind(report_id)
     .execute(&mut *tx)
-    .await?;
+    .await
+    .map_err(|e| {
+        // WR-01: map FK violation (23503) to a meaningful 400 instead of 500.
+        // Happens when caller supplies a non-existent org_id UUID.
+        if let sqlx::Error::Database(ref db_err) = e {
+            if db_err.code().as_deref() == Some("23503") {
+                return AppError::BadRequest("Organization not found".to_string());
+            }
+        }
+        AppError::Database(e)
+    })?;
 
     if result.rows_affected() == 0 {
         tx.rollback().await?;
