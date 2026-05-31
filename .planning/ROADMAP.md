@@ -360,7 +360,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Streaming CSV + GeoJSON export endpoints (migration 011 resolved_at, streaming handlers, admin export UI)
+- [x] 04-01-PLAN.md — Streaming CSV + GeoJSON export endpoints (migration 011 resolved_at, streaming handlers, admin export UI)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -394,7 +394,7 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 | 3.1 Admin Report Detail — Split Layout | 1/1 | Complete   | 2026-05-26 |
 | 3.2 Admin UAT Gap Fixes | 2/2 | Complete   | 2026-05-30 |
 | 3.3 Intake Chart + Attribution Fallback | 2/2 | Complete   | 2026-05-30 |
-| 4. Export and Public Analytics | 0/4 | Planned — 4 plans, 3 waves | - |
+| 4. Export and Public Analytics | 1/5 | In Progress|  |
 
 ### Phase 5: Coming Soon Homepage + Branching Workflow Setup
 
