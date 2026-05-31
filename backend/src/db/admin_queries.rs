@@ -812,22 +812,24 @@ pub async fn get_report_stats(pool: &PgPool) -> Result<StatsResponse, AppError> 
             .map(|k| (k.to_string(), 0))
             .collect();
 
+    // Seed keys match 001_init.sql issue_category enum exactly (CR-01/CR-02):
+    // no_curb_ramp and encroachment were phantom values that never existed in the DB.
     let mut by_category: std::collections::HashMap<String, i64> = [
         "no_footpath",
         "broken_footpath",
         "blocked_footpath",
-        "no_curb_ramp",
         "unsafe_crossing",
         "poor_lighting",
-        "encroachment",
         "other",
     ]
     .iter()
     .map(|k| (k.to_string(), 0))
     .collect();
 
+    // Seed keys match 001_init.sql severity_level enum exactly (CR-01/CR-02):
+    // "critical" was a phantom value that never existed in the DB.
     let mut by_severity: std::collections::HashMap<String, i64> =
-        ["low", "medium", "high", "critical"]
+        ["low", "medium", "high"]
             .iter()
             .map(|k| (k.to_string(), 0))
             .collect();
