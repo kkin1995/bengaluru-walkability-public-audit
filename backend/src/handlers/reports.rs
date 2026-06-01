@@ -273,6 +273,22 @@ pub async fn create_report(
             None
         });
 
+    // NF-03-B: Look up the owning BBMP corporation org for the ward — non-fatal.
+    let assigned_org_id: Option<Uuid> = if let Some(wid) = ward_id {
+        queries::get_org_for_ward(&state.pool, wid)
+            .await
+            .unwrap_or_else(|e| {
+                tracing::warn!(
+                    ward_id = %wid,
+                    error = %e,
+                    "Org auto-assign lookup failed; proceeding with NULL assigned_org_id"
+                );
+                None
+            })
+    } else {
+        None
+    };
+
     // Strip EXIF from image before saving — propagate error on parse failure
     // instead of writing potentially malformed bytes to disk (WR-02).
     let clean_bytes = strip_exif(&req.image_bytes)?;
@@ -284,7 +300,26 @@ pub async fn create_report(
     tokio::fs::write(&file_path, &clean_bytes).await?;
 
     // Insert into DB
-    let report = queries::insert_report(&state.pool, &req, &filename, ward_id).await?;
+    let report = queries::insert_report(&state.pool, &req, &filename, ward_id, assigned_org_id).await?;
+
+    // Insert audit trail for org auto-assignment (best-effort — non-fatal on failure).
+    if assigned_org_id.is_some() {
+        if let Err(e) = sqlx::query(
+            r#"INSERT INTO status_history (report_id, new_status, note, changed_by)
+               VALUES ($1, 'open'::report_status, 'Auto-assigned based on ward geography', NULL)"#,
+        )
+        .bind(report.id)
+        .execute(&*state.pool)
+        .await
+        {
+            tracing::warn!(
+                report_id = %report.id,
+                error = %e,
+                "Auto-assign status_history insert failed (non-fatal)"
+            );
+        }
+    }
+
     let response = report.into_response(&state.api_base_url);
 
     Ok(Json(response))

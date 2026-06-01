@@ -383,10 +383,11 @@ pub async fn list_admin_reports(
             reports.status::TEXT AS status,
             reports.location_source::TEXT AS location_source,
             wards.ward_name AS ward_name,
-            wards.corporation AS corporation,
+            o.name AS corporation,
             {dedup_cols}
         FROM reports
         LEFT JOIN wards ON wards.id = reports.ward_id
+        LEFT JOIN organizations o ON o.id = reports.assigned_org_id
         {where_clause}
         ORDER BY reports.created_at DESC
         LIMIT ${limit_idx} OFFSET ${offset_idx}
@@ -2157,5 +2158,56 @@ mod tests {
              with bound parameters (T-intake-sqli); got: {}",
             sql
         );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite NF-03-B — geographic org auto-assignment SQL-string tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// NF-03-B — list_admin_reports SQL must JOIN organizations on assigned_org_id,
+    /// not read corporation from wards.corporation directly.
+    #[test]
+    fn list_admin_reports_corp_join_uses_assigned_org_id() {
+        let (where_clause, param_idx) = build_report_where_clause(None, None, None, None, None, 1);
+        let limit_idx = param_idx;
+        let offset_idx = param_idx + 1;
+        let sql = format!(
+            r#"
+            SELECT
+                reports.id,
+                o.name AS corporation,
+                {dedup_cols}
+            FROM reports
+            LEFT JOIN wards ON wards.id = reports.ward_id
+            LEFT JOIN organizations o ON o.id = reports.assigned_org_id
+            {where_clause}
+            ORDER BY reports.created_at DESC
+            LIMIT ${limit_idx} OFFSET ${offset_idx}
+            "#,
+            dedup_cols = ADMIN_REPORT_DEDUP_COLS,
+            where_clause = where_clause,
+            limit_idx = limit_idx,
+            offset_idx = offset_idx,
+        );
+        assert!(
+            sql.contains("LEFT JOIN organizations o ON o.id = reports.assigned_org_id"),
+            "list_admin_reports must JOIN organizations on assigned_org_id; got: {}",
+            sql
+        );
+        assert!(
+            !sql.contains("wards.corporation"),
+            "list_admin_reports must NOT read corporation from wards directly; got: {}",
+            sql
+        );
+    }
+
+    /// NF-03-B — Auto-assign status_history insert must use 'open' status and NULL changed_by.
+    #[test]
+    fn auto_assign_history_sql_uses_open_status_and_null_changed_by() {
+        let sql = r#"INSERT INTO status_history (report_id, new_status, note, changed_by)
+           VALUES ($1, 'open'::report_status, 'Auto-assigned based on ward geography', NULL)"#;
+        assert!(sql.contains("'open'::report_status"), "auto-assign must use open status; got: {}", sql);
+        assert!(sql.contains("NULL"), "changed_by must be NULL for system auto-assign; got: {}", sql);
+        assert!(sql.contains("ward geography"), "note must reference ward geography; got: {}", sql);
     }
 }
