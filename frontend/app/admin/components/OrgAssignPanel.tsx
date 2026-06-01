@@ -26,23 +26,33 @@ export function OrgAssignPanel({ report, onAssigned }: OrgAssignPanelProps): JSX
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch orgs when entering edit mode (or on first render for preloading)
+  // WR-04: Pre-fetch orgs on mount (not just on edit mode entry) so view mode can
+  // display the full corporation↳ward-office cascade without requiring the user to
+  // click "Change". The previous mode === "edit" guard left orgs=null in view mode,
+  // so assignedCorp was always null and only the flat assigned_org_name was shown.
   useEffect(() => {
-    if (mode === "edit" && orgs === null) {
+    if (orgs === null) {
       setLoading(true);
       listOrganizations()
         .then(setOrgs)
         .catch(() => setError("Failed to load organisations"))
         .finally(() => setLoading(false));
     }
-  }, [mode, orgs]);
+  }, [orgs]);
 
   const corporations = orgs ? orgs.filter((o) => o.org_type === "corporation") : [];
   const wardOffices = selectedCorpId && orgs
     ? orgs.filter((o) => o.org_type === "ward_office" && o.parent_id === selectedCorpId)
     : [];
 
-  // Find names for display in view mode
+  // Resolve org name for view mode.
+  // Prefer the server-provided assigned_org_name (avoids a client-side orgs list fetch on
+  // initial render). Fall back to the in-memory orgs list only if the report is in edit
+  // mode (orgs already loaded) and the name is missing for some reason.
+  const assignedOrgName = report.assigned_org_name
+    ?? (orgs ? (orgs.find((o) => o.id === report.assigned_org_id)?.name ?? null) : null);
+
+  // Also resolve from orgs list when in edit mode (needed for cascade parent lookup).
   const assignedOrg = report.assigned_org_id && orgs
     ? orgs.find((o) => o.id === report.assigned_org_id) ?? null
     : null;
@@ -84,12 +94,14 @@ export function OrgAssignPanel({ report, onAssigned }: OrgAssignPanelProps): JSX
       <Card style={{ marginBottom: 16 }}>
         <SectionLabel style={{ marginBottom: 8 }}>Organisation Assignment</SectionLabel>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          {report.assigned_org_id && assignedCorp ? (
+          {report.assigned_org_id && assignedOrgName ? (
             <div
               data-testid="org-status"
               style={{ fontSize: 13, color: "var(--ink)" }}
             >
-              <span style={{ fontWeight: 600 }}>{assignedCorp.name}</span>
+              <span style={{ fontWeight: 600 }}>
+                {assignedCorp ? assignedCorp.name : assignedOrgName}
+              </span>
               {assignedOrg && assignedOrg.org_type === "ward_office" && (
                 <span style={{ color: "var(--muted)" }}> ↳ {assignedOrg.name}</span>
               )}

@@ -51,9 +51,19 @@ pub struct AppState {
     /// JWT_SESSION_HOURS env var (default 24, clamped to 1–168). Stored here so
     /// the login handler does not re-read the env on every request.
     pub jwt_session_hours: u64,
+    /// WR-01: COOKIE_SECURE flag, read once at startup from the COOKIE_SECURE env var
+    /// (default false). Stored here so the login and logout handlers do not incur a
+    /// pointless syscall on every request. Environment variables do not change after
+    /// process start; reading them per-request is both wasteful and opens a window
+    /// for attribute mismatch between login and logout cookies if any future caching
+    /// were introduced.
+    pub cookie_secure: bool,
     /// Per-IP+geohash-6 rate limiter: 2 report submissions per hour per cell.
     /// Shared across all request handlers via Arc. Keys are "{ip}:{geohash6}".
     pub rate_limiter: Arc<governor::DefaultKeyedRateLimiter<String>>,
+    /// Per-IP rate limiter for the public GeoJSON open-data endpoint: 2 req/min.
+    /// Defense-in-depth alongside the nginx geojson_public zone (D-18).
+    pub geojson_rate_limiter: Arc<governor::DefaultKeyedRateLimiter<String>>,
 }
 
 #[tokio::main]
@@ -125,13 +135,25 @@ async fn main() {
     let quota = governor::Quota::per_hour(std::num::NonZeroU32::new(2).unwrap());
     let rate_limiter = Arc::new(governor::RateLimiter::keyed(quota));
 
+    // EXPORT-03/D-18: Per-IP rate limiter for public GeoJSON endpoint — 2 req/min.
+    let geojson_quota = governor::Quota::per_minute(std::num::NonZeroU32::new(2).unwrap());
+    let geojson_rate_limiter = Arc::new(governor::RateLimiter::keyed(geojson_quota));
+
+    // WR-01: Read COOKIE_SECURE once at startup; store in AppState so the login
+    // and logout handlers do not call std::env::var on every request.
+    let cookie_secure = std::env::var("COOKIE_SECURE")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+
     let state = AppState {
         pool: Arc::new(pool),
         uploads_dir: config.uploads_dir.clone(),
         api_base_url,
         jwt_secret: Arc::new(jwt_secret),
         jwt_session_hours,
+        cookie_secure,
         rate_limiter,
+        geojson_rate_limiter,
     };
 
     // CORS — allow_credentials(true) is required for the admin_token cookie to be
@@ -159,10 +181,11 @@ async fn main() {
 
     use handlers::admin::{
         admin_assign_report_org, admin_assign_user_org, admin_change_password, admin_create_user,
-        admin_deactivate_user, admin_delete_report, admin_get_intake_stats, admin_get_report,
-        admin_get_stats, admin_list_organizations, admin_list_reports, admin_list_users,
-        admin_login, admin_logout, admin_me, admin_resolve_report, admin_update_profile,
-        admin_update_report_status,
+        admin_deactivate_user, admin_delete_report, admin_export_csv, admin_export_geojson,
+        admin_get_corporation_analytics, admin_get_intake_stats, admin_get_report, admin_get_stats,
+        admin_get_trend_data, admin_get_ward_analytics, admin_get_wards_boundaries,
+        admin_list_organizations, admin_list_reports, admin_list_users, admin_login, admin_logout,
+        admin_me, admin_resolve_report, admin_update_profile, admin_update_report_status,
     };
     use middleware::auth::require_auth;
 
@@ -184,6 +207,17 @@ async fn main() {
             post(admin_change_password),
         )
         .route("/api/admin/reports", get(admin_list_reports))
+        // Phase 04-01: streaming export endpoints — MUST be registered before
+        // "/api/admin/reports/:id" so the literal path segment "export" is not
+        // interpreted as a :id parameter (Axum uses longest-prefix match for routes).
+        .route(
+            "/api/admin/reports/export/csv",
+            get(admin_export_csv),
+        )
+        .route(
+            "/api/admin/reports/export/geojson",
+            get(admin_export_geojson),
+        )
         .route("/api/admin/reports/:id", get(admin_get_report))
         .route(
             "/api/admin/reports/:id/status",
@@ -207,6 +241,25 @@ async fn main() {
         .route("/api/admin/users/:id", delete(admin_deactivate_user))
         .route("/api/admin/users/:id/org", patch(admin_assign_user_org))
         .route("/api/admin/organizations", get(admin_list_organizations))
+        // Phase 04-03a: analytics endpoints — ANALYTICS-02/03/04/05 (T-04-08: admin-only)
+        .route(
+            "/api/admin/analytics/wards",
+            get(admin_get_ward_analytics),
+        )
+        .route(
+            "/api/admin/analytics/corporations",
+            get(admin_get_corporation_analytics),
+        )
+        .route(
+            "/api/admin/analytics/trend",
+            get(admin_get_trend_data),
+        )
+        // NOTE: /api/wards/boundaries is ADMIN-ONLY — the choropleth is an admin
+        // analytics feature (D-04/D-05). It must NOT be in the public route block.
+        .route(
+            "/api/wards/boundaries",
+            get(admin_get_wards_boundaries),
+        )
         .layer(axum::middleware::from_fn_with_state(
             arc_state.clone(),
             require_auth,
@@ -221,6 +274,9 @@ async fn main() {
         .route("/api/reports/:id", get(handlers::reports::get_report))
         // Public ward lookup — no auth required
         .route("/api/wards/lookup", get(handlers::wards::ward_lookup))
+        // EXPORT-03/ANALYTICS-01: public open-data endpoints — no auth required
+        .route("/api/stats", get(handlers::stats::public_get_stats))
+        .route("/api/reports.geojson", get(handlers::stats::public_get_geojson))
         // Admin routes (auth + protected)
         .merge(admin_auth_router)
         .merge(admin_protected_router)

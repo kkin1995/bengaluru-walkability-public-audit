@@ -42,6 +42,9 @@ const Marker = ({ children, position }) =>
 const useMap = () => ({
   setView: jest.fn(),
   getZoom: jest.fn(() => 12),
+  removeControl: jest.fn(),
+  removeLayer: jest.fn(),
+  hasLayer: jest.fn(() => false),
 });
 
 module.exports = {

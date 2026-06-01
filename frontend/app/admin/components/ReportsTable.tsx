@@ -8,7 +8,7 @@ import { Pill } from "./Pill";
 import { Btn } from "./Btn";
 import { Card } from "./Card";
 import { Input } from "./Input";
-import { getDuplicatesForReport, type AdminReport } from "../lib/adminApi";
+import { getDuplicatesForReport, type AdminReport, type WardHierarchy } from "../lib/adminApi";
 import { getCategoryLabel } from "@/app/lib/translations";
 import { API_BASE_URL } from "@/app/lib/config";
 
@@ -31,6 +31,10 @@ interface Report {
   duplicate_count?: number;
   duplicate_of_id?: string | null;
   duplicate_confidence?: string | null;
+  // Phase 03 (WARNING-02): Corporation from ward JOIN
+  corporation?: string | null;
+  // Phase 03 (D-21, D-23): Ward hierarchy for corporation fallback
+  ward_hierarchy?: WardHierarchy | null;
 }
 
 interface ReportsTableProps {
@@ -54,6 +58,16 @@ type ViewMode = "card-stream" | "compact-rows" | "table";
 // Number of columns in the main table — used for colSpan on expanded rows
 // Phase 03: Updated from 8 to 9 to include CORP column (UI-SPEC §F)
 const COLUMN_COUNT = 9;
+
+// Phase 03: Card-view status dot colour lookup — uses current 6-value enum tokens (D-37)
+const STATUS_DOT_COLORS: Record<string, string> = {
+  open:         "var(--status-open)",
+  acknowledged: "var(--status-acknowledged)",
+  assigned:     "var(--status-assigned)",
+  in_progress:  "var(--status-in-progress)",
+  resolved:     "var(--status-resolved)",
+  closed:       "var(--status-closed)",
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -130,7 +144,7 @@ function DupeExpandButton({ reportId, dupCount, expandedRows, onToggle }: Omit<D
       </span>
       <button
         data-testid="expand-duplicates-btn"
-        onClick={() => onToggle(reportId)}
+        onClick={(e) => { e.stopPropagation(); onToggle(reportId); }}
         style={{
           fontFamily: "var(--font-mono)",
           fontSize: 10,
@@ -261,10 +275,7 @@ function CardStreamRow({ report, role, onStatusChange, onDelete, onUpdateStatus,
                 width: 6,
                 height: 6,
                 borderRadius: 999,
-                background:
-                  report.status === "submitted" ? "var(--status-submitted)" :
-                  report.status === "under_review" ? "var(--status-review)" :
-                  "var(--status-resolved)",
+                background: STATUS_DOT_COLORS[report.status] ?? "var(--status-open)",
                 flexShrink: 0,
               }}
             />
@@ -422,14 +433,22 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
 
   return (
     <div>
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        flexWrap: "wrap",
-        gap: 10,
-        padding: "8px 0",
-        borderBottom: "1px solid var(--border)",
-      }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 10,
+          padding: "8px 0",
+          borderBottom: "1px solid var(--border)",
+          cursor: "pointer",
+        }}
+        onClick={() => window.location.assign(`/admin/reports/${report.id}`)}
+      >
+        {/* sr-only anchor for accessibility — same pattern as DupeSubTable */}
+        <a href={`/admin/reports/${report.id}`} className="sr-only">
+          View report {report.id.slice(0, 5).toUpperCase()}
+        </a>
         <PhotoTile
           size={44}
           radius="var(--r-xs)"
@@ -490,7 +509,7 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
           <Btn
             variant="ghost"
             size="xs"
-            onClick={() => (onUpdateStatus ?? onStatusChange)(report.id)}
+            onClick={(e) => { e.stopPropagation(); (onUpdateStatus ?? onStatusChange)(report.id); }}
             aria-label={`Change status for report ${report.id}`}
           >
             Status
@@ -499,7 +518,7 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
             <Btn
               variant="danger-soft"
               size="xs"
-              onClick={() => onDelete(report.id)}
+              onClick={(e) => { e.stopPropagation(); onDelete(report.id); }}
               aria-label={`Delete report ${report.id}`}
               data-testid="delete-button"
             >
@@ -609,21 +628,21 @@ export default function ReportsTable({
   }
 
   // ── Filter chips data ────────────────────────────────────────────────────────
-  const submittedCount = reports.filter((r) => r.status === "submitted").length;
-  const reviewCount = reports.filter((r) => r.status === "under_review").length;
+  const openCount = reports.filter((r) => r.status === "open").length;
+  const inReviewCount = reports.filter((r) => r.status === "acknowledged").length;
   const highSevCount = reports.filter((r) => r.severity === "high").length;
 
   const filterChips = [
     { key: "all",          label: "ALL",       count: reports.length },
-    { key: "submitted",    label: "SUBMITTED", count: submittedCount },
-    { key: "under_review", label: "REVIEW",    count: reviewCount },
+    { key: "open",         label: "OPEN",      count: openCount },
+    { key: "acknowledged", label: "IN REVIEW", count: inReviewCount },
     { key: "sev_high",     label: "SEV: HIGH", count: highSevCount },
   ];
 
   // ── Apply filters ────────────────────────────────────────────────────────────
   const filteredReports = reports.filter((r) => {
     if (activeFilters.includes("all")) return true;
-    const hasStatusFilter = activeFilters.some((f) => f === "submitted" || f === "under_review");
+    const hasStatusFilter = activeFilters.some((f) => f === "open" || f === "acknowledged");
     const hasSevFilter = activeFilters.includes("sev_high");
     const passesStatus = !hasStatusFilter || activeFilters.includes(r.status);
     const passesSev = !hasSevFilter || r.severity === "high";
@@ -1029,9 +1048,7 @@ export default function ReportsTable({
                       whiteSpace: "nowrap",
                       textTransform: "uppercase",
                     }}>
-                      {(report as unknown as {corporation?: string | null}).corporation
-                        ?? (report as unknown as {ward_hierarchy?: {corporation?: string | null}}).ward_hierarchy?.corporation
-                        ?? "—"}
+                      {report.corporation ?? report.ward_hierarchy?.corporation ?? "—"}
                     </td>
 
                     {/* SEV */}

@@ -8,7 +8,9 @@
  *   - All 11 named exports must be present and callable  (R-API-3)
  */
 
-import { ADMIN_API_BASE_URL as BASE } from "@/app/lib/config";
+import type { FeatureCollection } from "geojson";
+
+import { ADMIN_API_BASE_URL as BASE, API_BASE_URL } from "@/app/lib/config";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -75,11 +77,14 @@ export interface AdminReport {
   status: string;
   location_source: string;
   ward_name: string | null;
+  // Phase 03 (WARNING-02): Corporation from ward JOIN — populated by backend list_admin_reports query
+  corporation: string | null;
   // Phase 03 (D-13, D-14, D-15): Resolution evidence fields
   resolution_photo_url: string | null;
   resolution_notes: string | null;
   // Phase 03 (D-08, D-09): Org assignment
   assigned_org_id: string | null;
+  assigned_org_name: string | null;
   // Phase 03 (D-21, D-23): Ward hierarchy for bureaucratic + elected chain display
   ward_hierarchy?: WardHierarchy | null;
   // ABUSE-06: Deduplication signals (Phase 02-02)
@@ -146,7 +151,10 @@ async function apiFetch<T>(
   });
 
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
+    // WR-02: read the response body so backend 400/409 error details reach the UI.
+    let detail = "";
+    try { detail = await res.text(); } catch { /* ignore read errors */ }
+    throw new Error(`HTTP ${res.status}${detail ? `: ${detail}` : ""}`);
   }
 
   // 204 No Content — nothing to parse
@@ -356,4 +364,121 @@ export async function assignUserOrg(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ org_id: orgId }),
   });
+}
+
+// ─── Phase 04-01: Streaming export downloads (EXPORT-01, EXPORT-02) ──────────
+
+/**
+ * Download a CSV export of reports filtered by the current filter state.
+ *
+ * Calls GET /api/admin/reports/export/csv with filter query params.
+ * Uses credentials: "include" so the admin session cookie is sent.
+ * Returns the response body as a Blob for Blob URL download.
+ *
+ * Security: filter params are forwarded to the backend which binds them
+ * via build_export_where_clause — no client-side SQL construction.
+ */
+export async function downloadCsvExport(
+  filters?: AdminReportFilters
+): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (filters) {
+    if (filters.category) params.set("category", filters.category);
+    if (filters.status) params.set("status", filters.status);
+    if (filters.severity) params.set("severity", filters.severity);
+    if (filters.date_from) params.set("date_from", filters.date_from);
+    if (filters.date_to) params.set("date_to", filters.date_to);
+  }
+  const qs = params.toString();
+  const url = `${BASE}/api/admin/reports/export/csv${qs ? `?${qs}` : ""}`;
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.blob();
+}
+
+/**
+ * Download a GeoJSON export of reports filtered by the current filter state.
+ *
+ * Calls GET /api/admin/reports/export/geojson with filter query params.
+ * Uses credentials: "include" so the admin session cookie is sent.
+ * Returns the response body as a Blob for Blob URL download.
+ */
+export async function downloadGeoJsonExport(
+  filters?: AdminReportFilters
+): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (filters) {
+    if (filters.category) params.set("category", filters.category);
+    if (filters.status) params.set("status", filters.status);
+    if (filters.severity) params.set("severity", filters.severity);
+    if (filters.date_from) params.set("date_from", filters.date_from);
+    if (filters.date_to) params.set("date_to", filters.date_to);
+  }
+  const qs = params.toString();
+  const url = `${BASE}/api/admin/reports/export/geojson${qs ? `?${qs}` : ""}`;
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.blob();
+}
+
+// ─── Phase 04-03: Admin analytics (ANALYTICS-02/03/04/05) ────────────────────
+
+export interface WardAnalytics {
+  ward_name: string;
+  ward_number: number;
+  unresolved_count: number;
+  total_count: number;
+}
+
+export interface CorporationAnalytics {
+  corporation: string;
+  total_reports: number;
+  resolved_count: number;
+  resolution_rate_pct: number | null;
+}
+
+export interface TrendDataPoint {
+  week_start: string; // "YYYY-MM-DD"
+  category: string;
+  count: number;
+}
+
+export async function getWardAnalytics(): Promise<WardAnalytics[]> {
+  const data = await apiFetch<{ data: WardAnalytics[] }>(`${BASE}/api/admin/analytics/wards`);
+  return data.data;
+}
+
+export async function getCorporationAnalytics(): Promise<CorporationAnalytics[]> {
+  const data = await apiFetch<{ data: CorporationAnalytics[] }>(`${BASE}/api/admin/analytics/corporations`);
+  return data.data;
+}
+
+export async function getTrendData(category?: string): Promise<TrendDataPoint[]> {
+  const params = new URLSearchParams();
+  if (category) params.set("category", category);
+  const qs = params.toString();
+  const data = await apiFetch<{ data: TrendDataPoint[] }>(`${BASE}/api/admin/analytics/trend${qs ? `?${qs}` : ""}`);
+  return data.data;
+}
+
+export async function getWardBoundaries(): Promise<FeatureCollection> {
+  return apiFetch<FeatureCollection>(`${BASE}/api/wards/boundaries`);
+}
+
+// ── Public stats (ANALYTICS-01) ───────────────────────────────────────────────
+
+export interface PublicStats {
+  total_reports: number;
+  resolved_count: number;
+  top_categories: Array<{ category: string; cnt: number }> | null;
+}
+
+/**
+ * Fetch aggregate stats from the public /api/stats endpoint.
+ * No credentials required — this is a public unauthenticated endpoint.
+ */
+export async function getPublicStats(): Promise<PublicStats> {
+  const res = await fetch(`${API_BASE_URL}/api/stats`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }

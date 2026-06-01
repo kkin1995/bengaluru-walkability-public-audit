@@ -121,6 +121,29 @@ pub fn validate_status(status: &str) -> Result<(), AppError> {
     }
 }
 
+/// Validate that `category` is a known `issue_category` enum value (WR-02).
+/// Returns `Err(AppError::BadRequest)` for unrecognised values so export
+/// handlers return 400 instead of a silent empty result set.
+#[allow(dead_code)]
+pub fn validate_category(category: &str) -> Result<(), AppError> {
+    match category {
+        "no_footpath" | "broken_footpath" | "blocked_footpath"
+        | "unsafe_crossing" | "poor_lighting" | "other" => Ok(()),
+        _ => Err(AppError::BadRequest("Invalid category".to_string())),
+    }
+}
+
+/// Validate that `severity` is a known `severity_level` enum value (WR-02).
+/// Returns `Err(AppError::BadRequest)` for unrecognised values so export
+/// handlers return 400 instead of a silent empty result set.
+#[allow(dead_code)]
+pub fn validate_severity(severity: &str) -> Result<(), AppError> {
+    match severity {
+        "low" | "medium" | "high" => Ok(()),
+        _ => Err(AppError::BadRequest("Invalid severity".to_string())),
+    }
+}
+
 /// Validate that a resolve/close status transition is accompanied by a resolution photo.
 ///
 /// # Contract (D-13, D-14, WFLOW-05)
@@ -315,9 +338,8 @@ pub async fn admin_login(
     .map_err(|_| AppError::Internal("JWT encoding failed".to_string()))?;
 
     // Build the HttpOnly cookie.
-    let cookie_secure = std::env::var("COOKIE_SECURE")
-        .map(|v| v == "true" || v == "1")
-        .unwrap_or(false);
+    // WR-01: use state.cookie_secure read once at startup instead of std::env::var per-request.
+    let cookie_secure = state.cookie_secure;
 
     let mut cookie = axum_extra::extract::cookie::Cookie::new("admin_token", token);
     cookie.set_http_only(true);
@@ -350,13 +372,15 @@ pub async fn admin_login(
 ///
 /// `CookieJar::remove` sets Max-Age=0 and an expired date so the browser
 /// immediately discards the cookie.
-pub async fn admin_logout(jar: CookieJar) -> impl axum::response::IntoResponse {
+pub async fn admin_logout(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+) -> impl axum::response::IntoResponse {
     // Mirror the login cookie attributes on the removal cookie so the browser
     // recognises it as clearing the same cookie (D-09: SameSite=None + conditional Secure).
     // SameSite=None required for cross-domain Vercel + Cloudflare tunnel production setup.
-    let cookie_secure = std::env::var("COOKIE_SECURE")
-        .map(|v| v == "true" || v == "1")
-        .unwrap_or(false);
+    // WR-01: use state.cookie_secure read once at startup instead of std::env::var per-request.
+    let cookie_secure = state.cookie_secure;
 
     let mut removal = axum_extra::extract::cookie::Cookie::build(("admin_token", ""))
         .path("/")
@@ -655,6 +679,15 @@ pub async fn admin_resolve_report(
     validate_status(&status)?;
     validate_resolve_request(&status, photo_bytes.len())?;
 
+    // WR-03: validate JPEG magic bytes before stripping EXIF — mirrors the check in
+    // create_report. Without this, a PNG/WEBP reaches img-parts and returns a
+    // misleading "image processing failed" error rather than a clear 400.
+    if !photo_bytes.is_empty() && !crate::handlers::reports::is_jpeg(&photo_bytes) {
+        return Err(AppError::BadRequest(
+            "Only JPEG images are accepted for resolution photos".into(),
+        ));
+    }
+
     // Strip EXIF from photo bytes (T-03-02-01).
     let clean_bytes = crate::handlers::reports::strip_exif(&photo_bytes)?;
 
@@ -704,7 +737,10 @@ pub async fn admin_resolve_report(
     let changed_by = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized)?;
 
     // Persist to DB atomically (UPDATE reports + INSERT status_history in one transaction).
-    let found = admin_queries::resolve_report(
+    // WR-05: use explicit match so both Err and Ok(false) paths delete the written file
+    // before returning. The previous .await? would early-return on Err without cleanup,
+    // leaving an orphaned file on disk for the lifetime of the server.
+    let found = match admin_queries::resolve_report(
         &state.pool,
         id,
         &status,
@@ -712,13 +748,20 @@ pub async fn admin_resolve_report(
         resolution_notes.as_deref(),
         changed_by,
     )
-    .await?;
-
-    if !found {
-        // Clean up the written file since the report was not found.
-        let _ = tokio::fs::remove_file(&write_path).await;
-        return Err(AppError::NotFound);
-    }
+    .await
+    {
+        Err(e) => {
+            let _ = tokio::fs::remove_file(&write_path).await;
+            return Err(e);
+        }
+        Ok(false) => {
+            let _ = tokio::fs::remove_file(&write_path).await;
+            return Err(AppError::NotFound);
+        }
+        Ok(true) => true,
+    };
+    // found is always true here — the match above returns early otherwise.
+    let _ = found;
 
     // Return the updated report.
     let report = admin_queries::get_admin_report_by_id(&state.pool, id)
@@ -804,6 +847,354 @@ pub async fn admin_get_intake_stats(
     let days = params.days.unwrap_or(14).clamp(1, 90);
     let rows = admin_queries::get_intake_stats(&state.pool, days).await?;
     Ok(Json(serde_json::json!(rows)))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// § 3c — Phase 04-01: Streaming export handlers (EXPORT-01, EXPORT-02)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// GET /api/admin/reports/export/csv — stream a filtered CSV export of reports.
+///
+/// # Contract (EXPORT-01, D-13, T-04-01, T-04-02, T-04-CSV)
+/// - Requires admin auth (route is inside admin_protected_router).
+/// - Accepts same AdminReportFilters as admin_list_reports (category, status,
+///   severity, date_from, date_to).
+/// - Streams rows without buffering the full result set (D-15).
+/// - First line is the CSV header; subsequent lines are one row per report.
+/// - Content-Type: text/csv; charset=utf-8 (D-14, UTF-8 without BOM).
+/// - Dates formatted as DD/MM/YYYY (D-12).
+/// - Free-text fields (description, resolution_notes) are csv_escape()d to
+///   prevent CSV injection (T-04-CSV) and field-splitting.
+/// - Bound parameters via build_report_where_clause (T-04-02, no SQL injection).
+pub async fn admin_export_csv(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+    Query(filters): Query<AdminReportFilters>,
+) -> Result<axum::response::Response, AppError> {
+    use axum::{body::Body, http::header};
+    use bytes::Bytes;
+    use futures::StreamExt;
+    use tokio_stream::wrappers::ReceiverStream;
+
+    // Channel buffer=32: prevents writer from racing too far ahead of TCP send buffer.
+    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(32);
+
+    // WR-02: validate enum filter values before spawning — returns 400 for unknown
+    // values rather than silently producing an empty export with no feedback.
+    if let Some(ref s) = filters.status {
+        validate_status(s)?;
+    }
+    if let Some(ref c) = filters.category {
+        validate_category(c)?;
+    }
+    if let Some(ref s) = filters.severity {
+        validate_severity(s)?;
+    }
+
+    let pool = Arc::clone(&state.pool);
+    let category = filters.category.clone();
+    let status = filters.status.clone();
+    let severity = filters.severity.clone();
+    let date_from = filters.date_from;
+    let date_to = filters.date_to;
+
+    tokio::spawn(async move {
+        // 1. CSV header line (D-13 column set)
+        let header_line = "id,submission_date,category,severity,status,ward_name,\
+assigned_org,latitude,longitude,description,photo_hash,duplicate_count,\
+submitter_contact,resolved_at,resolution_notes\n";
+        if tx.send(Ok(Bytes::from(header_line))).await.is_err() {
+            return;
+        }
+
+        // 2. Build dynamic WHERE clause (T-04-02: bound params, no string interpolation)
+        let (where_clause, _next_idx) = crate::db::admin_queries::build_export_where_clause(
+            category.as_deref(),
+            status.as_deref(),
+            severity.as_deref(),
+            date_from,
+            date_to,
+        );
+
+        // CR-01: use build_csv_export_sql() instead of .replace() on a template const.
+        // The where_clause contains only "$N" placeholders — never raw user values.
+        let sql = crate::db::admin_queries::build_csv_export_sql(&where_clause);
+
+        // 3. Build query and bind filter values in param order
+        let mut q = sqlx::query(&sql);
+        if let Some(ref v) = category {
+            q = q.bind(v.as_str());
+        }
+        if let Some(ref v) = status {
+            q = q.bind(v.as_str());
+        }
+        if let Some(ref v) = severity {
+            q = q.bind(v.as_str());
+        }
+        if let Some(v) = date_from {
+            q = q.bind(v);
+        }
+        if let Some(v) = date_to {
+            q = q.bind(v);
+        }
+
+        // 4. Stream rows (fetch() not fetch_all() — no OOM on large datasets)
+        let mut rows = q.fetch(&*pool);
+        while let Some(row_result) = rows.next().await {
+            match row_result {
+                Ok(row) => {
+                    use sqlx::Row;
+                    use crate::db::admin_queries::{csv_escape, format_csv_date, format_csv_date_opt};
+
+                    let id: uuid::Uuid = row.get("id");
+                    let created_at: chrono::DateTime<chrono::Utc> = row.get("created_at");
+                    let category: String = row.get("category");
+                    let severity: String = row.get("severity");
+                    let status: String = row.get("status");
+                    let ward_name: Option<String> = row.get("ward_name");
+                    let assigned_org: Option<String> = row.get("assigned_org");
+                    let latitude: f64 = row.get("latitude");
+                    let longitude: f64 = row.get("longitude");
+                    let description: Option<String> = row.get("description");
+                    let photo_hash: Option<String> = row.get("photo_hash");
+                    let duplicate_count: i32 = row.try_get("duplicate_count").unwrap_or(0);
+                    let submitter_contact: Option<String> = row.get("submitter_contact");
+                    let resolved_at: Option<chrono::DateTime<chrono::Utc>> = row.get("resolved_at");
+                    let resolution_notes: Option<String> = row.get("resolution_notes");
+
+                    let line = format!(
+                        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+                        id,
+                        format_csv_date(&created_at),
+                        csv_escape(&category),
+                        csv_escape(&severity),
+                        csv_escape(&status),
+                        ward_name.as_deref().map(csv_escape).unwrap_or_default(),
+                        assigned_org.as_deref().map(csv_escape).unwrap_or_default(),
+                        latitude,
+                        longitude,
+                        description.as_deref().map(csv_escape).unwrap_or_default(),
+                        photo_hash.as_deref().map(csv_escape).unwrap_or_default(),
+                        duplicate_count,
+                        submitter_contact.as_deref().map(csv_escape).unwrap_or_default(),
+                        format_csv_date_opt(resolved_at.as_ref()),
+                        resolution_notes.as_deref().map(csv_escape).unwrap_or_default(),
+                    );
+
+                    if tx.send(Ok(Bytes::from(line))).await.is_err() {
+                        break; // Client disconnected
+                    }
+                }
+                Err(e) => {
+                    // WR-05: HTTP 200 header is already sent; cannot change status.
+                    // Append an error sentinel comment so consumers can detect truncation.
+                    // RFC 4180 does not define comments, but a "#ERROR:" prefix is
+                    // convention-compatible with most CSV tools that skip # lines.
+                    tracing::error!(error = %e, "CSV export: mid-stream DB error; appending sentinel");
+                    let sentinel = format!("#ERROR: stream interrupted — {}\n", e);
+                    let _ = tx.send(Ok(Bytes::from(sentinel))).await;
+                    break;
+                }
+            }
+        }
+    });
+
+    let stream = ReceiverStream::new(rx);
+    let body = Body::from_stream(stream);
+
+    axum::response::Response::builder()
+        .status(axum::http::StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/csv; charset=utf-8")
+        .header(
+            header::CONTENT_DISPOSITION,
+            "attachment; filename=\"walkability-reports.csv\"",
+        )
+        .body(body)
+        .map_err(|e| AppError::Internal(e.to_string()))
+}
+
+/// GET /api/admin/reports/export/geojson — stream a filtered GeoJSON export.
+///
+/// # Contract (EXPORT-02, T-04-01, T-04-02)
+/// - Requires admin auth (route is inside admin_protected_router).
+/// - Accepts same AdminReportFilters as CSV export.
+/// - Streams a valid GeoJSON FeatureCollection without buffering (D-16).
+/// - Coordinates are [longitude, latitude] per RFC 7946 (Pitfall 4).
+/// - Content-Type: application/geo+json.
+/// - No SELECT * — column whitelist enforced (T-04-01).
+pub async fn admin_export_geojson(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+    Query(filters): Query<AdminReportFilters>,
+) -> Result<axum::response::Response, AppError> {
+    use axum::{body::Body, http::header};
+    use bytes::Bytes;
+    use futures::StreamExt;
+    use tokio_stream::wrappers::ReceiverStream;
+
+    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(32);
+
+    // WR-02: validate enum filter values before spawning — returns 400 for unknown
+    // values rather than silently producing an empty export with no feedback.
+    if let Some(ref s) = filters.status {
+        validate_status(s)?;
+    }
+    if let Some(ref c) = filters.category {
+        validate_category(c)?;
+    }
+    if let Some(ref s) = filters.severity {
+        validate_severity(s)?;
+    }
+
+    let pool = Arc::clone(&state.pool);
+    let category = filters.category.clone();
+    let status = filters.status.clone();
+    let severity = filters.severity.clone();
+    let date_from = filters.date_from;
+    let date_to = filters.date_to;
+
+    tokio::spawn(async move {
+        // GeoJSON opening delimiter
+        if tx
+            .send(Ok(Bytes::from_static(
+                b"{\"type\":\"FeatureCollection\",\"features\":[\n",
+            )))
+            .await
+            .is_err()
+        {
+            return;
+        }
+
+        let (where_clause, _next_idx) = crate::db::admin_queries::build_export_where_clause(
+            category.as_deref(),
+            status.as_deref(),
+            severity.as_deref(),
+            date_from,
+            date_to,
+        );
+
+        // CR-01: use build_geojson_export_sql() instead of .replace() on a template const.
+        // The where_clause contains only "$N" placeholders — never raw user values.
+        let sql = crate::db::admin_queries::build_geojson_export_sql(&where_clause);
+
+        let mut q = sqlx::query(&sql);
+        if let Some(ref v) = category {
+            q = q.bind(v.as_str());
+        }
+        if let Some(ref v) = status {
+            q = q.bind(v.as_str());
+        }
+        if let Some(ref v) = severity {
+            q = q.bind(v.as_str());
+        }
+        if let Some(v) = date_from {
+            q = q.bind(v);
+        }
+        if let Some(v) = date_to {
+            q = q.bind(v);
+        }
+
+        let mut rows = q.fetch(&*pool);
+        let mut first = true;
+
+        while let Some(row_result) = rows.next().await {
+            match row_result {
+                Ok(row) => {
+                    use sqlx::Row;
+
+                    let id: uuid::Uuid = row.get("id");
+                    let created_at: chrono::DateTime<chrono::Utc> = row.get("created_at");
+                    let category: String = row.get("category");
+                    let severity: String = row.get("severity");
+                    let status: String = row.get("status");
+                    let ward_name: Option<String> = row.get("ward_name");
+                    let assigned_org: Option<String> = row.get("assigned_org");
+                    let latitude: f64 = row.get("latitude");
+                    let longitude: f64 = row.get("longitude");
+                    let description: Option<String> = row.get("description");
+                    let photo_hash: Option<String> = row.get("photo_hash");
+                    let duplicate_count: i32 = row.try_get("duplicate_count").unwrap_or(0);
+                    let submitter_contact: Option<String> = row.get("submitter_contact");
+                    let resolved_at: Option<chrono::DateTime<chrono::Utc>> = row.get("resolved_at");
+                    let resolution_notes: Option<String> = row.get("resolution_notes");
+
+                    // Build GeoJSON feature — note [longitude, latitude] coordinate order (RFC 7946 / Pitfall 4)
+                    let feature = serde_json::json!({
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [longitude, latitude]
+                        },
+                        "properties": {
+                            "id": id,
+                            "created_at": created_at,
+                            "category": category,
+                            "severity": severity,
+                            "status": status,
+                            "ward_name": ward_name,
+                            "assigned_org": assigned_org,
+                            "description": description,
+                            "photo_hash": photo_hash,
+                            "duplicate_count": duplicate_count,
+                            "submitter_contact": submitter_contact,
+                            "resolved_at": resolved_at,
+                            "resolution_notes": resolution_notes,
+                        }
+                    });
+
+                    // Comma-separate features (prepend comma for all but the first)
+                    let mut chunk = if first {
+                        first = false;
+                        feature.to_string()
+                    } else {
+                        format!(",{}", feature)
+                    };
+                    chunk.push('\n');
+
+                    if tx.send(Ok(Bytes::from(chunk))).await.is_err() {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    // CR-05: HTTP 200 header is already sent; cannot change status.
+                    // Append an error sentinel feature before the closing `]}` so
+                    // consumers can detect truncation (mirrors the #ERROR: sentinel
+                    // in the CSV export handler). The GeoJSON remains syntactically
+                    // valid; the sentinel feature carries _stream_truncated: true.
+                    tracing::error!(error = %e, "GeoJSON export: mid-stream DB error; appending error feature");
+                    let error_feature = serde_json::json!({
+                        "type": "Feature",
+                        "geometry": null,
+                        "properties": {
+                            "_stream_truncated": true,
+                            "_stream_error": e.to_string()
+                        }
+                    });
+                    let _ = tx.send(Ok(Bytes::from(format!(",{}\n", error_feature)))).await;
+                    break;
+                }
+            }
+        }
+
+        // GeoJSON closing delimiter — sent even on mid-stream error so the output
+        // is parseable JSON (features may be truncated, but the document is valid).
+        let _ = tx
+            .send(Ok(Bytes::from_static(b"]}")))
+            .await;
+    });
+
+    let stream = ReceiverStream::new(rx);
+    let body = Body::from_stream(stream);
+
+    axum::response::Response::builder()
+        .status(axum::http::StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/geo+json")
+        .header(
+            header::CONTENT_DISPOSITION,
+            "attachment; filename=\"walkability-reports.geojson\"",
+        )
+        .body(body)
+        .map_err(|e| AppError::Internal(e.to_string()))
 }
 
 // ── Admin user management handlers ───────────────────────────────────────────
@@ -1023,6 +1414,108 @@ pub async fn admin_assign_user_org(
 
     admin_queries::assign_user_org(&state.pool, user_id, body.org_id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// § 3d — Phase 04-03a: Admin analytics + ward-boundaries handlers
+// Requirements: ANALYTICS-02, ANALYTICS-03, ANALYTICS-04, ANALYTICS-05
+// Security: All four registered under admin_protected_router (T-04-08)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Query params for GET /api/admin/analytics/trend (optional category filter).
+#[derive(serde::Deserialize)]
+pub struct TrendParams {
+    pub category: Option<String>,
+}
+
+/// GET /api/admin/analytics/wards — top 10 wards by unresolved report count.
+///
+/// # Contract (ANALYTICS-02, T-04-08)
+/// - Requires admin auth (route is inside admin_protected_router).
+/// - Returns up to 10 wards ordered by unresolved_count DESC.
+/// - unresolved_count excludes reports with status 'resolved' or 'closed'.
+pub async fn admin_get_ward_analytics(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let rows = admin_queries::get_ward_analytics(&state.pool).await?;
+    Ok(Json(serde_json::json!({ "data": rows })))
+}
+
+/// GET /api/admin/analytics/corporations — resolution rate per corporation.
+///
+/// # Contract (ANALYTICS-03, T-04-08)
+/// - Requires admin auth (route is inside admin_protected_router).
+/// - Returns one row per corporation (org_type = 'corporation').
+/// - resolution_rate_pct is null when total_reports = 0 (NULLIF guard).
+pub async fn admin_get_corporation_analytics(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let rows = admin_queries::get_corporation_analytics(&state.pool).await?;
+    Ok(Json(serde_json::json!({ "data": rows })))
+}
+
+/// GET /api/admin/analytics/trend — reports per week × 12 weeks.
+///
+/// # Contract (ANALYTICS-04, T-04-08, T-04-09)
+/// - Requires admin auth (route is inside admin_protected_router).
+/// - Optional ?category=<value> filter passed as a bound parameter — never
+///   interpolated into SQL (T-04-09).
+/// - Returns one row per (week_start, category) pair with at least one report.
+pub async fn admin_get_trend_data(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<TrendParams>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let rows = admin_queries::get_trend_data(&state.pool, params.category.as_deref()).await?;
+    Ok(Json(serde_json::json!({ "data": rows })))
+}
+
+/// GET /api/wards/boundaries — ward GeoJSON FeatureCollection with unresolved counts.
+///
+/// # Contract (ANALYTICS-05, T-04-08, T-04-10)
+/// - Requires admin auth (route is inside admin_protected_router — the choropleth
+///   is an admin analytics feature per D-04/D-05; NOT a public endpoint).
+/// - Returns a GeoJSON FeatureCollection where each feature's geometry is the
+///   ward polygon (ST_Simplified to 0.001 degrees — T-04-10) and properties
+///   include ward_name, ward_number, and unresolved_count.
+/// - Wards with NULL boundary (missing geometry) are included with null geometry.
+pub async fn admin_get_wards_boundaries(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let rows = admin_queries::get_ward_boundaries(&state.pool).await?;
+
+    // Assemble a GeoJSON FeatureCollection from the DB rows.
+    let features: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|row| {
+            // boundary_geojson is already a valid GeoJSON geometry string from PostGIS.
+            // Parse it so it embeds correctly into the Feature (not as a string literal).
+            let geometry: serde_json::Value = row
+                .boundary_geojson
+                .as_deref()
+                .and_then(|s| serde_json::from_str(s).ok())
+                .unwrap_or(serde_json::Value::Null);
+
+            serde_json::json!({
+                "type": "Feature",
+                "geometry": geometry,
+                "properties": {
+                    "id": row.id,
+                    "ward_name": row.ward_name,
+                    "ward_number": row.ward_number,
+                    "unresolved_count": row.unresolved_count,
+                }
+            })
+        })
+        .collect();
+
+    Ok(Json(serde_json::json!({
+        "type": "FeatureCollection",
+        "features": features,
+    })))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

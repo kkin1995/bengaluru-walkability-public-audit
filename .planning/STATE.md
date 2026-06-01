@@ -1,34 +1,33 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
-status: "Phase 02.6 + Phase 3 shipped — PR #15 + PR #12"
-last_updated: "2026-05-31T00:00:00Z"
-last_activity: 2026-05-31
+milestone_name: MVP
+status: "v1.0 shipped — PR #18"
+last_updated: "2026-06-01T16:16:23.399Z"
+last_activity: 2026-06-01
 progress:
-  total_phases: 17
-  completed_phases: 13
-  total_plans: 47
-  completed_plans: 45
-  percent: 96
-stopped_at: Phase 3.3 fully verified + Phase 02.6 shipped — next is Phase 4
+  total_phases: 19
+  completed_phases: 18
+  total_plans: 59
+  completed_plans: 59
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-11)
+See: .planning/PROJECT.md (updated 2026-06-01 after v1.0 milestone)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase 4 — export and public analytics
+**Current focus:** Planning next milestone (v1.1) — run /gsd-new-milestone
 
 ## Current Position
 
-Phase: 4
+Phase: 05
 Plan: Not started
-Status: Phase 02.6 + Phase 3 shipped — ready to plan Phase 4
-Last activity: 2026-05-31
+Status: v1.0 shipped — PR #18
+Last activity: 2026-06-01
 
 Progress: [█████████░] 92%
 
@@ -36,7 +35,7 @@ Progress: [█████████░] 92%
 
 **Velocity:**
 
-- Total plans completed: 45
+- Total plans completed: 56
 - Average duration: -
 - Total execution time: 0 hours
 
@@ -47,6 +46,9 @@ Progress: [█████████░] 92%
 | 02.5 | 4 | - | - |
 | 02.6 | 3 | - | - |
 | 03.3 | 2 | - | - |
+| 04 | 5 | - | - |
+| 03.4 | 2 | - | - |
+| 04.1 | 4 | - | - |
 
 **Recent Trend:**
 
@@ -158,10 +160,32 @@ Progress: [█████████░] 92%
 - Phase 02.4.1 inserted after Phase 02.4: Security Hardening (URGENT)
 - Phase 05 added: Coming Soon Homepage + Branching Workflow Setup — persistent staging branch, GSD branching config, coming soon page for nammadaari.com (design matching citizen portal, @nammadaariblr Instagram CTA), Cloudflare Tunnel deployment for production domain
 - Phase 3.1 inserted after Phase 3: Admin Report Detail — Split Layout (INSERTED) — UAT-identified below-fold discoverability issue (F-07 / ISSUE-07) on /admin/reports/[id]; Option 4 two-column split layout with independent right-rail scroll
+- Phase 04.1 inserted after Phase 4: Close gap: ANALYTICS-03 + WARD-03 - link wards to organisations (URGENT)
 
 ### Pending Todos
 
 None yet.
+
+## Deferred Items
+
+Items acknowledged and deferred at milestone close on 2026-06-01:
+
+| Category | Item | Status | Note |
+|----------|------|--------|------|
+| debug_session | knowledge-base | unknown | Stale debug session artifact — no active investigation |
+| uat_gap | 02.5-STAGING-UAT-2026-05-24 | open | 0 pending scenarios; staging UAT file with open status marker |
+| uat_gap | 03-UAT-ISSUES | unknown | Phase 03 UAT issues file — all issues resolved in 03.1/03.2/03.3 |
+| uat_gap | 03.1-UAT-ISSUES | open | 0 pending scenarios; issues resolved in later phases |
+| uat_gap | 03.3-UAT-ISSUES | open | 0 pending scenarios; issues resolved |
+| uat_gap | 04.1-HUMAN-UAT | partial | UAT checks 1+2 passed; remaining items are human_needed live-deploy checks |
+| verification_gap | 02.2-VERIFICATION | human_needed | Staging cross-domain auth — requires live Vercel+Railway environment |
+| verification_gap | 02.4-VERIFICATION | human_needed | Self-hosted infra — requires live tunnel + desktop runner access |
+| verification_gap | 02.6-VERIFICATION | human_needed | Build metadata — requires live footer version display check |
+| verification_gap | 03.2-VERIFICATION | human_needed | Dashboard chart period filter — requires live browser UAT |
+| verification_gap | 03.3-VERIFICATION | human_needed | Intake chart real data — requires live browser UAT |
+| verification_gap | 03.4-VERIFICATION | human_needed | Org auto-assign + compact nav — requires live browser UAT |
+| verification_gap | 04.1-VERIFICATION | human_needed | Ward-org analytics — requires live browser UAT |
+| pending_todo | auto-assign-org-from-ward | low | Superseded by Phase 03.4 which implemented this feature |
 
 ### Blockers/Concerns
 
@@ -170,7 +194,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-31T00:00:00Z
-Stopped at: Phase 02.6 + Phase 3 both shipped — ready to begin Phase 4
+Last session: 2026-05-31T07:45:19.408Z
+Stopped at: Phase 4 context gathered
 
 **Planned Phase:** 02.3.1 (implement-walkable-blr-ui-redesign-from-design-file-on-separate-branch) — 4 plans — 2026-04-24T20:47:49.668Z

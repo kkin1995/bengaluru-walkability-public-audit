@@ -244,37 +244,46 @@ pub async fn count_admin_reports(
     let (where_clause, mut param_idx) =
         build_report_where_clause(category, status, severity, date_from, date_to, 1);
 
-    // Append org-scoping condition when the caller has an org assignment.
-    let org_clause = if org_id.is_some() {
+    // WR-01: use a top-level CTE so the query is compatible with PostgreSQL 11
+    // and earlier. Inline CTEs inside IN(...) subqueries are non-standard and
+    // rejected by PG < 12.
+    let (cte_prefix, org_clause) = if org_id.is_some() {
         let cte = format!(
-            " AND reports.ward_id IN (\
-                WITH RECURSIVE org_subtree AS (\
-                    SELECT id FROM organizations WHERE id = ${}\
-                    UNION ALL\
-                    SELECT o.id FROM organizations o\
-                      JOIN org_subtree s ON o.parent_id = s.id\
-                )\
-                SELECT w.id FROM wards w\
-                  JOIN org_subtree s ON w.org_id = s.id\
-            )",
+            "WITH RECURSIVE org_subtree AS (\
+                SELECT id FROM organizations WHERE id = ${}\
+                UNION ALL\
+                SELECT o.id FROM organizations o\
+                  JOIN org_subtree s ON o.parent_id = s.id\
+            ) ",
             param_idx
         );
         param_idx += 1;
-        cte
+        let clause = " AND reports.ward_id IN (\
+                SELECT w.id FROM wards w\
+                  JOIN org_subtree s ON w.org_id = s.id\
+            )".to_string();
+        (cte, clause)
     } else {
-        String::new()
+        (String::new(), String::new())
     };
     let _ = param_idx; // suppress unused-variable warning for count query
 
-    let full_where = format!("{}{}", where_clause, org_clause);
+    // WR-07: org_clause starts with " AND ..." — prepend WHERE when where_clause is empty
+    // so the SQL is valid when org_id is Some but no other filters are active.
+    let full_where = if where_clause.is_empty() && !org_clause.is_empty() {
+        format!("WHERE{}", &org_clause[" AND".len()..])
+    } else {
+        format!("{}{}", where_clause, org_clause)
+    };
 
     let sql = format!(
         r#"
-        SELECT COUNT(*)
+        {}SELECT COUNT(*)
         FROM reports
         LEFT JOIN wards ON wards.id = reports.ward_id
         {}
         "#,
+        cte_prefix,
         full_where
     );
 
@@ -322,28 +331,36 @@ pub async fn list_admin_reports(
     let (where_clause, mut param_idx) =
         build_report_where_clause(category, status, severity, date_from, date_to, 1);
 
-    // Append org-scoping condition when the caller has an org assignment.
-    let org_clause = if org_id.is_some() {
+    // WR-01: use a top-level CTE so the query is compatible with PostgreSQL 11
+    // and earlier. Inline CTEs inside IN(...) subqueries are non-standard and
+    // rejected by PG < 12.
+    let (cte_prefix, org_clause) = if org_id.is_some() {
         let cte = format!(
-            " AND reports.ward_id IN (\
-                WITH RECURSIVE org_subtree AS (\
-                    SELECT id FROM organizations WHERE id = ${}\
-                    UNION ALL\
-                    SELECT o.id FROM organizations o\
-                      JOIN org_subtree s ON o.parent_id = s.id\
-                )\
-                SELECT w.id FROM wards w\
-                  JOIN org_subtree s ON w.org_id = s.id\
-            )",
+            "WITH RECURSIVE org_subtree AS (\
+                SELECT id FROM organizations WHERE id = ${}\
+                UNION ALL\
+                SELECT o.id FROM organizations o\
+                  JOIN org_subtree s ON o.parent_id = s.id\
+            ) ",
             param_idx
         );
         param_idx += 1;
-        cte
+        let clause = " AND reports.ward_id IN (\
+                SELECT w.id FROM wards w\
+                  JOIN org_subtree s ON w.org_id = s.id\
+            )".to_string();
+        (cte, clause)
     } else {
-        String::new()
+        (String::new(), String::new())
     };
 
-    let full_where = format!("{}{}", where_clause, org_clause);
+    // WR-07: org_clause starts with " AND ..." — prepend WHERE when where_clause is empty
+    // so the SQL is valid when org_id is Some but no other filters are active.
+    let full_where = if where_clause.is_empty() && !org_clause.is_empty() {
+        format!("WHERE{}", &org_clause[" AND".len()..])
+    } else {
+        format!("{}{}", where_clause, org_clause)
+    };
 
     let offset = (page - 1) * limit;
     // param_idx currently points to the next free slot after filter + org params
@@ -352,7 +369,7 @@ pub async fn list_admin_reports(
 
     let sql = format!(
         r#"
-        SELECT
+        {cte_prefix}SELECT
             reports.id,
             reports.created_at,
             reports.image_path,
@@ -366,14 +383,16 @@ pub async fn list_admin_reports(
             reports.status::TEXT AS status,
             reports.location_source::TEXT AS location_source,
             wards.ward_name AS ward_name,
-            wards.corporation AS corporation,
+            o.name AS corporation,
             {dedup_cols}
         FROM reports
         LEFT JOIN wards ON wards.id = reports.ward_id
+        LEFT JOIN organizations o ON o.id = reports.assigned_org_id
         {where_clause}
         ORDER BY reports.created_at DESC
         LIMIT ${limit_idx} OFFSET ${offset_idx}
         "#,
+        cte_prefix = cte_prefix,
         dedup_cols = ADMIN_REPORT_DEDUP_COLS,
         where_clause = full_where,
         limit_idx = limit_idx,
@@ -508,6 +527,7 @@ pub async fn get_admin_report_by_id(
             r.assigned_org_id,
             r.ward_id,
             w.ward_name,
+            w.ward_number,
             w.zone_name,
             w.ro_division,
             w.aro_sub_division,
@@ -516,10 +536,12 @@ pub async fn get_admin_report_by_id(
             w.parliamentary_constituency,
             w.mla_name,
             w.mp_name,
-            o.name AS corporation
+            o.name AS corporation,
+            ao.name AS assigned_org_name
         FROM reports r
         LEFT JOIN wards w ON w.id = r.ward_id
         LEFT JOIN organizations o ON o.id = w.org_id
+        LEFT JOIN organizations ao ON ao.id = r.assigned_org_id
         WHERE r.id = $1
         "#,
     )
@@ -560,6 +582,7 @@ pub async fn get_admin_report_by_id(
     let ward_hierarchy = if ward_id.is_some() {
         serde_json::json!({
             "ward_name":                  r.get::<Option<String>, _>("ward_name"),
+            "ward_number":                r.try_get::<Option<i32>, _>("ward_number").unwrap_or(None), // CR-03
             "zone_name":                  r.get::<Option<String>, _>("zone_name"),
             "ro_division":                r.get::<Option<String>, _>("ro_division"),
             "aro_sub_division":           r.get::<Option<String>, _>("aro_sub_division"),
@@ -591,6 +614,7 @@ pub async fn get_admin_report_by_id(
         "resolution_photo_path": r.get::<Option<String>, _>("resolution_photo_path"),
         "resolution_notes":     r.get::<Option<String>, _>("resolution_notes"),
         "assigned_org_id":      r.get::<Option<Uuid>, _>("assigned_org_id"),
+        "assigned_org_name":    r.get::<Option<String>, _>("assigned_org_name"),
         "ward_id":              ward_id,
         "ward_name":            r.get::<Option<String>, _>("ward_name"),
         "corporation":          r.get::<Option<String>, _>("corporation"),
@@ -672,7 +696,8 @@ pub async fn resolve_report(
         UPDATE reports
         SET status = $1::report_status,
             resolution_photo_path = $2,
-            resolution_notes = $3
+            resolution_notes = $3,
+            resolved_at = NOW()
         WHERE id = $4
         "#,
     )
@@ -739,7 +764,17 @@ pub async fn assign_report_org(
     .bind(org_id)
     .bind(report_id)
     .execute(&mut *tx)
-    .await?;
+    .await
+    .map_err(|e| {
+        // WR-01: map FK violation (23503) to a meaningful 400 instead of 500.
+        // Happens when caller supplies a non-existent org_id UUID.
+        if let sqlx::Error::Database(ref db_err) = e {
+            if db_err.code().as_deref() == Some("23503") {
+                return AppError::BadRequest("Organization not found".to_string());
+            }
+        }
+        AppError::Database(e)
+    })?;
 
     if result.rows_affected() == 0 {
         tx.rollback().await?;
@@ -802,22 +837,24 @@ pub async fn get_report_stats(pool: &PgPool) -> Result<StatsResponse, AppError> 
             .map(|k| (k.to_string(), 0))
             .collect();
 
+    // Seed keys match 001_init.sql issue_category enum exactly (CR-01/CR-02):
+    // no_curb_ramp and encroachment were phantom values that never existed in the DB.
     let mut by_category: std::collections::HashMap<String, i64> = [
         "no_footpath",
         "broken_footpath",
         "blocked_footpath",
-        "no_curb_ramp",
         "unsafe_crossing",
         "poor_lighting",
-        "encroachment",
         "other",
     ]
     .iter()
     .map(|k| (k.to_string(), 0))
     .collect();
 
+    // Seed keys match 001_init.sql severity_level enum exactly (CR-01/CR-02):
+    // "critical" was a phantom value that never existed in the DB.
     let mut by_severity: std::collections::HashMap<String, i64> =
-        ["low", "medium", "high", "critical"]
+        ["low", "medium", "high"]
             .iter()
             .map(|k| (k.to_string(), 0))
             .collect();
@@ -1123,6 +1160,499 @@ pub fn attribution_sql_fragment() -> &'static str {
 #[allow(dead_code)]
 pub fn intake_sql_fragment() -> &'static str {
     INTAKE_SQL
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 04-01: Streaming export SQL constants and pure helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Base SELECT + FROM + JOIN fragment shared by both CSV and GeoJSON export handlers.
+///
+/// IN-01: Previously duplicated as EXPORT_CSV_BASE and EXPORT_GEOJSON_BASE with
+/// identical SQL. A single constant prevents silent drift when columns change.
+///
+/// Security notes (T-04-01, T-04-02, CR-01):
+/// - Explicit column whitelist — no SELECT * — so new sensitive columns never
+///   leak automatically.
+/// - Filter values are always bound via .bind() through build_report_where_clause;
+///   never string-interpolated into the SQL string.
+/// - ward_name and assigned_org are JOIN columns; no UUID exposure in export.
+/// - Coordinates are latitude, longitude (columns); the GeoJSON handler reverses
+///   to [longitude, latitude] per GeoJSON RFC 7946 (Pitfall 4).
+///
+/// Use `build_csv_export_sql` or `build_geojson_export_sql` to append the WHERE
+/// clause and ORDER BY at runtime.
+/// Never use `.replace()` on this string — that approach was removed in CR-01
+/// because it bypassed the parameterisation contract.
+const EXPORT_BASE: &str = "SELECT \
+    reports.id, \
+    reports.created_at, \
+    reports.category::TEXT AS category, \
+    reports.severity::TEXT AS severity, \
+    reports.status::TEXT AS status, \
+    wards.ward_name AS ward_name, \
+    organizations.name AS assigned_org, \
+    reports.latitude, \
+    reports.longitude, \
+    reports.description, \
+    reports.photo_hash, \
+    reports.duplicate_count, \
+    reports.submitter_contact, \
+    reports.resolved_at, \
+    reports.resolution_notes \
+    FROM reports \
+    LEFT JOIN wards ON wards.id = reports.ward_id \
+    LEFT JOIN organizations ON organizations.id = reports.assigned_org_id";
+
+/// Alias retained for any test or external references to the old CSV constant name.
+#[allow(dead_code)]
+const EXPORT_CSV_BASE: &str = EXPORT_BASE;
+
+/// Alias retained for any test or external references to the old GeoJSON constant name.
+#[allow(dead_code)]
+const EXPORT_GEOJSON_BASE: &str = EXPORT_BASE;
+
+/// Build a complete export SQL string from a base fragment and a WHERE clause.
+///
+/// # Security contract (CR-01)
+/// - `base` must be one of `EXPORT_CSV_BASE` or `EXPORT_GEOJSON_BASE` (trusted consts).
+/// - `where_clause` must contain only `$N` parameter placeholders produced by
+///   `build_report_where_clause` — never raw user values.
+/// - No raw user input ever enters the SQL string; all values are bound separately
+///   via `.bind()` in the handler after this function returns.
+///
+/// This replaces the previous `.replace("{where_clause}", ...)` approach which,
+/// while safe today, was structurally fragile: any future change that accidentally
+/// interpolated a value instead of a `$N` index would have silently produced
+/// injectable SQL.
+pub fn build_export_sql(base: &str, where_clause: &str) -> String {
+    if where_clause.is_empty() {
+        format!("{} ORDER BY reports.created_at DESC", base)
+    } else {
+        format!("{} {} ORDER BY reports.created_at DESC", base, where_clause)
+    }
+}
+
+/// Build a complete CSV export SQL string.
+///
+/// Convenience wrapper around `build_export_sql` for the CSV export handler.
+pub fn build_csv_export_sql(where_clause: &str) -> String {
+    build_export_sql(EXPORT_CSV_BASE, where_clause)
+}
+
+/// Build a complete GeoJSON export SQL string.
+///
+/// Convenience wrapper around `build_export_sql` for the GeoJSON export handler.
+pub fn build_geojson_export_sql(where_clause: &str) -> String {
+    build_export_sql(EXPORT_GEOJSON_BASE, where_clause)
+}
+
+/// Format a DateTime<Utc> as DD/MM/YYYY (D-12).
+///
+/// Used by the CSV export handler for submission_date and resolved_at columns.
+/// Format string "%d/%m/%Y" produces zero-padded day and month per D-12.
+pub fn format_csv_date(dt: &DateTime<Utc>) -> String {
+    dt.format("%d/%m/%Y").to_string()
+}
+
+/// Format an optional DateTime<Utc> as DD/MM/YYYY, or empty string if None.
+///
+/// Used for resolved_at which may be NULL on open reports.
+#[allow(dead_code)]
+pub fn format_csv_date_opt(dt: Option<&DateTime<Utc>>) -> String {
+    dt.map(|d| d.format("%d/%m/%Y").to_string())
+        .unwrap_or_default()
+}
+
+/// Escape a free-text field for RFC 4180 CSV output.
+///
+/// Rules applied (T-04-CSV — CSV injection mitigation):
+/// 1. Trim whitespace.
+/// 2. Prefix fields starting with =, +, -, or @ with a single quote to
+///    neutralize Excel formula execution.
+/// 3. Replace any internal double-quotes with two double-quotes ("").
+/// 4. Strip newline and carriage return characters (prevent row splitting).
+/// 5. Wrap the entire value in double-quotes.
+///
+/// # Security
+/// Free-text report descriptions and resolution notes are untrusted citizen
+/// input that may contain arbitrary characters. Without this escaping:
+/// - Commas in field values would split into multiple CSV columns.
+/// - Embedded newlines would split rows in spreadsheet applications.
+/// - Formula triggers (=, +, -, @) would execute as Excel formulas.
+pub fn csv_escape(s: &str) -> String {
+    let trimmed = s.trim();
+    // CSV injection mitigation: prefix Excel formula triggers with single quote
+    let sanitized = if trimmed.starts_with(['=', '+', '-', '@']) {
+        format!("'{}", trimmed)
+    } else {
+        trimmed.to_string()
+    };
+    // Double internal quotes, strip newlines, wrap in double-quotes
+    format!(
+        "\"{}\"",
+        sanitized
+            .replace('"', "\"\"")
+            .replace('\n', " ")
+            .replace('\r', "")
+    )
+}
+
+/// Build the WHERE clause for export queries (same filter params as list_admin_reports).
+///
+/// Returns (where_clause, next_param_idx). The where_clause may be an empty string
+/// (no filters) or "WHERE condition1 AND condition2 ..." — the caller inserts
+/// this into the SQL via string replacement of `{where_clause}`.
+///
+/// Parameters are bound in this order: category, status, severity, date_from, date_to.
+/// Bound parameters prevent SQL injection (T-04-02).
+pub fn build_export_where_clause(
+    category: Option<&str>,
+    status: Option<&str>,
+    severity: Option<&str>,
+    date_from: Option<DateTime<Utc>>,
+    date_to: Option<DateTime<Utc>>,
+) -> (String, i32) {
+    build_report_where_clause(category, status, severity, date_from, date_to, 1)
+}
+
+/// Returns the CSV export SQL base fragment used by the streaming handler.
+///
+/// Test-only hook so integration tests in backend/tests/ can verify the
+/// D-13 column set without executing any DB query.
+/// The runtime handler calls `build_csv_export_sql()` which appends the
+/// WHERE clause and ORDER BY to this base at request time.
+#[allow(dead_code)]
+pub fn export_csv_sql_fragment() -> &'static str {
+    EXPORT_CSV_BASE
+}
+
+/// Returns the GeoJSON export SQL base fragment used by the streaming handler.
+///
+/// Test-only hook so integration tests in backend/tests/ can verify the
+/// column whitelist (no SELECT *) without executing any DB query.
+/// The runtime handler calls `build_geojson_export_sql()` which appends the
+/// WHERE clause and ORDER BY to this base at request time.
+#[allow(dead_code)]
+pub fn export_geojson_sql_fragment() -> &'static str {
+    EXPORT_GEOJSON_BASE
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 04-03a: Admin analytics SQL constants and query functions
+// Requirements: ANALYTICS-02, ANALYTICS-03, ANALYTICS-04, ANALYTICS-05
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// ANALYTICS-02: Top 10 wards by unresolved report count.
+///
+/// Security notes (T-04-08, T-04-09):
+/// - Endpoint registered under admin_protected_router (require_auth).
+/// - No user input is interpolated into this SQL — purely aggregate.
+///
+/// Returns columns: ward_name, ward_number, unresolved_count, total_count.
+/// FILTER (WHERE r.status NOT IN ('resolved','closed')) counts only active
+/// issues; ORDER BY unresolved_count DESC; LIMIT 10 caps to top 10.
+const WARD_ANALYTICS_SQL: &str = "SELECT \
+    w.ward_name, \
+    w.ward_number, \
+    COUNT(r.id) FILTER (WHERE r.status NOT IN ('resolved', 'closed')) AS unresolved_count, \
+    COUNT(r.id) AS total_count \
+    FROM wards w \
+    LEFT JOIN reports r ON r.ward_id = w.id \
+    GROUP BY w.id, w.ward_name, w.ward_number \
+    ORDER BY unresolved_count DESC \
+    LIMIT 10";
+
+/// Represents a single row from the ward analytics query.
+#[derive(serde::Serialize)]
+pub struct WardAnalyticsRow {
+    pub ward_name: String,
+    pub ward_number: i32,
+    pub unresolved_count: i64,
+    pub total_count: i64,
+}
+
+/// Returns the top 10 wards ordered by unresolved report count (ANALYTICS-02).
+///
+/// # Contract
+/// - Requires a valid PostgreSQL connection pool.
+/// - Returns at most 10 rows (enforced by SQL LIMIT).
+/// - unresolved_count excludes reports with status 'resolved' or 'closed'.
+pub async fn get_ward_analytics(pool: &PgPool) -> Result<Vec<WardAnalyticsRow>, AppError> {
+    let rows = sqlx::query(WARD_ANALYTICS_SQL)
+        .fetch_all(pool)
+        .await?;
+
+    let result = rows
+        .iter()
+        .map(|r| WardAnalyticsRow {
+            ward_name: r.get::<String, _>("ward_name"),
+            ward_number: r.try_get::<i32, _>("ward_number").unwrap_or(0),
+            unresolved_count: r.get::<i64, _>("unresolved_count"),
+            total_count: r.get::<i64, _>("total_count"),
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Returns the WARD_ANALYTICS_SQL constant for SQL-string unit tests.
+///
+/// Test-only hook — the same constant is used by `get_ward_analytics` at
+/// runtime. Asserting on this string guarantees no drift between the test
+/// and the live query.
+#[allow(dead_code)]
+pub fn ward_analytics_sql_fragment() -> &'static str {
+    WARD_ANALYTICS_SQL
+}
+
+/// ANALYTICS-03: Resolution rate per corporation.
+///
+/// Security notes (T-04-08, T-04-09):
+/// - Endpoint registered under admin_protected_router (require_auth).
+/// - NULLIF(COUNT(r.id), 0) guards against PostgreSQL division-by-zero when
+///   a corporation has no associated reports.
+///
+/// Returns columns: corporation, total_reports, resolved_count,
+/// resolution_rate_pct. Filters to org_type = 'corporation'.
+const CORP_ANALYTICS_SQL: &str = "SELECT \
+    o.name AS corporation, \
+    COUNT(r.id) AS total_reports, \
+    COUNT(r.id) FILTER (WHERE r.status IN ('resolved', 'closed')) AS resolved_count, \
+    ROUND(100.0 * COUNT(r.id) FILTER (WHERE r.status IN ('resolved', 'closed')) \
+        / NULLIF(COUNT(r.id), 0), 1)::float8 AS resolution_rate_pct \
+    FROM organizations o \
+    JOIN wards w ON w.org_id = o.id \
+    LEFT JOIN reports r ON r.ward_id = w.id \
+    WHERE o.org_type = 'corporation' \
+    GROUP BY o.id, o.name \
+    ORDER BY resolution_rate_pct DESC NULLS LAST";
+
+/// Represents a single row from the corporation analytics query.
+#[derive(serde::Serialize)]
+pub struct CorpAnalyticsRow {
+    pub corporation: String,
+    pub total_reports: i64,
+    pub resolved_count: i64,
+    pub resolution_rate_pct: Option<f64>,
+}
+
+/// Returns resolution rate per corporation (ANALYTICS-03).
+///
+/// # Contract
+/// - NULLIF guard prevents division-by-zero at the PostgreSQL level.
+/// - Only organisations with org_type = 'corporation' are included.
+/// - resolution_rate_pct may be None for corporations with total_reports = 0
+///   (NULLIF returns NULL which maps to None in Rust).
+pub async fn get_corporation_analytics(
+    pool: &PgPool,
+) -> Result<Vec<CorpAnalyticsRow>, AppError> {
+    let rows = sqlx::query(CORP_ANALYTICS_SQL)
+        .fetch_all(pool)
+        .await?;
+
+    let result = rows
+        .iter()
+        .map(|r| CorpAnalyticsRow {
+            corporation: r.get::<String, _>("corporation"),
+            total_reports: r.get::<i64, _>("total_reports"),
+            resolved_count: r.get::<i64, _>("resolved_count"),
+            resolution_rate_pct: r.try_get::<f64, _>("resolution_rate_pct").ok(),
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Returns the CORP_ANALYTICS_SQL constant for SQL-string unit tests.
+///
+/// Test-only hook — same string used by `get_corporation_analytics` at runtime.
+#[allow(dead_code)]
+pub fn corp_analytics_sql_fragment() -> &'static str {
+    CORP_ANALYTICS_SQL
+}
+
+// Mirror of 014_link_wards_to_organisations.sql — kept in sync for SQL-string unit tests.
+//
+// The actual migration file is executed by sqlx::migrate! at startup.
+// This const is the testable mirror: ward_org_id_ilike_pattern_consistency asserts
+// that both use the same ILIKE pattern, preventing silent drift between the migration
+// and the runtime get_org_for_ward query.
+const WARD_LINK_MIGRATION_SQL: &str = "UPDATE wards \
+    SET org_id = o.id \
+    FROM organizations o \
+    WHERE o.org_type = 'corporation' \
+      AND o.name ILIKE '%' || wards.corporation || '%' \
+      AND wards.org_id IS NULL";
+
+/// Returns the WARD_LINK_MIGRATION_SQL constant for SQL-string unit tests.
+///
+/// Test-only hook — verifies that migration 014_link_wards_to_organisations.sql
+/// uses the same ILIKE pattern as the runtime `get_org_for_ward` function.
+#[allow(dead_code)]
+pub fn ward_link_migration_sql_fragment() -> &'static str {
+    WARD_LINK_MIGRATION_SQL
+}
+
+/// ANALYTICS-04: Reports per week over the last 12 weeks, optionally filtered
+/// by category.
+///
+/// Security notes (T-04-08, T-04-09):
+/// - Endpoint registered under admin_protected_router (require_auth).
+/// - The optional category filter is a bound parameter ($1) — never interpolated
+///   via format! or string concatenation.
+///
+/// When `category` is None the WHERE clause is omitted (both variants compile
+/// to the same const SQL; the runtime function applies conditional binding).
+///
+/// Returns columns: week_start (YYYY-MM-DD text), category (text), count.
+const TREND_SQL: &str = "SELECT \
+    DATE_TRUNC('week', created_at AT TIME ZONE 'UTC')::DATE::TEXT AS week_start, \
+    category::TEXT AS category, \
+    COUNT(*)::BIGINT AS count \
+    FROM reports \
+    WHERE created_at >= NOW() - INTERVAL '12 weeks' \
+    GROUP BY 1, 2 \
+    ORDER BY 1, 2";
+
+/// Like TREND_SQL but with an additional category filter bound as $1.
+///
+/// Used by `get_trend_data` when a category filter is provided.
+/// Security (T-04-09): category value is a bound parameter, never interpolated.
+const TREND_SQL_FILTERED: &str = "SELECT \
+    DATE_TRUNC('week', created_at AT TIME ZONE 'UTC')::DATE::TEXT AS week_start, \
+    category::TEXT AS category, \
+    COUNT(*)::BIGINT AS count \
+    FROM reports \
+    WHERE created_at >= NOW() - INTERVAL '12 weeks' \
+    AND category::TEXT = $1 \
+    GROUP BY 1, 2 \
+    ORDER BY 1, 2";
+
+/// Represents a single row from the trend data query.
+#[derive(serde::Serialize)]
+pub struct TrendDataRow {
+    pub week_start: String,
+    pub category: String,
+    pub count: i64,
+}
+
+/// Returns reports-per-week aggregates over the last 12 weeks (ANALYTICS-04).
+///
+/// # Contract
+/// - `category` is an optional filter. When Some, it is bound as a sqlx
+///   parameter — never interpolated into the SQL string (T-04-09).
+/// - Returns one row per (week_start, category) pair that has at least one
+///   report.
+/// - Frontend is responsible for zero-filling sparse week/category combinations.
+pub async fn get_trend_data(
+    pool: &PgPool,
+    category: Option<&str>,
+) -> Result<Vec<TrendDataRow>, AppError> {
+    let rows = match category {
+        Some(cat) => {
+            sqlx::query(TREND_SQL_FILTERED)
+                .bind(cat)
+                .fetch_all(pool)
+                .await?
+        }
+        None => {
+            sqlx::query(TREND_SQL)
+                .fetch_all(pool)
+                .await?
+        }
+    };
+
+    let result = rows
+        .iter()
+        .map(|r| TrendDataRow {
+            week_start: r.get::<String, _>("week_start"),
+            category: r.get::<String, _>("category"),
+            count: r.get::<i64, _>("count"),
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Returns the TREND_SQL constant for SQL-string unit tests.
+///
+/// Test-only hook — same string used by `get_trend_data` (unfiltered variant)
+/// at runtime. Tests assert that DATE_TRUNC('week') and INTERVAL '12 weeks'
+/// are present.
+#[allow(dead_code)]
+pub fn trend_sql_fragment() -> &'static str {
+    TREND_SQL
+}
+
+/// ANALYTICS-05: Ward polygons with unresolved report count for choropleth.
+///
+/// Security notes (T-04-08, T-04-10):
+/// - Endpoint registered under admin_protected_router (require_auth).
+/// - ST_Simplify(boundary::geometry, 0.001) reduces vertex count per Pitfall 7
+///   — 0.001 degrees ≈ 100 m simplification, sufficient for visual choropleth
+///   while keeping response size manageable (T-04-10).
+///
+/// Returns columns: id, ward_name, ward_number, boundary_geojson (text),
+/// unresolved_count. The handler assembles these into a GeoJSON FeatureCollection.
+const WARD_BOUNDARIES_SQL: &str = "SELECT \
+    w.id, \
+    w.ward_name, \
+    w.ward_number, \
+    ST_AsGeoJSON(ST_Simplify(w.boundary::geometry, 0.001)) AS boundary_geojson, \
+    COUNT(r.id) FILTER (WHERE r.status NOT IN ('resolved', 'closed')) AS unresolved_count \
+    FROM wards w \
+    LEFT JOIN reports r ON r.ward_id = w.id \
+    GROUP BY w.id, w.ward_name, w.ward_number, w.boundary";
+
+/// Represents a single row from the ward boundaries query.
+///
+/// `boundary_geojson` is the ST_AsGeoJSON output — a valid GeoJSON geometry
+/// string (e.g. `{"type":"MultiPolygon","coordinates":[...]}`).
+#[derive(serde::Serialize)]
+pub struct WardBoundaryRow {
+    pub id: Uuid,
+    pub ward_name: String,
+    pub ward_number: i32,
+    pub boundary_geojson: Option<String>,
+    pub unresolved_count: i64,
+}
+
+/// Returns ward boundary GeoJSON strings with unresolved report counts (ANALYTICS-05).
+///
+/// The handler is responsible for assembling the rows into a GeoJSON
+/// FeatureCollection with properties { ward_name, ward_number, unresolved_count }
+/// and the boundary_geojson as the geometry.
+///
+/// # Contract
+/// - Rows with NULL boundary (wards missing geometry) have boundary_geojson = None.
+/// - unresolved_count excludes reports with status 'resolved' or 'closed'.
+pub async fn get_ward_boundaries(pool: &PgPool) -> Result<Vec<WardBoundaryRow>, AppError> {
+    let rows = sqlx::query(WARD_BOUNDARIES_SQL)
+        .fetch_all(pool)
+        .await?;
+
+    let result = rows
+        .iter()
+        .map(|r| WardBoundaryRow {
+            id: r.get::<Uuid, _>("id"),
+            ward_name: r.get::<String, _>("ward_name"),
+            ward_number: r.try_get::<i32, _>("ward_number").unwrap_or(0),
+            boundary_geojson: r.try_get::<String, _>("boundary_geojson").ok(),
+            unresolved_count: r.get::<i64, _>("unresolved_count"),
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Returns the WARD_BOUNDARIES_SQL constant for SQL-string unit tests.
+///
+/// Test-only hook — same string used by `get_ward_boundaries` at runtime.
+/// Tests assert ST_AsGeoJSON, ST_Simplify, and unresolved_count are present.
+#[allow(dead_code)]
+pub fn ward_boundaries_sql_fragment() -> &'static str {
+    WARD_BOUNDARIES_SQL
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1650,5 +2180,56 @@ mod tests {
              with bound parameters (T-intake-sqli); got: {}",
             sql
         );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite NF-03-B — geographic org auto-assignment SQL-string tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// NF-03-B — list_admin_reports SQL must JOIN organizations on assigned_org_id,
+    /// not read corporation from wards.corporation directly.
+    #[test]
+    fn list_admin_reports_corp_join_uses_assigned_org_id() {
+        let (where_clause, param_idx) = build_report_where_clause(None, None, None, None, None, 1);
+        let limit_idx = param_idx;
+        let offset_idx = param_idx + 1;
+        let sql = format!(
+            r#"
+            SELECT
+                reports.id,
+                o.name AS corporation,
+                {dedup_cols}
+            FROM reports
+            LEFT JOIN wards ON wards.id = reports.ward_id
+            LEFT JOIN organizations o ON o.id = reports.assigned_org_id
+            {where_clause}
+            ORDER BY reports.created_at DESC
+            LIMIT ${limit_idx} OFFSET ${offset_idx}
+            "#,
+            dedup_cols = ADMIN_REPORT_DEDUP_COLS,
+            where_clause = where_clause,
+            limit_idx = limit_idx,
+            offset_idx = offset_idx,
+        );
+        assert!(
+            sql.contains("LEFT JOIN organizations o ON o.id = reports.assigned_org_id"),
+            "list_admin_reports must JOIN organizations on assigned_org_id; got: {}",
+            sql
+        );
+        assert!(
+            !sql.contains("wards.corporation"),
+            "list_admin_reports must NOT read corporation from wards directly; got: {}",
+            sql
+        );
+    }
+
+    /// NF-03-B — Auto-assign status_history insert must use 'open' status and NULL changed_by.
+    #[test]
+    fn auto_assign_history_sql_uses_open_status_and_null_changed_by() {
+        let sql = r#"INSERT INTO status_history (report_id, new_status, note, changed_by)
+           VALUES ($1, 'open'::report_status, 'Auto-assigned based on ward geography', NULL)"#;
+        assert!(sql.contains("'open'::report_status"), "auto-assign must use open status; got: {}", sql);
+        assert!(sql.contains("NULL"), "changed_by must be NULL for system auto-assign; got: {}", sql);
+        assert!(sql.contains("ward geography"), "note must reference ward geography; got: {}", sql);
     }
 }

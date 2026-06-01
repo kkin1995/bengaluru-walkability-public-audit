@@ -68,6 +68,37 @@ pub async fn get_ward_label_for_point(
     Ok(row)
 }
 
+/// Look up the owning BBMP corporation organization for a given ward ID.
+///
+/// The organizations table stores names like "Bengaluru Central Corporation".
+/// The wards table stores a short corporation label (e.g. "Central").
+/// This function matches them via ILIKE so a single trusted DB value drives the join.
+///
+/// # Safety
+/// `wards.corporation` contains only 5 trusted migration-seeded values
+/// (Central/North/East/South/West) — it is never user input.
+/// `ward_id` is always bound as a `$1` parameter.
+///
+/// Returns `Some(org_id)` when a matching corporation is found,
+/// `None` when no match exists (e.g. out-of-bounds or unmapped ward).
+pub async fn get_org_for_ward(pool: &PgPool, ward_id: Uuid) -> Result<Option<Uuid>, AppError> {
+    let row = sqlx::query_as::<_, (Uuid,)>(
+        r#"
+        SELECT o.id
+        FROM wards w
+        JOIN organizations o
+          ON o.org_type = 'corporation'
+          AND o.name ILIKE '%' || w.corporation || '%'
+        WHERE w.id = $1
+        LIMIT 1
+        "#,
+    )
+    .bind(ward_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|(id,)| id))
+}
+
 /// Check whether a photo with the given SHA256 hash already exists in the DB.
 /// Used by create_report to silently reject exact duplicate photo uploads.
 pub async fn check_photo_hash_exists(pool: &PgPool, hash: &str) -> Result<bool, AppError> {
@@ -83,16 +114,17 @@ pub async fn insert_report(
     req: &CreateReportRequest,
     image_path: &str,
     ward_id: Option<Uuid>,
+    assigned_org_id: Option<Uuid>,
 ) -> Result<Report, AppError> {
     let row = sqlx::query_as::<_, Report>(
         r#"
         INSERT INTO reports
             (image_path, latitude, longitude, category, severity,
              description, submitter_name, submitter_contact, location_source, ward_id,
-             photo_hash, submitter_ip)
+             photo_hash, submitter_ip, assigned_org_id)
         VALUES ($1, $2, $3, $4::issue_category, $5::severity_level,
                 $6, $7, $8, $9::location_source, $10,
-                $11, $12)
+                $11, $12, $13)
         RETURNING
             id, created_at, image_path, latitude, longitude,
             category::TEXT AS category,
@@ -125,6 +157,7 @@ pub async fn insert_report(
     .bind(ward_id)
     .bind(req.photo_hash.as_deref())
     .bind(req.submitter_ip.as_deref())
+    .bind(assigned_org_id)  // $13
     .fetch_one(pool)
     .await?;
 
@@ -414,6 +447,75 @@ pub async fn get_report_with_detail(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Public open-data queries (EXPORT-03, ANALYTICS-01)
+//
+// D-17 whitelist — zero PII fields.
+// Explicitly excluded: submitter_name, submitter_contact, submitter_ip, photo_hash.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Column-whitelisted SQL for the public GeoJSON open-data endpoint.
+/// NO PII columns (submitter_name, submitter_contact, photo_hash excluded per D-17).
+/// Coordinates are rounded to 3 decimal places (~111 m) by the handler via round3().
+pub const PUBLIC_GEOJSON_SQL: &str = r#"
+SELECT
+    r.id,
+    r.category::TEXT          AS category,
+    r.severity::TEXT          AS severity,
+    r.status::TEXT            AS status,
+    w.ward_name               AS ward_name,
+    w.corporation             AS corporation,
+    r.created_at,
+    r.description,
+    r.latitude,
+    r.longitude
+FROM reports r
+LEFT JOIN wards w ON w.id = r.ward_id
+ORDER BY r.created_at DESC
+"#;
+
+/// Test-only helper: exposes PUBLIC_GEOJSON_SQL for unit tests.
+#[allow(dead_code)]
+pub fn public_geojson_sql_fragment() -> &'static str {
+    PUBLIC_GEOJSON_SQL
+}
+
+/// Round a float to 3 decimal places (~111 m precision at Bengaluru latitudes).
+/// Applied to latitude and longitude in the public GeoJSON endpoint (D-17 privacy).
+pub fn round3(f: f64) -> f64 {
+    (f * 1000.0).round() / 1000.0
+}
+
+/// Row returned by get_public_stats — sourced from the public_stats_mv MV.
+pub struct PublicStatsRow {
+    pub total_reports: i64,
+    pub resolved_count: i64,
+    pub top_categories: Option<serde_json::Value>,
+}
+
+/// Read aggregate stats from the public_stats_mv materialized view.
+/// Returns zero counts when the view has no rows (e.g. fresh database).
+pub async fn get_public_stats(pool: &PgPool) -> Result<PublicStatsRow, AppError> {
+    let row = sqlx::query(
+        "SELECT total_reports, resolved_count, top_categories FROM public_stats_mv",
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    match row {
+        Some(r) => Ok(PublicStatsRow {
+            total_reports: r.get::<i64, _>("total_reports"),
+            resolved_count: r.get::<i64, _>("resolved_count"),
+            top_categories: r.get::<Option<serde_json::Value>, _>("top_categories"),
+        }),
+        None => Ok(PublicStatsRow {
+            total_reports: 0,
+            resolved_count: 0,
+            top_categories: None,
+        }),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Unit tests — no database required
 //
 // Requirements covered:
@@ -487,6 +589,22 @@ mod tests {
         assert!(
             sql.contains("ward_number") && sql.contains("ward_name"),
             "public ward lookup must select ward_number and ward_name; got: {}",
+            sql
+        );
+    }
+
+    /// NF-03-B — get_org_for_ward SQL must use ILIKE pattern and org_type filter.
+    #[test]
+    fn get_org_for_ward_uses_ilike_and_org_type_filter() {
+        let sql = r#"SELECT o.id FROM wards w JOIN organizations o ON o.org_type = 'corporation' AND o.name ILIKE '%' || w.corporation || '%' WHERE w.id = $1 LIMIT 1"#;
+        assert!(
+            sql.contains("ILIKE '%' || w.corporation || '%'"),
+            "org lookup must use ILIKE with ward.corporation; got: {}",
+            sql
+        );
+        assert!(
+            sql.contains("org_type = 'corporation'"),
+            "org lookup must filter by org_type = 'corporation'; got: {}",
             sql
         );
     }

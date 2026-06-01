@@ -7,6 +7,8 @@ import {
   deleteReport,
   updateReportStatus,
   getMe,
+  downloadCsvExport,
+  downloadGeoJsonExport,
   type AdminReport,
   type AdminReportFilters,
 } from "../lib/adminApi";
@@ -59,7 +61,8 @@ function ReportsPageContent(props: PageProps) {
 
   // Status-change modal state
   const [changingStatusId, setChangingStatusId] = useState<string | null>(null);
-  const [pendingStatus, setPendingStatus] = useState<string>("submitted");
+  // CR-04: default to "open" — the Phase-03 enum starts at "open", not "submitted"
+  const [pendingStatus, setPendingStatus] = useState<string>("open");
   const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
 
@@ -119,7 +122,8 @@ function ReportsPageContent(props: PageProps) {
 
   function handleUpdateStatus(id: string) {
     const report = reports.find((r) => r.id === id);
-    setPendingStatus(report?.status ?? "submitted");
+    // CR-04: fall back to "open" (Phase-03 enum first value), not old "submitted"
+    setPendingStatus(report?.status ?? "open");
     setStatusUpdateError(null);
     setChangingStatusId(id);
   }
@@ -136,6 +140,50 @@ function ReportsPageContent(props: PageProps) {
       setStatusUpdateError("Failed to update status. Please try again.");
     } finally {
       setIsStatusUpdating(false);
+    }
+  }
+
+  // Phase 04-01: Export download handlers (EXPORT-01, EXPORT-02)
+  // Build current filter state and trigger a Blob URL download.
+  async function handleCsvDownload() {
+    try {
+      const filters: AdminReportFilters = {};
+      if (category) filters.category = category;
+      if (status) filters.status = status;
+      const blob = await downloadCsvExport(filters);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "walkability-reports.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // CR-02: defer revocation so the browser has time to initiate the download
+      // before the Blob URL is invalidated. Synchronous revocation races the
+      // browser's download initiation and silently fails on some browsers.
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch {
+      // Silently ignore — export error does not disrupt the page UI
+    }
+  }
+
+  async function handleGeoJsonDownload() {
+    try {
+      const filters: AdminReportFilters = {};
+      if (category) filters.category = category;
+      if (status) filters.status = status;
+      const blob = await downloadGeoJsonExport(filters);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "walkability-reports.geojson";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // CR-02: defer revocation so the browser has time to initiate the download.
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch {
+      // Silently ignore — export error does not disrupt the page UI
     }
   }
 
@@ -210,19 +258,40 @@ function ReportsPageContent(props: PageProps) {
           </Btn>
         </Card>
       ) : (
-        <ReportsTable
-          reports={reports}
-          role={role}
-          onStatusChange={handleStatusChange}
-          onUpdateStatus={handleUpdateStatus}
-          onDelete={handleDelete}
-          isLoading={isLoading}
-          onCategoryChange={handleCategoryChange}
-          totalCount={totalCount}
-          page={page}
-          totalPages={totalPages}
-          onPageChange={(pg) => fetchReports(categoryRef.current, statusRef.current, pg)}
-        />
+        <>
+          {/* Phase 04-01: Export buttons — below filter bar, above reports table (D-07) */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <Btn
+              variant="ghost"
+              size="sm"
+              onClick={handleCsvDownload}
+              disabled={isLoading}
+            >
+              Export CSV
+            </Btn>
+            <Btn
+              variant="ghost"
+              size="sm"
+              onClick={handleGeoJsonDownload}
+              disabled={isLoading}
+            >
+              Export GeoJSON
+            </Btn>
+          </div>
+          <ReportsTable
+            reports={reports}
+            role={role}
+            onStatusChange={handleStatusChange}
+            onUpdateStatus={handleUpdateStatus}
+            onDelete={handleDelete}
+            isLoading={isLoading}
+            onCategoryChange={handleCategoryChange}
+            totalCount={totalCount}
+            page={page}
+            totalPages={totalPages}
+            onPageChange={(pg) => fetchReports(categoryRef.current, statusRef.current, pg)}
+          />
+        </>
       )}
 
       {/* Status-change modal */}
@@ -300,9 +369,13 @@ function ReportsPageContent(props: PageProps) {
                 fontFamily: "var(--font-sans)",
               }}
             >
-              <option value="submitted">Submitted</option>
-              <option value="under_review">Under Review</option>
+              {/* CR-04: Phase-03 status enum — open/acknowledged/assigned/in_progress/resolved/closed */}
+              <option value="open">Open</option>
+              <option value="acknowledged">Acknowledged</option>
+              <option value="assigned">Assigned</option>
+              <option value="in_progress">In Progress</option>
               <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
             </select>
 
             {statusUpdateError && (
