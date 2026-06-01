@@ -1420,7 +1420,7 @@ const CORP_ANALYTICS_SQL: &str = "SELECT \
     COUNT(r.id) AS total_reports, \
     COUNT(r.id) FILTER (WHERE r.status IN ('resolved', 'closed')) AS resolved_count, \
     ROUND(100.0 * COUNT(r.id) FILTER (WHERE r.status IN ('resolved', 'closed')) \
-        / NULLIF(COUNT(r.id), 0), 1) AS resolution_rate_pct \
+        / NULLIF(COUNT(r.id), 0), 1)::float8 AS resolution_rate_pct \
     FROM organizations o \
     JOIN wards w ON w.org_id = o.id \
     LEFT JOIN reports r ON r.ward_id = w.id \
