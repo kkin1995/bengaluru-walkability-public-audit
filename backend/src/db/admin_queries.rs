@@ -1472,6 +1472,28 @@ pub fn corp_analytics_sql_fragment() -> &'static str {
     CORP_ANALYTICS_SQL
 }
 
+// Mirror of 014_link_wards_to_organisations.sql — kept in sync for SQL-string unit tests.
+//
+// The actual migration file is executed by sqlx::migrate! at startup.
+// This const is the testable mirror: ward_org_id_ilike_pattern_consistency asserts
+// that both use the same ILIKE pattern, preventing silent drift between the migration
+// and the runtime get_org_for_ward query.
+const WARD_LINK_MIGRATION_SQL: &str = "UPDATE wards \
+    SET org_id = o.id \
+    FROM organizations o \
+    WHERE o.org_type = 'corporation' \
+      AND o.name ILIKE '%' || wards.corporation || '%' \
+      AND wards.org_id IS NULL";
+
+/// Returns the WARD_LINK_MIGRATION_SQL constant for SQL-string unit tests.
+///
+/// Test-only hook — verifies that migration 014_link_wards_to_organisations.sql
+/// uses the same ILIKE pattern as the runtime `get_org_for_ward` function.
+#[allow(dead_code)]
+pub fn ward_link_migration_sql_fragment() -> &'static str {
+    WARD_LINK_MIGRATION_SQL
+}
+
 /// ANALYTICS-04: Reports per week over the last 12 weeks, optionally filtered
 /// by category.
 ///
