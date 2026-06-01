@@ -337,6 +337,26 @@ describe("ReportsTable: onStatusChange callback", () => {
 });
 
 // ---------------------------------------------------------------------------
+// NF-03-A: CompactRow full-card navigation
+// ---------------------------------------------------------------------------
+
+describe("CompactRow: full-card navigation", () => {
+  it("renders an anchor linking to /admin/reports/:id covering the card body", () => {
+    render(
+      <ReportsTable
+        reports={[REPORT_A]}
+        role="admin"
+        onStatusChange={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+    // The sr-only anchor must be present for accessibility and navigation
+    const link = screen.getByRole("link", { name: /view report/i });
+    expect(link).toHaveAttribute("href", `/admin/reports/${REPORT_A.id}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Empty state
 // ---------------------------------------------------------------------------
 
