@@ -36,11 +36,11 @@ Requirements for MVP — scoped for soft launch with Walkaluru / GBA.
 
 ### Self-Hosted Infrastructure (Phase 02.4)
 
-- [ ] **INFRA-01**: The Rust/Axum backend and PostGIS database run via `docker compose` on the Arch Linux desktop using `docker-compose.yml` + a new `docker-compose.server.yml` override that removes the `frontend` container dependency from `nginx`
-- [ ] **INFRA-02**: A Cloudflare tunnel (`cloudflared` systemd service) routes public HTTPS traffic to the desktop `nginx:80`, and `curl https://<tunnel-url>/health` returns `{"status":"ok"}` from the internet
-- [ ] **INFRA-03**: A GitHub Actions self-hosted runner on the desktop executes the deploy job on every push to `main` — building and restarting services via `docker compose` — with zero manual SSH steps
-- [ ] **INFRA-04**: The Vercel-hosted Next.js frontend successfully calls the backend through the Cloudflare tunnel URL (`NEXT_PUBLIC_API_URL` updated, Vercel redeploy triggered)
-- [ ] **INFRA-05**: The full admin login + report submission flow works end-to-end across the Vercel frontend ↔ Cloudflare tunnel ↔ desktop backend boundary (cookies, CORS, HTTPS all verified)
+- [x] **INFRA-01**: The Rust/Axum backend and PostGIS database run via `docker compose` on the Arch Linux desktop using `docker-compose.yml` + a new `docker-compose.server.yml` override that removes the `frontend` container dependency from `nginx`
+- [x] **INFRA-02**: A Cloudflare tunnel (`cloudflared` systemd service) routes public HTTPS traffic to the desktop `nginx:80`, and `curl https://<tunnel-url>/health` returns `{"status":"ok"}` from the internet
+- [x] **INFRA-03**: A GitHub Actions self-hosted runner on the desktop executes the deploy job on every push to `main` — building and restarting services via `docker compose` — with zero manual SSH steps
+- [x] **INFRA-04**: The Vercel-hosted Next.js frontend successfully calls the backend through the Cloudflare tunnel URL (`NEXT_PUBLIC_API_URL` updated, Vercel redeploy triggered)
+- [x] **INFRA-05**: The full admin login + report submission flow works end-to-end across the Vercel frontend ↔ Cloudflare tunnel ↔ desktop backend boundary (cookies, CORS, HTTPS all verified)
 
 ### UAT Bug Fixes (Phase 02.3)
 
@@ -69,9 +69,9 @@ Requirements for MVP — scoped for soft launch with Walkaluru / GBA.
 
 ### Public Map
 
-- [ ] **MAP-01**: Public map pins are color-coded by report status (distinct colors for Open, In Progress, Resolved)
+- [x] **MAP-01**: Public map pins are color-coded by report status (distinct colors for Open, In Progress, Resolved)
 - [x] **MAP-02**: A heatmap layer on the public map shows issue density by geographic area, togglable by the user
-- [ ] **MAP-03**: Report status is visible in the popup when a map pin is clicked
+- [x] **MAP-03**: Report status is visible in the popup when a map pin is clicked
 
 ### Data Export
 
@@ -86,6 +86,12 @@ Requirements for MVP — scoped for soft launch with Walkaluru / GBA.
 - [x] **ANALYTICS-03**: Admin analytics view shows resolution rate per corporation (resolved / total reports in their wards)
 - [x] **ANALYTICS-04**: Admin analytics view shows trend chart: reports submitted per week over the last 12 weeks, filterable by category
 - [x] **ANALYTICS-05**: Admin analytics map shows ward choropleth: ward fill color by unresolved report density
+
+### Phase 04.1 Non-Functional Requirements (gap-closure)
+
+- [x] **NF-04.1-A**: Migration 014 (`014_link_wards_to_organisations.sql`) links all 369 ward rows to their parent corporation organization via `ILIKE` on `wards.corporation` — the UPDATE is idempotent (`WHERE org_id IS NULL`) and requires no user input
+- [x] **NF-04.1-B**: SQL-string unit tests in `backend/tests/analytics_tests.rs` guard against pattern drift between the migration UPDATE expression and the `get_org_for_ward` ILIKE query, and assert that `CORP_ANALYTICS_SQL` uses a `::float8` cast so `resolution_rate_pct` decodes as `f64` at runtime
+- [x] **NF-04.1-C**: The `AdminReport` TypeScript interface in `frontend/app/admin/lib/adminApi.ts` declares `corporation: string | null` as a non-optional typed field; `ReportsTable.tsx` CORP column accesses `report.corporation` directly without `as unknown as` unsafe casts
 
 ---
 
@@ -169,19 +175,19 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ABUSE-04 | Phase 2 | Complete |
 | ABUSE-05 | Phase 2 | Complete |
 | ABUSE-06 | Phase 2 | Complete |
-| INFRA-01 | Phase 02.4 | Pending |
-| INFRA-02 | Phase 02.4 | Pending |
-| INFRA-03 | Phase 02.4 | Pending |
-| INFRA-04 | Phase 02.4 | Pending |
-| INFRA-05 | Phase 02.4 | Pending |
+| INFRA-01 | Phase 02.4 | Complete |
+| INFRA-02 | Phase 02.4 | Complete |
+| INFRA-03 | Phase 02.4 | Complete |
+| INFRA-04 | Phase 02.4 | Complete |
+| INFRA-05 | Phase 02.4 | Complete |
 | WFLOW-01 | Phase 3 | Complete |
 | WFLOW-02 | Phase 3 | Complete |
 | WFLOW-03 | Phase 3 | Complete |
 | WFLOW-04 | Phase 3 | Complete |
 | WFLOW-05 | Phase 3 | Complete |
-| MAP-01 | Phase 3 | Pending |
+| MAP-01 | Phase 3 | Complete |
 | MAP-02 | Phase 4 | Complete |
-| MAP-03 | Phase 3 | Pending |
+| MAP-03 | Phase 3 | Complete |
 | EXPORT-01 | Phase 4 | Complete |
 | EXPORT-02 | Phase 4 | Complete |
 | EXPORT-03 | Phase 4 | Complete |
@@ -190,14 +196,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ANALYTICS-03 | Phase 4 | Complete |
 | ANALYTICS-04 | Phase 4 | Complete |
 | ANALYTICS-05 | Phase 4 | Complete |
+| NF-04.1-A | Phase 04.1 | Complete |
+| NF-04.1-B | Phase 04.1 | Complete |
+| NF-04.1-C | Phase 04.1 | Complete |
 
 **Coverage:**
-- Total requirements: 48 (26 v1 feature + 17 hardening/staging/UAT + 5 infra from inserted phases)
-- Mapped to phases: 48
+- Total requirements: 51 (26 v1 feature + 17 hardening/staging/UAT + 5 infra from inserted phases + 3 phase 04.1 non-functional)
+- Mapped to phases: 51
 - Unmapped: 0
-- Complete: 27 | Pending: 21
+- Complete: 30 | Pending: 21
 
 ---
 
 *Requirements defined: 2026-03-11*
-*Last updated: 2026-05-20 — Added INFRA-01..05 (Phase 02.4 self-hosted infrastructure); updated traceability and coverage counts*
+*Last updated: 2026-06-01 — Added NF-04.1-A, NF-04.1-B, NF-04.1-C (Phase 04.1 gap-closure); updated coverage counts*
