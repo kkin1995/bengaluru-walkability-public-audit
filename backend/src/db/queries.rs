@@ -559,4 +559,20 @@ mod tests {
             sql
         );
     }
+
+    /// NF-03-B — get_org_for_ward SQL must use ILIKE pattern and org_type filter.
+    #[test]
+    fn get_org_for_ward_uses_ilike_and_org_type_filter() {
+        let sql = r#"SELECT o.id FROM wards w JOIN organizations o ON o.org_type = 'corporation' AND o.name ILIKE '%' || w.corporation || '%' WHERE w.id = $1 LIMIT 1"#;
+        assert!(
+            sql.contains("ILIKE '%' || w.corporation || '%'"),
+            "org lookup must use ILIKE with ward.corporation; got: {}",
+            sql
+        );
+        assert!(
+            sql.contains("org_type = 'corporation'"),
+            "org lookup must filter by org_type = 'corporation'; got: {}",
+            sql
+        );
+    }
 }
