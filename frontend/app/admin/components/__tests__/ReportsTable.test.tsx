@@ -341,7 +341,7 @@ describe("ReportsTable: onStatusChange callback", () => {
 // ---------------------------------------------------------------------------
 
 describe("CompactRow: full-card navigation", () => {
-  it("renders an anchor linking to /admin/reports/:id covering the card body", () => {
+  it("renders an anchor linking to /admin/reports/:id covering the card body", async () => {
     render(
       <ReportsTable
         reports={[REPORT_A]}
@@ -350,6 +350,9 @@ describe("CompactRow: full-card navigation", () => {
         onDelete={jest.fn()}
       />
     );
+    // Switch to compact-rows mode (JSDOM defaults to card-stream; ROWS button switches mode)
+    const rowsButton = screen.getByRole("button", { name: /rows/i });
+    await userEvent.click(rowsButton);
     // The sr-only anchor must be present for accessibility and navigation
     const link = screen.getByRole("link", { name: /view report/i });
     expect(link).toHaveAttribute("href", `/admin/reports/${REPORT_A.id}`);
