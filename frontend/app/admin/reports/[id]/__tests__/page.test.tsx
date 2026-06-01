@@ -37,6 +37,8 @@ jest.mock("@/app/admin/lib/adminApi", () => ({
   createUser: jest.fn(),
   deactivateUser: jest.fn(),
   getDuplicatesForReport: jest.fn(),
+  listOrganizations: jest.fn(),
+  assignReportOrg: jest.fn(),
 }));
 
 // ─── Import AFTER mocks ───────────────────────────────────────────────────────
@@ -76,6 +78,7 @@ const FULL_REPORT = {
 describe("ReportDetailPage: data fetching", () => {
   beforeEach(() => {
     (adminApiModule.getMe as jest.Mock).mockResolvedValue({ role: "admin" });
+    (adminApiModule.listOrganizations as jest.Mock).mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -123,6 +126,7 @@ describe("ReportDetailPage: content rendering", () => {
   beforeEach(() => {
     (adminApiModule.getMe as jest.Mock).mockResolvedValue({ role: "admin" });
     (adminApiModule.getAdminReport as jest.Mock).mockResolvedValue(FULL_REPORT);
+    (adminApiModule.listOrganizations as jest.Mock).mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -228,6 +232,7 @@ describe("Phase 3.1 / F-07 — Layout: identity strip and action rail", () => {
   beforeEach(() => {
     (adminApiModule.getMe as jest.Mock).mockResolvedValue({ role: "admin" });
     (adminApiModule.getAdminReport as jest.Mock).mockResolvedValue(PHASE3_REPORT);
+    (adminApiModule.listOrganizations as jest.Mock).mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -259,6 +264,7 @@ describe("Phase 3.1 / ISSUE-06 — Status timeline dot uses Phase 3 enum tokens"
   beforeEach(() => {
     (adminApiModule.getMe as jest.Mock).mockResolvedValue({ role: "admin" });
     (adminApiModule.getAdminReport as jest.Mock).mockResolvedValue(PHASE3_REPORT);
+    (adminApiModule.listOrganizations as jest.Mock).mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -316,6 +322,7 @@ const STATUS_HISTORY_REPORT = {
 describe("Phase 03.2 / BUG-03.1-C — Status history renders real audit entries", () => {
   beforeEach(() => {
     (adminApiModule.getMe as jest.Mock).mockResolvedValue({ role: "admin" });
+    (adminApiModule.listOrganizations as jest.Mock).mockResolvedValue([]);
   });
 
   afterEach(() => {
