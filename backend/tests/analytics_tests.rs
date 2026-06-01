@@ -215,4 +215,11 @@ fn corp_analytics_joins_on_org_id() {
          GBA root organization from the results; got: {}",
         sql
     );
+    assert!(
+        sql.contains("::float8"),
+        "CORP_ANALYTICS_SQL must cast ROUND(..., 1) to ::float8 so sqlx decodes \
+         the value as f64 (OID 701) instead of NUMERIC (OID 1700); \
+         without this cast resolution_rate_pct is always None at runtime; got: {}",
+        sql
+    );
 }
