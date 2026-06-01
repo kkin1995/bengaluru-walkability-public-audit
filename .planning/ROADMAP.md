@@ -422,7 +422,7 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 **Goal:** Populate wards.org_id for all 369 ward rows via a data migration so CORP_ANALYTICS_SQL returns real per-corporation data and org-scoped admin visibility functions correctly. Fix the AdminReport TypeScript interface to add the missing corporation field and remove the unsafe cast in ReportsTable.
 **Requirements**: NF-04.1-A, NF-04.1-B, NF-04.1-C
 **Depends on:** Phase 4
-**Plans:** 2/2 plans completePlans:
+**Plans:** 4/4 plans complete
 
 - [x] 04.1-01-PLAN.md — Migration 014 + SQL-string consistency test (TDD: populate wards.org_id via ILIKE, guard pattern drift)
 - [x] 04.1-02-PLAN.md — Frontend type fix: add corporation field to AdminReport, remove as-unknown-as cast
