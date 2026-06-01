@@ -56,10 +56,28 @@ function makeReport(overrides: Partial<{
   };
 }
 
+// Phase 04: ReportsMap now fetches /api/reports.geojson (GeoJSON FeatureCollection)
+// instead of the old paginated /api/reports?limit=200 endpoint.
 function mockFetchSuccess(items: ReturnType<typeof makeReport>[]) {
   jest.spyOn(global, "fetch").mockResolvedValueOnce({
     ok: true,
-    json: async () => ({ page: 1, limit: 200, count: items.length, items }),
+    json: async () => ({
+      type: "FeatureCollection",
+      features: items.map((r) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [r.longitude, r.latitude] },
+        properties: {
+          id: r.id,
+          category: r.category,
+          severity: r.severity,
+          status: r.status,
+          ward_name: r.ward_name ?? null,
+          corporation: r.corporation ?? null,
+          created_at: r.created_at,
+          description: r.description ?? null,
+        },
+      })),
+    }),
   } as Response);
 }
 
@@ -94,7 +112,7 @@ describe("R5 / AC5.1 — Reports load on mount", () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        `${API_URL}/api/reports?limit=200`
+        `${API_URL}/api/reports.geojson`
       );
     });
   });
@@ -211,17 +229,19 @@ describe("R5 / AC5.3 — Popup content", () => {
     });
   });
 
-  it("popup shows the image with the image_url from the API — AC5.3", async () => {
-    mockFetchSuccess([
-      makeReport({ image_url: "http://localhost:3001/uploads/abc.jpg" }),
-    ]);
+  // WR-04: image_url is not included in the public GeoJSON endpoint (privacy by design).
+  // The popup conditionally renders the image only if image_url is present in the data;
+  // since the GeoJSON endpoint omits it, no image element should appear.
+  it("popup does NOT render an image when fetching from GeoJSON endpoint (WR-04) — AC5.3", async () => {
+    mockFetchSuccess([makeReport()]);
 
     render(<ReportsMap apiUrl={API_URL} />);
 
     await waitFor(() => {
-      const img = screen.getByAltText("Report photo");
-      expect(img).toHaveAttribute("src", "http://localhost:3001/uploads/abc.jpg");
+      expect(screen.getByTestId("popup")).toBeInTheDocument();
     });
+
+    expect(screen.queryByAltText("Report photo")).not.toBeInTheDocument();
   });
 
   it("popup shows a formatted date for created_at — AC5.3", async () => {
@@ -247,10 +267,16 @@ describe("R5 / AC5.3 — Popup content", () => {
     ];
 
     for (const { category, label } of categoryLabelPairs) {
+      const report = makeReport({ id: `r-${category}`, category });
       jest.spyOn(global, "fetch").mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          items: [makeReport({ id: `r-${category}`, category })],
+          type: "FeatureCollection",
+          features: [{
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [report.longitude, report.latitude] },
+            properties: { id: report.id, category: report.category, severity: report.severity, status: report.status, ward_name: null, corporation: null, created_at: report.created_at, description: null },
+          }],
         }),
       } as Response);
 

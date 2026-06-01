@@ -24,6 +24,9 @@ const sharedModuleNameMapper = {
   "^react-leaflet$": "<rootDir>/__mocks__/reactLeaflet.js",
   // Mock leaflet (required in ReportsMap via require())
   "^leaflet$": "<rootDir>/__mocks__/leaflet.js",
+  // Mock leaflet.heat side-effect — its dist bundle references L as a global
+  // which doesn't exist in jsdom; heatLayer is already stubbed in leaflet.js
+  "^leaflet\\.heat$": "<rootDir>/__mocks__/leaflet.heat.js",
   // Mock next/navigation — App Router hooks require a mounted router context
   "^next/navigation$": "<rootDir>/__mocks__/next/navigation.js",
 };
