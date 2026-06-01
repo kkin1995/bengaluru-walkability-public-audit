@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A civic-tech platform where citizens photograph and geolocate subpar pedestrian infrastructure in Bengaluru. Reports are publicly visible on a map and feed into government workflows (GBA / city corporations) for resolution. Long-term, the accumulated data will power a Priority Walking Network (PWN) algorithm to guide infrastructure investment toward maximum public transit ridership impact.
+A civic-tech platform where citizens photograph and geolocate subpar pedestrian infrastructure in Bengaluru. Reports are automatically ward-tagged, visible on a public map, and feed into a full government triage workflow (GBA / BBMP corporations) for resolution. Admins get a redesigned analytics dashboard with ward choropleth, corporation resolution rates, and streaming export. Long-term, the accumulated data will power a Priority Walking Network (PWN) algorithm to guide infrastructure investment toward maximum public transit ridership impact.
 
 ## Core Value
 
@@ -12,6 +12,7 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 
 ### Validated
 
+**Phase 1 — Ward Foundation (2026-03-12):**
 - ✓ Citizen can submit a photo report with GPS coordinates (EXIF auto-extracted or manual pin) — Phase 1
 - ✓ Report categories and severity levels captured at submission — Phase 1
 - ✓ EXIF GPS extracted client-side (privacy-respecting; raw GPS never sent to server) — Phase 1
@@ -19,85 +20,176 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 - ✓ Location privacy: lat/lng rounded to 3 decimal places (~111m) in public API — Phase 1
 - ✓ Bengaluru bounding-box validated server-side (no out-of-city submissions) — Phase 1
 - ✓ PostGIS spatial storage (GEOGRAPHY type, ST_SetSRID trigger) — Phase 1
-- ✓ Admin dashboard with JWT auth for report management — Phase 2
+- ✓ Admin dashboard with JWT auth for report management — Phase 1
+- ✓ Public map showing submitted reports — Phase 1
+- ✓ Ward boundary data for Bengaluru imported into PostGIS (369 wards) — Phase 1
+- ✓ Reports automatically assigned to correct ward via ST_Within query — Phase 1 (WARD-01)
+- ✓ Organizations table with self-referential hierarchy (GBA → corporation → ward office) — Phase 1 (WARD-02)
+- ✓ Admin org assignment controls report visibility via recursive CTE — Phase 1 + Phase 04.1 (WARD-03)
+
+**Phase 2 — Anti-Abuse & Data Quality (2026-03-13 / gap closure 2026-05-20):**
 - ✓ Super-admin protection (deactivation guard, is_super_admin flag) — Phase 2
 - ✓ Admin audit trail (status_history table) — Phase 2
-- ✓ Public map showing submitted reports — Phase 1
 - ✓ Nginx reverse proxy with rate limiting and CSP hardening — Phase 2
 - ✓ CI/CD pipeline (GitHub Actions: frontend + backend + Docker build) — Phase 2
 - ✓ Structured logging with request ID propagation (tracing + json) — Phase 2
-- ✓ Optional reporter contact fields (name, phone) at submission — Phase 1
-- ✓ PII exclusion: submitter_name absent from public API at struct level (compile-time guarantee) — Phase 02.1
-- ✓ Single require_role with admin-is-superset semantics (no local duplicates) — Phase 02.1
-- ✓ No .unwrap() on serde_json serialization in production handlers — Phase 02.1
-- ✓ COOKIE_SECURE defaults to true in production; explicit false override for dev — Phase 02.1
-- ✓ CSP style-src without unsafe-inline; TLS termination documented in nginx — Phase 02.1
-- ✓ Login page never surfaces raw server error messages (A07 hardening) — Phase 02.1
-- ✓ Password validation threshold aligned frontend/backend (12 chars) — Phase 02.1
-- ✓ Dependency vulnerability scanning in CI (cargo audit + npm audit --audit-level=high) — Phase 02.1
-- ✓ Cross-domain admin auth (SameSite=None cookie + Next.js rewrite proxy for /api/admin/*) — Phase 02.2
-- ✓ CI-gated staging smoke tests (deploy.yml: /health retry loop, /api/reports check, Vercel HTTP 200) — Phase 02.2
-- ✓ Railway config-as-code (railway.toml: DOCKERFILE builder, /health healthcheck, ON_FAILURE restart) — Phase 02.2
-- ✓ STAGING-SETUP.md operational runbook (Railway + Vercel + DNS + pre-UAT checklist) — Phase 02.2
-- ✓ Admin category labels show human-readable text (getCategoryLabel from translations.ts) — Phase 02.3
-- ✓ iOS camera UX: separate "Take Photo" (camera) and "Upload from Gallery" (library) buttons — Phase 02.3
-- ✓ Admin reports table mobile scroll gradient (right-edge fade on md:hidden breakpoint) — Phase 02.3
-- ✓ Admin sidebar extracted to AdminSidebar.tsx with mobile hamburger drawer — Phase 02.3
-- ✓ Consistent category labels across admin table, map legend, and map popup — Phase 02.3
+- ✓ Per-IP geohash-6 rate limiting (governor crate, 2 reports/IP/cell/hour) — Phase 2 (ABUSE-01)
+- ✓ CSS-offset honeypot with fake-200, no error signal — Phase 2 (ABUSE-02)
+- ✓ Proximity duplicate detection (ST_DWithin 50m, async 5-min poll) — Phase 2 (ABUSE-03/04)
+- ✓ SHA256 photo dedup (before EXIF strip; silent reject) — Phase 2 (ABUSE-05)
+- ✓ duplicate_count visible in admin triage queue — Phase 2 (ABUSE-06)
+
+**Phase 02.1 — OWASP Hardening (2026-04-20):**
+- ✓ submitter_name absent from public API at struct level (compile-time) — Phase 02.1 (SEC-01)
+- ✓ Single canonical require_role with admin-is-superset semantics — Phase 02.1 (SEC-02)
+- ✓ No .unwrap() on serde_json serialization in production handlers — Phase 02.1 (SEC-03)
+- ✓ COOKIE_SECURE defaults to true in production; explicit false override for dev — Phase 02.1 (SEC-04)
+- ✓ CSP style-src without unsafe-inline; TLS termination documented in nginx — Phase 02.1 (SEC-05)
+- ✓ Login page never surfaces raw server error messages (A07 hardening) — Phase 02.1 (SEC-06)
+- ✓ Password validation threshold aligned frontend/backend (12 chars); CI runs cargo audit + npm audit — Phase 02.1 (SEC-07)
+
+**Phase 02.2 — Staging Deployment (2026-04-22):**
+- ✓ Cross-domain admin auth (SameSite=None cookie + Next.js rewrite proxy for /api/admin/*) — Phase 02.2 (STAGING-01)
+- ✓ Public report submission works on staging — Phase 02.2 (STAGING-02)
+- ✓ CI-gated staging smoke tests (deploy.yml: /health retry loop, /api/reports check, Vercel HTTP 200) — Phase 02.2 (STAGING-03)
+- ✓ STAGING-SETUP.md operational runbook — Phase 02.2 (STAGING-04)
+- ✓ cargo test + npm run build pass with cross-domain auth changes — Phase 02.2 (STAGING-05)
+
+**Phase 02.3 — UAT Bug Fixes (2026-04-24):**
+- ✓ Admin category labels show human-readable text (getCategoryLabel from translations.ts) — Phase 02.3 (BUG-01)
+- ✓ iOS camera UX: separate "Take Photo" (camera) and "Upload from Gallery" (library) buttons — Phase 02.3 (BUG-02)
+- ✓ Admin reports table mobile scroll gradient — Phase 02.3 (UX-01)
+- ✓ Admin sidebar extracted to AdminSidebar.tsx with mobile hamburger drawer — Phase 02.3 (UX-02)
+- ✓ Consistent category labels across admin table, map legend, and map popup — Phase 02.3 (UX-03)
+
+**Phase 02.3.1 — Walkable BLR UI Redesign (2026-04-25):**
 - ✓ CSS variable design system (--color-*, --font-*, --radius-* tokens) — Phase 02.3.1
-- ✓ UI primitives: Bi, Icon, Btn, Pill, SectionLabel components in frontend/app/components/ui/ — Phase 02.3.1
+- ✓ UI primitives: Bi, Icon, Btn, Pill, SectionLabel components — Phase 02.3.1
 - ✓ Redesigned Home page (/) and Map page (/map) overlay — Phase 02.3.1
 - ✓ Redesigned 2-step report flow (Category → Confirm → Success) with CategoryGrid, SeverityGrid, SuccessCard — Phase 02.3.1
-- ✓ Contact accordion expand/collapse on report submission form — Phase 02.3.1
-- ✓ Photo-store singleton (storePendingPhoto/consumePendingPhoto) for home CTA → /report handoff — Phase 02.3.1
-- ✓ MapContainer renders unconditionally (eliminates 60s blank map on first load) — PR #2
-- ✓ Browser geolocation fallback when EXIF GPS is unavailable — PR #2
-- ✓ Ward lookup display in report flow (GET /api/wards/lookup shows ward name after pin placement) — PR #2
-- ✓ Total count (total) field added to public GET /api/reports response — PR #3
-- ✓ Honeypot inputs use type=hidden to prevent browser autofill false positives — PR #3
+- ✓ Contact accordion, photo-store singleton, browser geolocation fallback, ward lookup display — Phase 02.3.1
+
+**Phase 02.3.2 — Frontend Gap-fill (2026-04-25):**
+- ✓ Gallery escape hatch on home page (ReportCTA.tsx) — Phase 02.3.2
+- ✓ CategoryGrid 2-col × 3-row with privacy notice — Phase 02.3.2
+- ✓ Map filter chip strip with 7 chips + per-category counts — Phase 02.3.2
+
+**Phase 02.4 — Self-Hosted Infrastructure (2026-05-20):**
+- ✓ Rust/Axum backend + PostGIS on Arch Linux desktop via Docker Compose + docker-compose.server.yml — Phase 02.4 (INFRA-01)
+- ✓ Cloudflare tunnel (cloudflared systemd service) routes public HTTPS to nginx:80 — Phase 02.4 (INFRA-02)
+- ✓ GitHub Actions self-hosted runner deploys on every push to main — Phase 02.4 (INFRA-03)
+- ✓ Vercel frontend calls backend through Cloudflare tunnel URL — Phase 02.4 (INFRA-04)
+- ✓ End-to-end admin login + report submission via Vercel ↔ Cloudflare ↔ desktop backend — Phase 02.4 (INFRA-05)
+
+**Phase 02.4.1 — Security Hardening (2026-05-20):**
+- ✓ JPEG magic-bytes guard (POST /api/reports with non-JPEG returns HTTP 400) — Phase 02.4.1
+- ✓ Admin logout cookie SameSite=None + conditional Secure fix — Phase 02.4.1
+- ✓ nginx Content-Type override on /uploads/ in both nginx configs — Phase 02.4.1
+- ✓ Weekly pg_dump + uploads backup with systemd timer, 10KB size validation, 30-day retention — Phase 02.4.1
+- ✓ DEPLOYMENT.md §10 Secret Rotation + §11 Backup and Restore — Phase 02.4.1
+- ✓ External uptime monitor (UptimeRobot) polling /health on 5-min cadence — Phase 02.4.1
+
+**Phase 02.5 — Admin Portal UI Redesign (2026-05-22):**
+- ✓ admin.css CSS variable layer — single source of truth for all admin-portal colors/fonts/radii/shadows — Phase 02.5
+- ✓ Hybrid design system: Direction-B teal palette, JetBrains Mono chrome, Direction-A card structure — Phase 02.5
+- ✓ Light + dark mode (toggled by .dark class on <html>, no flash-of-wrong-theme) — Phase 02.5
+- ✓ All admin screens (Login, Dashboard, Reports, Report detail, Map, Users, Orgs, Profile, Empty/Error) — Phase 02.5
+- ✓ WCAG 1.4.1: severity never color-only (bars + text + color) — Phase 02.5
+- ✓ ≥44px tap targets on mobile — Phase 02.5
+
+**Phase 02.6 — Build Metadata (2026-05-25):**
+- ✓ NEXT_PUBLIC_APP_VERSION injected from package.json at build time (next.config.mjs) — Phase 02.6
+- ✓ Citizen footer and admin console brand string both show APP_VERSION — Phase 02.6
+- ✓ Sticky-footer layout + admin logout hard-navigation (window.location.replace) — Phase 02.6
+
+**Phase 3 — Government Triage Workflow (2026-05-31):**
+- ✓ 6-state status lifecycle: Open → Acknowledged → Assigned → In Progress → Resolved → Closed — Phase 3 (WFLOW-01)
+- ✓ status_history records every transition with timestamp and acting admin user ID — Phase 3 (WFLOW-02)
+- ✓ Admin can assign a report to any organization in the hierarchy — Phase 3 (WFLOW-03)
+- ✓ Admin can add resolution notes when closing a report — Phase 3 (WFLOW-04)
+- ✓ Admin can upload a resolution photo when marking a report as Resolved — Phase 3 (WFLOW-05)
+- ✓ Public map pins color-coded by status — Phase 3 (MAP-01)
+- ✓ Report status visible in map popup — Phase 3 (MAP-03)
+
+**Phase 3.1 — Split Layout (2026-05-26):**
+- ✓ /admin/reports/[id] two-column split layout: left (photo + metadata, sticky) + right (action panels, independently scrollable) — Phase 3.1
+- ✓ GbaHierarchyPanel display bugs ISSUE-01/03/04/05 resolved — Phase 3.1
+- ✓ Status timeline dot color map ISSUE-06 resolved — Phase 3.1
+
+**Phases 3.2, 3.3, 3.4 — Admin UAT Gap Fixes (2026-05-30 – 2026-06-01):**
+- ✓ 7D/14D/30D intake chart period filter wired (dashboard updates chart on period selection) — Phase 3.2
+- ✓ Real status history timestamps and admin attribution (COALESCE display_name, email) — Phase 3.2 + 3.3
+- ✓ Real per-day intake endpoint (GET /api/admin/stats/intake?days=N, clamp [1,90]) replacing STUB_SPARKBARS — Phase 3.3
+- ✓ Auto-assign corporation org from ward geography at report creation time — Phase 3.4
+- ✓ CORP column in admin reports list shows organisation name (not raw ward geography) — Phase 3.4
+- ✓ Mobile compact-row cards fully tappable (sr-only anchor + window.location.assign + stopPropagation on action buttons) — Phase 3.4
+
+**Phase 4 — Export + Public Analytics (2026-05-31):**
+- ✓ Streaming CSV export with DD/MM/YYYY dates, ward name column, category labels — Phase 4 (EXPORT-01)
+- ✓ Streaming GeoJSON export (admin-filtered, no memory buffering) — Phase 4 (EXPORT-02)
+- ✓ Public unauthenticated GeoJSON endpoint (3dp coords, no PII, rate-limited 2 req/min) — Phase 4 (EXPORT-03)
+- ✓ Public stats page (total reports, resolved count, top 3 categories) via materialized view — Phase 4 (ANALYTICS-01)
+- ✓ Admin analytics: top 10 wards by unresolved count — Phase 4 (ANALYTICS-02)
+- ✓ Admin analytics: corporation resolution rate (resolved/total) per BBMP corporation — Phase 4 + 04.1 (ANALYTICS-03)
+- ✓ Admin analytics: 12-week trend chart (reports/week, filterable by category) with recharts — Phase 4 (ANALYTICS-04)
+- ✓ Admin analytics: ward choropleth (fill by unresolved density, click-to-drilldown) — Phase 4 (ANALYTICS-05)
+- ✓ Toggleable issue-density heatmap on public /map (leaflet.heat, open reports only) — Phase 4 (MAP-02)
+
+**Phase 04.1 — Ward-Org Link Gap Closure (2026-06-01):**
+- ✓ Migration 014 links all 369 wards to parent corporation via ILIKE (idempotent) — Phase 04.1 (NF-04.1-A)
+- ✓ SQL-string unit tests guard ILIKE pattern drift + ::float8 cast in CORP_ANALYTICS_SQL — Phase 04.1 (NF-04.1-B)
+- ✓ AdminReport TypeScript interface: corporation: string | null field, no as-unknown-as cast — Phase 04.1 (NF-04.1-C)
 
 ### Active
 
-#### Public Map & Dashboard
-- [ ] Enhanced public map with filtering by category, ward, and status
-- [ ] Ward-level heatmap / issue density overlay
-- [ ] Report status visible on public map (open / in progress / resolved)
-- [ ] Media-ready shareable map views and summary statistics
+#### Coming Soon / Launch Prep
+- [ ] nammadaari.com coming soon page with @nammadaariblr Instagram CTA
+- [ ] Production domain (nammadaari.com) via Cloudflare Tunnel
+- [ ] GSD branching workflow config for persistent staging branch
 
-#### Government Triage Workflow
-- [ ] Admin can assign reports to corporation / department
-- [ ] Field team view — assigned reports with location, photo, category
-- [ ] Status lifecycle: Open → Acknowledged → Assigned → In Progress → Resolved → Closed
-- [ ] Resolution notes and before/after photo on closing a report
+#### Government Workflow (Extended)
+- [ ] Field team mobile view — mobile-optimized list of assigned reports with map (for use on Android in the field)
+- [ ] Before/after photo comparison on public map — citizen-visible proof of resolution
+- [ ] Ward filter in admin triage queue (filter reports by ward or corporation)
 
-#### Data Export & Analytics — Validated in Phase 4
-- ✓ CSV export of reports with filters (date range, category, ward, status) — Phase 4
-- ✓ GeoJSON export for GIS tools and PWN algorithm input (streaming, no PII, 3dp coords) — Phase 4
-- ✓ Admin analytics dashboard: top 10 wards by unresolved count, corporation resolution rate, 12-week trend chart, ward choropleth with click-to-filter drilldown — Phase 4
-- ✓ Public summary stats (total reports, resolved count, top issue categories) via materialized view — Phase 4
-- ✓ Public open-data GeoJSON endpoint at /api/reports.geojson (rate-limited 2 req/min) — Phase 4
-- ✓ Toggleable issue-density heatmap on public /map (open reports only, Leaflet layer control) — Phase 4
+#### Public Map (Extended)
+- [ ] Category and status filter controls on public map
+- [ ] Ward boundary polygon overlay on public map
+
+#### Notifications
+- [ ] Weekly email digest to GBA admins: new report count in their ward/corporation
+- [ ] Reporter email notification when report status changes
 
 ### Out of Scope
 
-- PWN algorithm — future milestone after sufficient data collected (6–12 months post-launch)
+- PWN algorithm — future milestone after minimum 6–12 months of real report data
 - External government system integration (BBMP/GBA APIs) — pending GBA engagement via Walkaluru / Arun Pai
-- SMS / WhatsApp reporter notifications — may add post-launch based on GBA requirements
+- SMS/WhatsApp reporter notifications — may add post-launch based on GBA requirements
 - Native mobile app — web PWA is sufficient for MVP
 - Citizen accounts / login — reports stay anonymous by default
 - Real-time collaborative features — not needed at this scale
+- ML-based spam detection — rule-based rate limiting sufficient at MVP scale
 
 ## Context
 
-**Existing codebase:** Full implementation in progress — Rust/Axum backend (port 3001), Next.js 14 frontend (port 3000), PostGIS DB, Docker Compose. See CLAUDE.md for full architecture.
+**Current codebase state (v1.0):**
+- Backend: ~10,725 lines of Rust (Axum, SQLx, PostGIS, Argon2id, tower-http)
+- Frontend: ~29,415 lines of TypeScript/TSX (Next.js 14 App Router, Leaflet, recharts)
+- 14 PostgreSQL migrations (through 014_link_wards_to_organisations.sql)
+- 683 git commits over 89 days (2026-03-04 → 2026-06-01)
+- Self-hosted: Arch Linux desktop + Cloudflare Tunnel + Vercel frontend
 
-**Stakeholder path to launch:** Soft launch planned alongside Walkaluru (started by Arun Pai) which has GBA support. MVP must be solid enough to present to GBA as a credible civic tool. Multi-tier government workflow details TBD pending GBA engagement.
+**Stakeholder path to launch:** Soft launch planned alongside Walkaluru (started by Arun Pai) which has GBA support. MVP shipped and ready for GBA presentation. Multi-tier government workflow is live; GBA org structure TBD pending engagement with Arun Pai.
 
-**GBA context:** BBMP has been dissolved; the Greater Bengaluru Authority (GBA) now oversees the 5 city corporations. Government workflow must be flexible enough to adapt to whatever structure GBA specifies.
+**GBA context:** BBMP has been dissolved; the Greater Bengaluru Authority (GBA) now oversees the 5 city corporations. Government workflow is live and flexible — organizations table is data-configurable, not hardcoded.
 
-**Data downstream use:** Reports feed three audiences — GBA planners (budget/repair prioritization), Walkaluru advocates (press, lobbying), and the future PWN algorithm (routing optimization using complaints + BMTC bus stops + Namma Metro stops).
+**Data downstream use:** Reports feed three audiences — GBA planners (budget/repair prioritization via admin analytics), Walkaluru advocates (press, lobbying via public stats/GeoJSON export), and the future PWN algorithm (routing optimization using complaints + BMTC bus stops + Namma Metro stops).
 
-**Abuse risk:** Primary concerns are spam/fake reports and duplicate submissions for the same location. Anonymous reporting increases abuse surface — rate limiting and duplicate detection are table stakes.
+**Known tech debt (v1.0):**
+- Dedup job excludes `resolved` but not `closed` from matching pool (dedup_job.rs:19)
+- Dashboard activity feed hardcoded — no activity log API (intentional per D-13)
+- 6 phases at `human_needed` verification status — code verified, live browser confirmation pending
+- AdminReport.image_url type mismatch vs backend image_path; fallback in reports/[id]/page.tsx:75 prevents crash
 
 ## Constraints
 
@@ -105,18 +197,22 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 - **Privacy**: Reports anonymous by default; location data rounded before public exposure; EXIF stripped
 - **Security**: Public-facing app with anonymous submissions — must withstand spam and scraping
 - **Stakeholder alignment**: Government workflow must remain flexible until GBA engagement completes
-- **Timeline**: MVP needed before Walkaluru/GBA soft launch (date TBD)
+- **Infrastructure**: Single self-hosted Arch Linux desktop + Cloudflare Tunnel + Vercel
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Anonymous-by-default reporting | Lowers barrier to submission; protects reporters; Bengaluru civic context | — Pending validation |
+| Anonymous-by-default reporting | Lowers barrier to submission; protects reporters; Bengaluru civic context | ✓ Good — no abuse spike at MVP scale |
 | Rust/Axum backend | Type-safe, low memory, self-hostable — good fit for resource-constrained civic deployment | ✓ Good |
 | PostGIS for spatial storage | Enables ward-level queries, proximity dedup, future PWN algorithm input | ✓ Good |
-| Multi-tier gov routing (flexible) | GBA structure not yet confirmed — build adaptable workflow, not hardcoded org chart | — Pending |
-| Soft launch with Walkaluru/GBA | External credibility and immediate real-world data vs. solo launch | — Pending |
-| PWN algorithm deferred | Need minimum 6–12 months of real report data to make algorithm meaningful | — Pending |
+| Multi-tier gov routing (flexible org table) | GBA structure not yet confirmed — build adaptable workflow, not hardcoded org chart | ✓ Good — wards linked to corps geographically via Phase 04.1 |
+| Self-hosted on Arch Linux + Cloudflare Tunnel | Railway subscription expired; Cloudflare free tier + home desktop avoids recurring infra cost | ✓ Good |
+| Soft launch with Walkaluru/GBA | External credibility and immediate real-world data vs. solo launch | — Pending (soft launch ready as of v1.0) |
+| PWN algorithm deferred | Need minimum 6–12 months of real report data to make algorithm meaningful | ✓ Good — data collection begins at soft launch |
+| geohash precision=6 for rate limiting | ~1.2km × 0.6km cells — allows walking citizen to report multiple issues while throttling same-location floods | ✓ Good |
+| SHA256 before EXIF strip for dedup | Re-uploads of same photo match regardless of client-side EXIF handling | ✓ Good |
+| plain REFRESH MATERIALIZED VIEW (not CONCURRENTLY) | Constant-expression index incompatible with CONCURRENTLY; <50ms lock at MVP scale is acceptable | ✓ Good |
 
 ---
-*Last updated: 2026-05-31
+*Last updated: 2026-06-01 after v1.0 milestone*

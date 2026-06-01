@@ -1,27 +1,27 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
-status: ready_to_plan
-last_updated: 2026-06-01T13:01:05.805Z
-last_activity: 2026-06-01 -- Phase 04.1 execution started
+milestone_name: MVP
+status: milestone_complete
+last_updated: 2026-06-01T14:00:00Z
+last_activity: 2026-06-01 -- v1.0 milestone archived
 progress:
   total_phases: 19
-  completed_phases: 17
+  completed_phases: 18
   total_plans: 59
   completed_plans: 59
-  percent: 89
-stopped_at: Phase 04.1 complete (4/4) — ready to discuss Phase 05
+  percent: 100
+stopped_at: v1.0 milestone shipped — ready for /gsd-new-milestone to plan v1.1
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-11)
+See: .planning/PROJECT.md (updated 2026-06-01 after v1.0 milestone)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase 05 — coming soon homepage branching workflow setup
+**Current focus:** Planning next milestone (v1.1) — run /gsd-new-milestone
 
 ## Current Position
 
@@ -166,6 +166,27 @@ Progress: [█████████░] 92%
 ### Pending Todos
 
 None yet.
+
+## Deferred Items
+
+Items acknowledged and deferred at milestone close on 2026-06-01:
+
+| Category | Item | Status | Note |
+|----------|------|--------|------|
+| debug_session | knowledge-base | unknown | Stale debug session artifact — no active investigation |
+| uat_gap | 02.5-STAGING-UAT-2026-05-24 | open | 0 pending scenarios; staging UAT file with open status marker |
+| uat_gap | 03-UAT-ISSUES | unknown | Phase 03 UAT issues file — all issues resolved in 03.1/03.2/03.3 |
+| uat_gap | 03.1-UAT-ISSUES | open | 0 pending scenarios; issues resolved in later phases |
+| uat_gap | 03.3-UAT-ISSUES | open | 0 pending scenarios; issues resolved |
+| uat_gap | 04.1-HUMAN-UAT | partial | UAT checks 1+2 passed; remaining items are human_needed live-deploy checks |
+| verification_gap | 02.2-VERIFICATION | human_needed | Staging cross-domain auth — requires live Vercel+Railway environment |
+| verification_gap | 02.4-VERIFICATION | human_needed | Self-hosted infra — requires live tunnel + desktop runner access |
+| verification_gap | 02.6-VERIFICATION | human_needed | Build metadata — requires live footer version display check |
+| verification_gap | 03.2-VERIFICATION | human_needed | Dashboard chart period filter — requires live browser UAT |
+| verification_gap | 03.3-VERIFICATION | human_needed | Intake chart real data — requires live browser UAT |
+| verification_gap | 03.4-VERIFICATION | human_needed | Org auto-assign + compact nav — requires live browser UAT |
+| verification_gap | 04.1-VERIFICATION | human_needed | Ward-org analytics — requires live browser UAT |
+| pending_todo | auto-assign-org-from-ward | low | Superseded by Phase 03.4 which implemented this feature |
 
 ### Blockers/Concerns
 
