@@ -1002,7 +1002,7 @@ submitter_contact,resolved_at,resolution_notes\n";
     let stream = ReceiverStream::new(rx);
     let body = Body::from_stream(stream);
 
-    Ok(axum::response::Response::builder()
+    axum::response::Response::builder()
         .status(axum::http::StatusCode::OK)
         .header(header::CONTENT_TYPE, "text/csv; charset=utf-8")
         .header(
@@ -1010,7 +1010,7 @@ submitter_contact,resolved_at,resolution_notes\n";
             "attachment; filename=\"walkability-reports.csv\"",
         )
         .body(body)
-        .map_err(|e| AppError::Internal(e.to_string()))?)
+        .map_err(|e| AppError::Internal(e.to_string()))
 }
 
 /// GET /api/admin/reports/export/geojson — stream a filtered GeoJSON export.
@@ -1186,7 +1186,7 @@ pub async fn admin_export_geojson(
     let stream = ReceiverStream::new(rx);
     let body = Body::from_stream(stream);
 
-    Ok(axum::response::Response::builder()
+    axum::response::Response::builder()
         .status(axum::http::StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/geo+json")
         .header(
@@ -1194,7 +1194,7 @@ pub async fn admin_export_geojson(
             "attachment; filename=\"walkability-reports.geojson\"",
         )
         .body(body)
-        .map_err(|e| AppError::Internal(e.to_string()))?)
+        .map_err(|e| AppError::Internal(e.to_string()))
 }
 
 // ── Admin user management handlers ───────────────────────────────────────────

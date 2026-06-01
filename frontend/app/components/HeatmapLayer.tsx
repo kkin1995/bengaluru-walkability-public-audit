@@ -29,10 +29,8 @@ interface HeatmapLayerProps {
 
 export default function HeatmapLayer({ reports }: HeatmapLayerProps) {
   const map = useMap();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const heatRef = useRef<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const controlRef = useRef<any>(null);
+  const heatRef = useRef<any>(null); // leaflet.heat type not available
+  const controlRef = useRef<any>(null); // L.control.layers return type
 
   useEffect(() => {
     // D-02: filter to unresolved reports only — all five Phase-03 unresolved statuses.
@@ -44,7 +42,6 @@ export default function HeatmapLayer({ reports }: HeatmapLayerProps) {
       .map((r): [number, number, number] => [r.latitude, r.longitude, 1.0]);
 
     // leaflet.heat augments L with heatLayer via the side-effect import above
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const heatLayer = (L as any).heatLayer(openPoints, {
       radius: 25,
       blur: 15,
