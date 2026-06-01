@@ -383,10 +383,11 @@ pub async fn list_admin_reports(
             reports.status::TEXT AS status,
             reports.location_source::TEXT AS location_source,
             wards.ward_name AS ward_name,
-            wards.corporation AS corporation,
+            o.name AS corporation,
             {dedup_cols}
         FROM reports
         LEFT JOIN wards ON wards.id = reports.ward_id
+        LEFT JOIN organizations o ON o.id = reports.assigned_org_id
         {where_clause}
         ORDER BY reports.created_at DESC
         LIMIT ${limit_idx} OFFSET ${offset_idx}
