@@ -341,6 +341,23 @@ Plans:
 
 - [x] 03.3-02-PLAN.md — BUG-03.2-A intake endpoint: IntakeDayCount struct + get_intake_stats DB fn + admin_get_intake_stats handler (days clamp [1,90]) + route + getIntakeStats adminApi fn + dashboard useEffect wiring + Wave 0 tests
 
+### Phase 3.4: Admin UAT Gap Fixes — Geographic Org Auto-Assignment and Compact-Row Navigation (INSERTED)
+
+**Goal**: Fix the two confirmed UAT gaps from Phase 3 re-testing (NF-03-A, NF-03-B): automatically assign the matching BBMP corporation organisation when a report is created based on the ward's geographic territory, and make compact-row cards in the mobile admin queue fully tappable
+**Depends on**: Phase 3.3
+**Requirements**: NF-03-A, NF-03-B (phase-local; sourced from 03-UAT.md gap analysis 2026-06-01)
+**Success Criteria** (what must be TRUE):
+
+  1. When a new report is submitted and its ward belongs to a known BBMP corporation zone, `reports.assigned_org_id` is set to the matching organisation on creation — no manual admin action required
+  2. The CORP column in the admin reports list (desktop table) shows the assigned organisation name (e.g. "Bengaluru Central Corporation"), not the raw ward geography string ("Central")
+  3. A system-generated audit trail entry is recorded in `status_history` for the auto-assignment (changed_by = NULL, notes indicate geographic auto-assignment)
+  4. In the mobile compact-rows view, tapping anywhere on a report card (outside the Status and Delete buttons) navigates to `/admin/reports/:id`
+  5. `cargo test`, `npm run build`, and all existing frontend tests pass with no regressions
+
+**Plans**: TBD
+
+Plans: *(not yet created)*
+
 ### Phase 4: Export and Public Analytics
 
 **Goal**: GBA planners can download actionable exports in their preferred format, citizens can see high-level progress statistics, and admins have ward-level analytics to identify where investment is most needed
