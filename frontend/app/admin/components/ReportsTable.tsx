@@ -429,14 +429,22 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
 
   return (
     <div>
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        flexWrap: "wrap",
-        gap: 10,
-        padding: "8px 0",
-        borderBottom: "1px solid var(--border)",
-      }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 10,
+          padding: "8px 0",
+          borderBottom: "1px solid var(--border)",
+          cursor: "pointer",
+        }}
+        onClick={() => window.location.assign(`/admin/reports/${report.id}`)}
+      >
+        {/* sr-only anchor for accessibility — same pattern as DupeSubTable */}
+        <a href={`/admin/reports/${report.id}`} className="sr-only">
+          View report {report.id.slice(0, 5).toUpperCase()}
+        </a>
         <PhotoTile
           size={44}
           radius="var(--r-xs)"
@@ -497,7 +505,7 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
           <Btn
             variant="ghost"
             size="xs"
-            onClick={() => (onUpdateStatus ?? onStatusChange)(report.id)}
+            onClick={(e) => { e.stopPropagation(); (onUpdateStatus ?? onStatusChange)(report.id); }}
             aria-label={`Change status for report ${report.id}`}
           >
             Status
@@ -506,7 +514,7 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
             <Btn
               variant="danger-soft"
               size="xs"
-              onClick={() => onDelete(report.id)}
+              onClick={(e) => { e.stopPropagation(); onDelete(report.id); }}
               aria-label={`Delete report ${report.id}`}
               data-testid="delete-button"
             >
