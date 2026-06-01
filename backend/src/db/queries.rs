@@ -68,6 +68,37 @@ pub async fn get_ward_label_for_point(
     Ok(row)
 }
 
+/// Look up the owning BBMP corporation organization for a given ward ID.
+///
+/// The organizations table stores names like "Bengaluru Central Corporation".
+/// The wards table stores a short corporation label (e.g. "Central").
+/// This function matches them via ILIKE so a single trusted DB value drives the join.
+///
+/// # Safety
+/// `wards.corporation` contains only 5 trusted migration-seeded values
+/// (Central/North/East/South/West) — it is never user input.
+/// `ward_id` is always bound as a `$1` parameter.
+///
+/// Returns `Some(org_id)` when a matching corporation is found,
+/// `None` when no match exists (e.g. out-of-bounds or unmapped ward).
+pub async fn get_org_for_ward(pool: &PgPool, ward_id: Uuid) -> Result<Option<Uuid>, AppError> {
+    let row = sqlx::query_as::<_, (Uuid,)>(
+        r#"
+        SELECT o.id
+        FROM wards w
+        JOIN organizations o
+          ON o.org_type = 'corporation'
+          AND o.name ILIKE '%' || w.corporation || '%'
+        WHERE w.id = $1
+        LIMIT 1
+        "#,
+    )
+    .bind(ward_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|(id,)| id))
+}
+
 /// Check whether a photo with the given SHA256 hash already exists in the DB.
 /// Used by create_report to silently reject exact duplicate photo uploads.
 pub async fn check_photo_hash_exists(pool: &PgPool, hash: &str) -> Result<bool, AppError> {
@@ -83,16 +114,17 @@ pub async fn insert_report(
     req: &CreateReportRequest,
     image_path: &str,
     ward_id: Option<Uuid>,
+    assigned_org_id: Option<Uuid>,
 ) -> Result<Report, AppError> {
     let row = sqlx::query_as::<_, Report>(
         r#"
         INSERT INTO reports
             (image_path, latitude, longitude, category, severity,
              description, submitter_name, submitter_contact, location_source, ward_id,
-             photo_hash, submitter_ip)
+             photo_hash, submitter_ip, assigned_org_id)
         VALUES ($1, $2, $3, $4::issue_category, $5::severity_level,
                 $6, $7, $8, $9::location_source, $10,
-                $11, $12)
+                $11, $12, $13)
         RETURNING
             id, created_at, image_path, latitude, longitude,
             category::TEXT AS category,
@@ -125,6 +157,7 @@ pub async fn insert_report(
     .bind(ward_id)
     .bind(req.photo_hash.as_deref())
     .bind(req.submitter_ip.as_deref())
+    .bind(assigned_org_id)  // $13
     .fetch_one(pool)
     .await?;
 
