@@ -359,8 +359,8 @@ Plans:
 Plans:
 **Wave 1** *(both plans independent — no file overlap)*
 
-- [ ] 03.4-01-PLAN.md — NF-03-B backend: get_org_for_ward query + insert_report assigned_org_id param + create_report auto-assign with best-effort status_history audit (changed_by NULL) + list_admin_reports CORP JOIN fix + SQL-string tests
-- [ ] 03.4-02-PLAN.md — NF-03-A frontend: CompactRow full-card navigation (window.location.assign + sr-only anchor) + Status/Delete stopPropagation + test assertion + build/suite regression check
+- [x] 03.4-01-PLAN.md — NF-03-B backend: get_org_for_ward query + insert_report assigned_org_id param + create_report auto-assign with best-effort status_history audit (changed_by NULL) + list_admin_reports CORP JOIN fix + SQL-string tests
+- [x] 03.4-02-PLAN.md — NF-03-A frontend: CompactRow full-card navigation (window.location.assign + sr-only anchor) + Status/Delete stopPropagation + test assertion + build/suite regression check
 
 ### Phase 4: Export and Public Analytics
 
