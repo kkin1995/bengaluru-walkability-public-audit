@@ -3,7 +3,7 @@ status: complete
 phase: 03-government-triage-workflow
 source: [03-01-SUMMARY.md, 03-02-SUMMARY.md]
 started: 2026-05-31T00:00:00Z
-updated: 2026-06-01T00:00:00Z
+updated: 2026-06-01T03:20:00Z
 ---
 
 ## Current Test
@@ -69,7 +69,8 @@ blocked: 0
 
 - id: NF-03-A
   truth: "Mobile compact-rows view — tapping a report row navigates to the single report detail page"
-  status: failed
+  status: resolved
+  resolved_by: "Phase 03.4 Plan 02 — CompactRow outer div onClick + sr-only anchor + Status/Delete stopPropagation"
   reason: "In mobile compact-rows (ROWS toggle), only the tiny WLK-xxxxx ID text is an <a> link. The entire card is not a tappable target. On mobile the tap zone is too small to use reliably."
   severity: minor
   artifacts:
@@ -80,7 +81,8 @@ blocked: 0
 
 - id: NF-03-B
   truth: "On report creation, the system automatically assigns the matching BBMP corporation organisation based on the ward's geographic territory. The CORP column in the admin list reflects this auto-assignment from day one. Admins can change the assignment at any time, and any manual change is recorded in the audit log."
-  status: failed
+  status: resolved
+  resolved_by: "Phase 03.4 Plan 01 — get_org_for_ward, insert_report assigned_org_id, create_report auto-assign + audit insert, list_admin_reports CORP JOIN"
   reason: "Currently reports are created with assigned_org_id = NULL. The CORP column in the desktop table shows wards.corporation (a short geographic label e.g. 'Central') but this is NOT the assigned org — it is derived from the ward JOIN, not from reports.assigned_org_id. When admin manually assigns 'Bengaluru North Corporation' to a report in a 'Central' ward, the CORP column still shows 'CENTRAL' because it reads ward geography, not the assignment. Product decision: auto-assign the matching organisation on creation so the column reflects real routing."
   severity: major
   product_direction: |
