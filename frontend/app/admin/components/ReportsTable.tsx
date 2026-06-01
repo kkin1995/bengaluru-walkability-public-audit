@@ -140,7 +140,7 @@ function DupeExpandButton({ reportId, dupCount, expandedRows, onToggle }: Omit<D
       </span>
       <button
         data-testid="expand-duplicates-btn"
-        onClick={() => onToggle(reportId)}
+        onClick={(e) => { e.stopPropagation(); onToggle(reportId); }}
         style={{
           fontFamily: "var(--font-mono)",
           fontSize: 10,
