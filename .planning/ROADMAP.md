@@ -423,8 +423,8 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 2.2 → 2.3 → 2.3.1 → 2
 **Requirements**: NF-04.1-A, NF-04.1-B, NF-04.1-C
 **Depends on:** Phase 4
 **Plans:** 2 plans
-
 Plans:
+
 - [ ] 04.1-01-PLAN.md — Migration 014 + SQL-string consistency test (TDD: populate wards.org_id via ILIKE, guard pattern drift)
 - [ ] 04.1-02-PLAN.md — Frontend type fix: add corporation field to AdminReport, remove as-unknown-as cast
 
