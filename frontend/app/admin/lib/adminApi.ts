@@ -77,6 +77,8 @@ export interface AdminReport {
   status: string;
   location_source: string;
   ward_name: string | null;
+  // Phase 03 (WARNING-02): Corporation from ward JOIN — populated by backend list_admin_reports query
+  corporation: string | null;
   // Phase 03 (D-13, D-14, D-15): Resolution evidence fields
   resolution_photo_url: string | null;
   resolution_notes: string | null;

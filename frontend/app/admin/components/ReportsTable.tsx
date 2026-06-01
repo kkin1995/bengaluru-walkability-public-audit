@@ -8,7 +8,7 @@ import { Pill } from "./Pill";
 import { Btn } from "./Btn";
 import { Card } from "./Card";
 import { Input } from "./Input";
-import { getDuplicatesForReport, type AdminReport } from "../lib/adminApi";
+import { getDuplicatesForReport, type AdminReport, type WardHierarchy } from "../lib/adminApi";
 import { getCategoryLabel } from "@/app/lib/translations";
 import { API_BASE_URL } from "@/app/lib/config";
 
@@ -31,6 +31,10 @@ interface Report {
   duplicate_count?: number;
   duplicate_of_id?: string | null;
   duplicate_confidence?: string | null;
+  // Phase 03 (WARNING-02): Corporation from ward JOIN
+  corporation?: string | null;
+  // Phase 03 (D-21, D-23): Ward hierarchy for corporation fallback
+  ward_hierarchy?: WardHierarchy | null;
 }
 
 interface ReportsTableProps {
@@ -1044,9 +1048,7 @@ export default function ReportsTable({
                       whiteSpace: "nowrap",
                       textTransform: "uppercase",
                     }}>
-                      {(report as unknown as {corporation?: string | null}).corporation
-                        ?? (report as unknown as {ward_hierarchy?: {corporation?: string | null}}).ward_hierarchy?.corporation
-                        ?? "—"}
+                      {report.corporation ?? report.ward_hierarchy?.corporation ?? "—"}
                     </td>
 
                     {/* SEV */}
