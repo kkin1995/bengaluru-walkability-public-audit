@@ -50,39 +50,58 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 ## Phase Details
 
 ### Phase 5: UAT Stabilisation
+
 **Goal**: All 13 confirmed UAT bugs from the v1.0 live iPhone field test are fixed so citizens can submit and view reports correctly and admins can triage without UI breakage
 **Depends on**: Phase 04.1 (last completed v1.0 phase)
 **Requirements**: FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, FIX-06, FIX-07, FIX-08, FIX-09, FIX-10, FIX-11, FIX-12, FIX-13
 **Success Criteria** (what must be TRUE):
+
   1. A citizen visiting a public report detail page (unauthenticated) sees the submitted photo load correctly
   2. After submitting a report, tapping "Report another" and the map FAB both navigate to the home page, not the deprecated /report route
   3. The embedded Leaflet map renders with visible tiles in iOS Safari on both the citizen confirm screen and the admin report detail view
   4. Report photos appear upright (no 90-degree rotation) in the admin portal; public STATUS HISTORY shows exactly one "Open" entry per report
   5. The admin footer BUILD_HASH shows a real git SHA; the admin dashboard scrolls freely on iOS Safari; GPS coordinates in the citizen form display at 3dp; ward label and LOCATION_SRC labels use the correct canonical strings
-**Plans**: TBD
+
+**Plans**: 4 plansPlans:
+**Wave 1**
+
+- [ ] 05-01-PLAN.md — Backend fixes: EXIF orientation bake, public status-history filter, today_count stat, location_source migration
+- [ ] 05-02-PLAN.md — Citizen/public frontend: photo URL, route redirects, map invalidateSize, 3dp coords, ward label, location_source emission
+- [ ] 05-04-PLAN.md — Infra/CI: nginx public-route CSP for OSM tiles, BUILD_HASH build-time injection (checkpoint)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 05-03-PLAN.md — Admin frontend: read-only map, today_count render, iOS scroll fix, BUILD_HASH wiring, LOCATION_SRC labels
+
 **UI hint**: yes
 
 ### Phase 6: Production Launch + Git Branching Workflow
+
 **Goal**: nammadaari.com serves a coming soon page auto-deployed from main, staging.nammadaari.com auto-deploys from the staging branch, and the feature/fix branch workflow is documented and enforced
 **Depends on**: Phase 5
 **Requirements**: LAUNCH-01, LAUNCH-02, LAUNCH-03, LAUNCH-04, LAUNCH-05
 **Success Criteria** (what must be TRUE):
+
   1. Visiting nammadaari.com shows a coming soon page with the @nammadaariblr Instagram CTA, matching the citizen portal design language
   2. Pushing a commit to main triggers a GitHub Actions CI run that deploys the updated app to nammadaari.com via the existing Cloudflare Tunnel
   3. Pushing a commit to the staging branch triggers a CI run that deploys to staging.nammadaari.com
   4. DEPLOYMENT.md documents the branching model (feature/fix → staging → main at milestone) so any contributor can follow it without asking
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 7: Admin Triage UX + Public Map
+
 **Goal**: Admins can filter the reports queue by ward or corporation, and the public map gains category/status filter chips, a ward boundary overlay, and a before/after resolution photo on report detail pages
 **Depends on**: Phase 6
 **Requirements**: TRIAGE-01, TRIAGE-02, TRIAGE-03, TRIAGE-04, TRIAGE-05
 **Success Criteria** (what must be TRUE):
+
   1. An admin can select a ward or corporation from a filter control in the reports queue and see only reports belonging to that geographic scope
   2. A citizen visiting /map can tap a category chip to show only reports of that category, and a status chip to show only open, in-progress, or resolved reports
   3. A citizen can toggle a ward boundary overlay on the public /map to see ward polygons drawn over the base map
   4. A citizen viewing a resolved report's detail page sees both the original submission photo and the admin-uploaded resolution photo side by side
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -110,7 +129,7 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 | 3.4 Org Auto-assign + Compact Nav | v1.0 | 2/2 | ✅ Complete | 2026-06-01 |
 | 4. Export and Public Analytics | v1.0 | 5/5 | ✅ Complete | 2026-05-31 |
 | 04.1 Ward-Org Link Gap Closure | v1.0 | 4/4 | ✅ Complete | 2026-06-01 |
-| 5. UAT Stabilisation | v1.1 | 0/TBD | Not started | — |
+| 5. UAT Stabilisation | v1.1 | 0/4 | Planned | — |
 | 6. Production Launch + Git Branching | v1.1 | 0/TBD | Not started | — |
 | 7. Admin Triage UX + Public Map | v1.1 | 0/TBD | Not started | — |
 
