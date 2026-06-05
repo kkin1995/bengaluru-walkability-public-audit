@@ -65,9 +65,9 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 **Plans**: 4 plansPlans:
 **Wave 1**
 
-- [ ] 05-01-PLAN.md — Backend fixes: EXIF orientation bake, public status-history filter, today_count stat, location_source migration
-- [ ] 05-02-PLAN.md — Citizen/public frontend: photo URL, route redirects, map invalidateSize, 3dp coords, ward label, location_source emission
-- [ ] 05-04-PLAN.md — Infra/CI: nginx public-route CSP for OSM tiles, BUILD_HASH build-time injection (checkpoint)
+- [x] 05-01-PLAN.md — Backend fixes: EXIF orientation bake, public status-history filter, today_count stat, location_source migration
+- [x] 05-02-PLAN.md — Citizen/public frontend: photo URL, route redirects, map invalidateSize, 3dp coords, ward label, location_source emission
+- [x] 05-04-PLAN.md — Infra/CI: nginx public-route CSP for OSM tiles, BUILD_HASH build-time injection (checkpoint)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -129,7 +129,7 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 | 3.4 Org Auto-assign + Compact Nav | v1.0 | 2/2 | ✅ Complete | 2026-06-01 |
 | 4. Export and Public Analytics | v1.0 | 5/5 | ✅ Complete | 2026-05-31 |
 | 04.1 Ward-Org Link Gap Closure | v1.0 | 4/4 | ✅ Complete | 2026-06-01 |
-| 5. UAT Stabilisation | v1.1 | 0/4 | Planned | — |
+| 5. UAT Stabilisation | v1.1 | 3/4 | In Progress|  |
 | 6. Production Launch + Git Branching | v1.1 | 0/TBD | Not started | — |
 | 7. Admin Triage UX + Public Map | v1.1 | 0/TBD | Not started | — |
 
