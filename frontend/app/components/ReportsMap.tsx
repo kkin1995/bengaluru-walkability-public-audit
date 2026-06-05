@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import { BENGALURU_CENTER } from "../lib/constants";
 import { getCategoryLabel, publicStatusLabel, publicStatusColor } from "../lib/translations";
@@ -64,6 +64,13 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // WR-06: Use a ref to hold onReportsLoaded so fetchReports does not depend on
+  // the callback prop directly. An inline callback passed by a caller would be a
+  // new reference every render, causing fetchReports to be recreated, triggering
+  // the useEffect, and producing an infinite API request loop.
+  const onLoadedRef = useRef(onReportsLoaded);
+  useEffect(() => { onLoadedRef.current = onReportsLoaded; }, [onReportsLoaded]);
+
   // Patch Leaflet's default icon once on mount — before any fetch so it is
   // always set regardless of how quickly the API responds.
   useEffect(() => {
@@ -121,13 +128,13 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
         // image_url is not included in the GeoJSON endpoint (privacy by design)
       }));
       setReports(items);
-      onReportsLoaded?.(items);
+      onLoadedRef.current?.(items);
     } catch {
       setError("Couldn't load reports — tap to retry.");
     } finally {
       setLoading(false);
     }
-  }, [apiUrl, onReportsLoaded]);
+  }, [apiUrl]); // onReportsLoaded intentionally omitted — see onLoadedRef above
 
   useEffect(() => {
     fetchReports();
