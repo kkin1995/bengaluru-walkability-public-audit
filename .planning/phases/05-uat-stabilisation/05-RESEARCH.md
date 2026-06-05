@@ -312,6 +312,7 @@ SELECT new_status::TEXT AS status, changed_at
 FROM status_history
 WHERE report_id = $1
   AND new_status::TEXT != 'acknowledged'
+  AND (note IS NULL OR note NOT LIKE 'Auto-assigned%')
 ORDER BY changed_at ASC
 ```
 
@@ -319,7 +320,7 @@ ORDER BY changed_at ASC
 1. `create_report` inserts a second `status_history` row with `new_status = 'open'` for auto-assign audit trail (line 308 of reports.rs). This creates two `open` entries before `acknowledged` even fires.
 2. Acknowledge transition writes `new_status = 'acknowledged'`, which the public label function maps to "Open" — creating a visible third "Open" entry.
 
-The CONTEXT decision (D-17) filters `acknowledged`. This handles source #2. Source #1 (duplicate `open` from auto-assign) remains. The planner should flag this as an open question — the locked decision says filter `acknowledged`, which may not fully resolve the duplication seen in UAT where THREE entries were shown.
+The CONTEXT decision (D-17) filters `acknowledged` — this handles source #2. Source #1 (duplicate `open` from auto-assign) is filtered by the additional `note NOT LIKE 'Auto-assigned%'` clause. Both clauses live in the SAME public read query (D-19 — SQL layer), and neither changes any write behaviour (the full audit trail is preserved in `status_history`; the admin query reads it unfiltered per D-18). Together these two clauses guarantee the ROADMAP success criterion: "exactly one Open entry per report" for both org-assigned and unassigned reports.
 
 ### Pattern 3: Today Count Query (FIX-08)
 
@@ -469,15 +470,11 @@ const publicImageUrl = `${API_BASE_URL}/uploads/${imageFilename}`;
 
 ### Pitfall 3: FIX-07 — Auto-Assign Creates a Second `open` Entry
 
-**What goes wrong:** The CONTEXT decision filters `acknowledged` from the public status history query. However, `create_report` also inserts a second `status_history` row with `new_status = 'open'` for the auto-assign audit trail (reports.rs line 308). This creates two `open` rows before `acknowledged` fires. The CONTEXT filter only removes `acknowledged` rows, leaving the duplicate `open`.
+**What goes wrong:** The CONTEXT decision filters `acknowledged` from the public status history query. However, `create_report` also inserts a second `status_history` row with `new_status = 'open'` for the auto-assign audit trail (reports.rs line 308). This creates two `open` rows before `acknowledged` fires. Filtering `acknowledged` alone leaves the duplicate `open`.
 
 **Why it happens:** UAT-01-10 showed three entries: `Open, Open, In Progress` — two `open` before any acknowledge. The auto-assign audit insert was added in Phase 03.4 to support org hierarchy. Its insertion into `status_history` as `new_status = 'open'` wasn't anticipated to cause public history duplication.
 
-**How to avoid:** Two options:
-- (A) Apply the CONTEXT decision as-is (filter `acknowledged`) — this partially fixes the issue by removing the third `acknowledged`-as-Open entry, but doesn't fix the two `open` entries from auto-assign.
-- (B) Also add a filter to exclude the auto-assign note: `AND (note IS NULL OR note != 'Auto-assigned based on ward geography')`.
-
-The CONTEXT only specifies filtering `acknowledged`. The planner should implement D-19 exactly as specified, but flag this as an open question for verification.
+**How to avoid:** The public read query carries TWO filter clauses (both at the SQL layer per D-19, neither touching write behaviour): (a) `new_status::TEXT != 'acknowledged'` (D-17 — removes the acknowledge-as-Open entry), and (b) `note NOT LIKE 'Auto-assigned%'` (removes the auto-assign duplicate `open` entry). Verify the auto-assign insert's `note` text against reports.rs (the auto-assign audit insert sets a note beginning "Auto-assigned"); the executor must confirm the exact prefix and adjust the LIKE pattern to match it. This combination satisfies the ROADMAP criterion "exactly one Open entry per report" for org-assigned reports too.
 
 ### Pitfall 4: FIX-13 DB Enum Cannot Drop Old Values
 
@@ -554,6 +551,7 @@ SELECT new_status::TEXT AS status, changed_at
 FROM status_history
 WHERE report_id = $1
   AND new_status::TEXT != 'acknowledged'
+  AND (note IS NULL OR note NOT LIKE 'Auto-assigned%')
 ORDER BY changed_at ASC
 ```
 
@@ -634,25 +632,26 @@ UPDATE reports SET location_source = 'GPS_API' WHERE location_source = 'manual_p
 | A3 | react-leaflet `useMap` hook is available in the version installed | Standard Stack | Low — this hook exists in react-leaflet v3+; verify installed version in package.json |
 | A4 | The Dockerfile for the frontend supports build args / env injection at Next.js build time | FIX-11 | Medium — if Dockerfile doesn't forward env vars to `npm run build`, FIX-11 won't work; verify Dockerfile before coding |
 | A5 | `ALTER TYPE ... ADD VALUE IF NOT EXISTS` is idempotent in the installed PostgreSQL version | FIX-13 | Low — `IF NOT EXISTS` for ADD VALUE was added in PostgreSQL 9.3; project uses PostGIS which requires PG 10+ |
+| A6 | The auto-assign audit `status_history` insert sets `note` beginning with the literal "Auto-assigned" | Pattern 2 / Pitfall 3 (FIX-07) | Medium — if the note prefix differs, the `note NOT LIKE 'Auto-assigned%'` filter misses the duplicate open; executor must confirm the exact note text in reports.rs before finalising the LIKE pattern |
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **FIX-07: Auto-assign creates duplicate `open` entry**
-   - What we know: `create_report` inserts a second `status_history` row with `new_status = 'open'` when auto-assign succeeds (reports.rs line 308). The CONTEXT filter removes `acknowledged`. The two-`open` duplication from auto-assign persists.
+1. **FIX-07: Auto-assign creates duplicate `open` entry** — RESOLVED
+   - What we know: `create_report` inserts a second `status_history` row with `new_status = 'open'` when auto-assign succeeds (reports.rs line 308). Filtering `acknowledged` alone leaves the two-`open` duplication from auto-assign.
    - What's unclear: Does the locked decision (filter `acknowledged`) fully resolve the visible duplication seen in UAT? UAT showed THREE entries: Open, Open, In Progress — that's two `open` before any `acknowledged`.
-   - Recommendation: Implement D-17/D-19 as specified (filter `acknowledged`). Additionally, evaluate filtering auto-assign `open` entries by checking `note = 'Auto-assigned based on ward geography'`, or change the auto-assign audit insert to NOT use `status_history` (use a separate audit table or just log). Flag this for human review during verification.
+   - RESOLVED: Plan 05-01 Task 2 implements BOTH SQL filters in the public status history read query (queries.rs): `new_status::TEXT != 'acknowledged'` (D-17, source B) AND `note NOT LIKE 'Auto-assigned%'` (source A — the auto-assign duplicate `open`). Both clauses are at the SQL layer (D-19) and change no write behaviour; the admin query stays unfiltered (D-18). This guarantees the ROADMAP criterion "exactly one Open entry per report" for org-assigned reports. The executor must confirm the exact auto-assign note prefix in reports.rs (Assumption A6) and adjust the LIKE pattern if it differs. The auto-assign insert itself is NOT modified (write behaviour preserved).
 
-2. **FIX-11: Frontend Dockerfile build arg forwarding**
+2. **FIX-11: Frontend Dockerfile build arg forwarding** — RESOLVED
    - What we know: `deploy.yml` runs `docker compose build backend` and `up -d db backend nginx`. The frontend is deployed to Vercel separately (based on `FRONTEND_URL` variable and smoke test step).
    - What's unclear: If the frontend is on Vercel, `NEXT_PUBLIC_BUILD_HASH` injection must happen in the Vercel project env settings or Vercel build command, not in the self-hosted deploy script. The `deploy.yml` only builds the backend Docker image.
-   - Recommendation: Before coding, clarify whether the frontend deploys via Vercel CI or via Docker on the LXC. If Vercel: inject via Vercel project env vars; if Docker: inject via `docker build --build-arg`. This is a material difference in how the fix is implemented.
+   - RESOLVED: Plan 05-04 surfaces this as a blocking `checkpoint:decision` before implementation (Task 1.5), presenting three injection paths (Vercel build-command override, Vercel env var mapped to `VERCEL_GIT_COMMIT_SHA`, or docker-build-arg if the frontend moves to LXC Docker). The chosen path is implemented/documented in Task 2 and the Vercel-side action is recorded in `user_setup`. The deployment-path ambiguity is therefore resolved by a human decision at execution time rather than guessed at planning time.
 
-3. **FIX-05: Admin detail map scope**
+3. **FIX-05: Admin detail map scope** — RESOLVED
    - What we know: The admin detail page has a grey placeholder div, not a Leaflet map. Adding a Leaflet map requires `dynamic(() => import(...), { ssr: false })` per CLAUDE.md, plus the LocationMap component in read-only mode.
    - What's unclear: CONTEXT D-10 says "apply to ALL Leaflet map components — `LocationMap.tsx`, the admin report detail map, and `ReportsMap.tsx`". This implies the admin detail DOES have a Leaflet map. The UAT finding (UAT-01-09) says "Grey placeholder box with only the text 'MAP'".
-   - Recommendation: FIX-05 scope includes adding a real Leaflet map to the admin detail page. Plan this as a two-step change: (1) add `<LocationMap readOnly lat=... lng=...>` to admin detail, (2) apply invalidateSize to it. This is confirmed by the UAT finding.
+   - RESOLVED: Plan 05-03 (admin-portal frontend) owns FIX-05 as a two-step change confirmed by the UAT finding: (1) replace the grey placeholder div in `admin/reports/[id]/page.tsx` with a real `<LocationMap>` in read-only mode, dynamically imported (`ssr: false`) per CLAUDE.md; (2) the `invalidateSize` MapSizeUpdater added to LocationMap in plan 05-02 applies automatically since the admin map reuses that component. The scope question is resolved: the admin detail map must be ADDED, not merely fixed.
 
 ---
 
@@ -703,7 +702,7 @@ UPDATE reports SET location_source = 'GPS_API' WHERE location_source = 'manual_p
 ### Wave 0 Gaps
 
 - [ ] `backend/src/handlers/reports.rs` — unit test for `bake_orientation()` helper covering orientation values 1 (no-op), 3, 6, 8
-- [ ] `backend/src/db/queries.rs` — unit/integration test verifying `acknowledged` is excluded from public status history
+- [ ] `backend/src/db/queries.rs` — unit/integration test verifying `acknowledged` AND auto-assign `open` rows are excluded from public status history
 - [ ] `backend/src/db/admin_queries.rs` — unit test for today_count SQL logic (can test the SQL string constant pattern, per existing test patterns in admin_queries.rs)
 - [ ] Update `test_default_location_source_is_manual_pin` in `reports.rs` to expect `GPS_API`
 
