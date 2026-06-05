@@ -828,6 +828,15 @@ pub async fn get_report_stats(pool: &PgPool) -> Result<StatsResponse, AppError> 
         .fetch_one(pool)
         .await?;
 
+    // FIX-08: Count reports submitted today (UTC date-only filter).
+    // This replaces the incorrect by_status.open proxy for the "+N today" admin UI card.
+    // Uses created_at::date = CURRENT_DATE so status changes never affect the count.
+    let today_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM reports WHERE created_at::date = CURRENT_DATE",
+    )
+    .fetch_one(pool)
+    .await?;
+
     // Seed every expected key with 0 so callers always see a full map (R34).
     // Phase 03 (D-03, D-04, Pitfall 4): updated from 3-value to 6-value enum.
     // "submitted" and "under_review" are NOT seeded — they were renamed in migration 008.
@@ -894,6 +903,7 @@ pub async fn get_report_stats(pool: &PgPool) -> Result<StatsResponse, AppError> 
 
     Ok(StatsResponse {
         total_reports: total,
+        today_count, // FIX-08: date-based count of reports submitted today
         by_status,
         by_category,
         by_severity,

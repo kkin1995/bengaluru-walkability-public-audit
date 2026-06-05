@@ -378,8 +378,24 @@ pub async fn get_report_with_detail(
     // Query 2: public status history.
     // PRIVACY (D-17, Pitfall 10): status_history.note and status_history.changed_by
     // are NEVER selected for the public response — admin-only fields stay admin-only.
+    //
+    // FIX-07: Two filters applied to show exactly ONE "Open" entry per report:
+    //   (a) AND new_status::TEXT != 'acknowledged' — removes the acknowledge-as-Open
+    //       entry (Source B: Acknowledge writes 'acknowledged' which public label maps
+    //       to "Open").
+    //   (b) AND (note IS NULL OR note NOT LIKE 'Auto-assigned%') — removes the auto-
+    //       assign audit trail duplicate 'open' row (Source A: create_report inserts a
+    //       second 'open' status_history row when org auto-assign succeeds; note text
+    //       confirmed at reports.rs line 309: 'Auto-assigned based on ward geography').
+    // Admin history query (in admin_queries.rs) is a SEPARATE code path and stays
+    // unfiltered — admins keep the full timeline per D-18.
     let history_rows = sqlx::query(
-        "SELECT new_status::TEXT AS status, changed_at FROM status_history WHERE report_id = $1 ORDER BY changed_at ASC",
+        "SELECT new_status::TEXT AS status, changed_at \
+         FROM status_history \
+         WHERE report_id = $1 \
+           AND new_status::TEXT != 'acknowledged' \
+           AND (note IS NULL OR note NOT LIKE 'Auto-assigned%') \
+         ORDER BY changed_at ASC",
     )
     .bind(id)
     .fetch_all(pool)
