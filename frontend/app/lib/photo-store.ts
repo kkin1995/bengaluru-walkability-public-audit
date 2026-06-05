@@ -19,10 +19,17 @@ declare global {
 }
 
 export function storePendingPhoto(p: PendingPhoto): void {
+  if (typeof window === "undefined") return;
+  // Revoke the previous preview URL to prevent blob URL accumulation on low-memory devices
+  const prev = window.__pendingPhoto;
+  if (prev?.previewUrl) {
+    try { URL.revokeObjectURL(prev.previewUrl); } catch { /* ignore */ }
+  }
   window.__pendingPhoto = p;
 }
 
 export function consumePendingPhoto(): PendingPhoto | null {
+  if (typeof window === "undefined") return null;
   const p = window.__pendingPhoto ?? null;
   window.__pendingPhoto = null;
   return p;
