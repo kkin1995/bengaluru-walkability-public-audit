@@ -55,7 +55,8 @@ export function ReportCTA() {
     let lat: number | null = null;
     let lng: number | null = null;
     let gpsConfirmed = false;
-    let locationSource: "exif" | "manual_pin" = "manual_pin";
+    // FIX-13 (D-33): Canonical location_source values
+    let locationSource: "EXIF_GPS" | "GPS_API" | "MANUAL_ADJUST" = "GPS_API";
     let photoTime: Date | null = null;
     try {
       const exifrModule = require("exifr");
@@ -71,7 +72,7 @@ export function ReportCTA() {
         lat = gpsResult.latitude;
         lng = gpsResult.longitude;
         gpsConfirmed = true;
-        locationSource = "exif";
+        locationSource = "EXIF_GPS"; // FIX-13: was "exif"
       }
       if (exifData?.DateTimeOriginal instanceof Date) {
         photoTime = exifData.DateTimeOriginal as Date;
@@ -118,7 +119,8 @@ export function ReportCTA() {
     let lat: number | null = null;
     let lng: number | null = null;
     let gpsConfirmed = false;
-    let locationSource: "exif" | "manual_pin" = "manual_pin";
+    // FIX-13 (D-33): Canonical location_source values
+    let locationSource: "EXIF_GPS" | "GPS_API" | "MANUAL_ADJUST" = "GPS_API";
     let photoTime: Date | null = null;
     try {
       const exifrModule = require("exifr");
@@ -134,7 +136,7 @@ export function ReportCTA() {
         lat = gpsResult.latitude;
         lng = gpsResult.longitude;
         gpsConfirmed = true;
-        locationSource = "exif";
+        locationSource = "EXIF_GPS"; // FIX-13: was "exif"
       }
       if (exifData?.DateTimeOriginal instanceof Date) {
         photoTime = exifData.DateTimeOriginal as Date;

@@ -8,7 +8,8 @@ export interface PendingPhoto {
   previewUrl: string;
   lat: number | null;
   lng: number | null;
-  locationSource: "exif" | "manual_pin";
+  // FIX-13 (D-33): Canonical location_source values. T-05-06: backend typed binding rejects non-enum.
+  locationSource: "EXIF_GPS" | "GPS_API" | "MANUAL_ADJUST";
   gpsConfirmed: boolean;
   photoTime: Date | null;
 }

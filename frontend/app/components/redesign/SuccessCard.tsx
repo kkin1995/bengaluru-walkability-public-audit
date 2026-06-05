@@ -238,7 +238,7 @@ export function SuccessCard({
                 {wardLabel}
               </span>
               <span style={{ fontSize: 10, color: "var(--muted-2)", marginLeft: "auto" }}>
-                Auto-routed
+                Auto-detected
               </span>
             </div>
           )}

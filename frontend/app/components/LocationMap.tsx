@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
 import type { Map as LeafletMap, LatLng } from "leaflet";
 import { haversineDistance } from "../lib/utils";
 
@@ -15,6 +15,19 @@ interface LocationMapProps {
   readOnly?: boolean;
   exifCoords?: { lat: number; lng: number };
   className?: string;
+}
+
+// FIX-04 (D-09/D-10): Call invalidateSize() after mount so Leaflet recalculates
+// the container dimensions. Required for iOS Safari where tiles are blank because
+// the map is rendered in a flex/grid context with late-resolved dimensions.
+// Must be a child of <MapContainer> so useMap() can access the map instance.
+function MapSizeUpdater() {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => { map.invalidateSize(); }, 100);
+    return () => clearTimeout(t);
+  }, [map]);
+  return null;
 }
 
 function DraggableMarker({
@@ -156,6 +169,7 @@ export default function LocationMap({
         style={{ width: "100%", height: "100%" }}
         scrollWheelZoom={false}
       >
+        <MapSizeUpdater />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
