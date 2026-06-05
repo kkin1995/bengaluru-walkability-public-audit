@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { API_BASE_URL } from "@/app/lib/config";
+import { API_BASE_URL, NOMINATIM_USER_AGENT } from "@/app/lib/config";
 import { BENGALURU_BOUNDS, BENGALURU_CENTER } from "@/app/lib/constants";
 import { getCategoryLabel } from "@/app/lib/translations";
 import { consumePendingPhoto } from "@/app/lib/photo-store";
@@ -179,7 +179,7 @@ export default function ReportPage() {
       {
         signal: controller.signal,
         headers: {
-          "User-Agent": "Walkable BLR (staging-walkability.kinariwala.com)",
+          "User-Agent": NOMINATIM_USER_AGENT,
         },
       }
     )
