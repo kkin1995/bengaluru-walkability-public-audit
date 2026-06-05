@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: MVP
-status: "v1.0 shipped — PR #18"
-last_updated: "2026-06-01T16:16:23.399Z"
-last_activity: 2026-06-01
+milestone: v1.1
+milestone_name: Stabilise, Launch, and Triage
+status: planning
+last_updated: "2026-06-05T06:50:07.170Z"
+last_activity: 2026-06-05
 progress:
-  total_phases: 19
-  completed_phases: 18
-  total_plans: 59
-  completed_plans: 59
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -24,12 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-01 after v1.0 milestone)
 
 ## Current Position
 
-Phase: 05
-Plan: Not started
-Status: v1.0 shipped — PR #18
-Last activity: 2026-06-01
-
-Progress: [█████████░] 92%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-05 — Milestone v1.1 started
 
 ## Performance Metrics
 

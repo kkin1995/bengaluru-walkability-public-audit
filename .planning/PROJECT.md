@@ -1,5 +1,17 @@
 # Bengaluru Walkability Public Audit
 
+## Current Milestone: v1.1 Stabilise, Launch, and Triage
+
+**Goal:** Fix all live UAT issues found in the v1.0 field test, ship nammadaari.com with a coming soon page, wire the main/staging/feature branching workflow for CI/CD, and improve admin triage UX + public map for daily use.
+
+**Target features:**
+- UAT stabilisation: 11 confirmed bugs fixed (1 critical, 1 high, 7 medium, 3 low)
+- Production launch: coming soon page on nammadaari.com + Git branching model wired for main/staging/feature branches
+- Admin triage UX: ward/corporation filter in queue, before/after resolution photo on public detail page
+- Public map: category + status filters, ward boundary polygon overlay
+
+---
+
 ## What This Is
 
 A civic-tech platform where citizens photograph and geolocate subpar pedestrian infrastructure in Bengaluru. Reports are automatically ward-tagged, visible on a public map, and feed into a full government triage workflow (GBA / BBMP corporations) for resolution. Admins get a redesigned analytics dashboard with ward choropleth, corporation resolution rates, and streaming export. Long-term, the accumulated data will power a Priority Walking Network (PWN) algorithm to guide infrastructure investment toward maximum public transit ridership impact.
@@ -142,21 +154,32 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 
 ### Active
 
-#### Coming Soon / Launch Prep
+#### v1.1 — UAT Stabilisation
+- [ ] Photos broken on public report detail page (PUBLIC_URL / image_url fallback) — UAT-01-06
+- [ ] "Report another" + map FAB route to deprecated /report instead of / — UAT-01-05
+- [ ] Leaflet map tiles blank in iOS Safari on citizen Step 2 + admin detail map — UAT-01-03/09
+- [ ] Report photo rotated 90° in admin — EXIF orientation stripped before baking rotation — UAT-01-07
+- [ ] Duplicate "Open" entries in public STATUS HISTORY when admin acknowledges — UAT-01-10
+- [ ] Admin "+N today" counter decrements on status changes — UAT-01-11
+- [ ] Admin dashboard rubber-bands back to top on scroll release (iOS Safari) — UAT-01-12
+- [ ] GPS coordinates shown at 4dp (~11m) in citizen submission form; should be 3dp — UAT-01-02
+- [ ] BUILD_HASH: 0000000 in admin footer — build-time env var not injected — UAT-01-01
+- [ ] Ward attribution label inconsistency: "Auto-detected" vs "Auto-routed" — UAT-01-04
+- [ ] LOCATION_SRC: MANUAL_PIN label misleading (GPS_API / MANUAL_ADJUST) — UAT-01-08
+
+#### v1.1 — Production Launch + Git Branching Workflow
 - [ ] nammadaari.com coming soon page with @nammadaariblr Instagram CTA
-- [ ] Production domain (nammadaari.com) via Cloudflare Tunnel
-- [ ] GSD branching workflow config for persistent staging branch
+- [ ] Git branching model: main → nammadaari.com, staging → staging.nammadaari.com; feature/fix branches merge to staging; staging merges to main at milestone completions
+- [ ] CI/CD auto-deploy from both main and staging branches
+- [ ] Domain-switch infrastructure: easy flip from coming soon to full app
 
-#### Government Workflow (Extended)
-- [ ] Field team mobile view — mobile-optimized list of assigned reports with map (for use on Android in the field)
-- [ ] Before/after photo comparison on public map — citizen-visible proof of resolution
-- [ ] Ward filter in admin triage queue (filter reports by ward or corporation)
+#### v1.1 — Admin Triage UX + Public Map
+- [ ] Ward/corporation filter in admin reports queue — UAT-01 enhancement
+- [ ] Category + status filter chips on public /map
+- [ ] Ward boundary polygon overlay on public /map
+- [ ] Before/after resolution photo comparison on public report detail page
 
-#### Public Map (Extended)
-- [ ] Category and status filter controls on public map
-- [ ] Ward boundary polygon overlay on public map
-
-#### Notifications
+#### Future — Notifications
 - [ ] Weekly email digest to GBA admins: new report count in their ward/corporation
 - [ ] Reporter email notification when report status changes
 
@@ -214,5 +237,22 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 | SHA256 before EXIF strip for dedup | Re-uploads of same photo match regardless of client-side EXIF handling | ✓ Good |
 | plain REFRESH MATERIALIZED VIEW (not CONCURRENTLY) | Constant-expression index incompatible with CONCURRENTLY; <50ms lock at MVP scale is acceptable | ✓ Good |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-06-01 after v1.0 milestone*
+*Last updated: 2026-06-05 — milestone v1.1 started*
