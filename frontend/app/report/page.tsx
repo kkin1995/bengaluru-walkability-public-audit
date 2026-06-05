@@ -8,6 +8,7 @@ import { API_BASE_URL } from "@/app/lib/config";
 import { BENGALURU_BOUNDS, BENGALURU_CENTER } from "@/app/lib/constants";
 import { getCategoryLabel } from "@/app/lib/translations";
 import { consumePendingPhoto } from "@/app/lib/photo-store";
+import { MAX_BYTES, compressImage } from "@/app/lib/image-utils";
 import { Bi } from "@/app/components/ui/Bi";
 import { Btn } from "@/app/components/ui/Btn";
 import { Icon } from "@/app/components/ui/Icon";
@@ -68,8 +69,6 @@ const INITIAL_FORM: FormState = {
   photoTime: null,
 };
 
-const MAX_BYTES = 10 * 1024 * 1024;
-
 function isInBengaluru(lat: number, lng: number): boolean {
   return (
     lat >= BENGALURU_BOUNDS.latMin &&
@@ -77,32 +76,6 @@ function isInBengaluru(lat: number, lng: number): boolean {
     lng >= BENGALURU_BOUNDS.lngMin &&
     lng <= BENGALURU_BOUNDS.lngMax
   );
-}
-
-async function compressImage(file: File): Promise<Blob | null> {
-  if (file.size <= MAX_BYTES) return file;
-  const url = URL.createObjectURL(file);
-  const img = document.createElement("img");
-  try {
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = reject;
-      img.src = url;
-    });
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-  const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
-  canvas.getContext("2d")!.drawImage(img, 0, 0);
-  for (const quality of [0.85, 0.75, 0.65, 0.55, 0.45, 0.4]) {
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", quality)
-    );
-    if (blob && blob.size <= MAX_BYTES) return blob;
-  }
-  return null;
 }
 
 export default function ReportPage() {
