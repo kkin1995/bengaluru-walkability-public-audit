@@ -43,7 +43,8 @@ interface FormState {
   file: File | null;
   lat: number;
   lng: number;
-  locationSource: "exif" | "manual_pin";
+  // FIX-13 (D-33): Canonical values matching DB enum after migration 015
+  locationSource: "EXIF_GPS" | "GPS_API" | "MANUAL_ADJUST";
   gpsConfirmed: boolean;
   category: string;
   severity: string;
@@ -57,7 +58,7 @@ const INITIAL_FORM: FormState = {
   file: null,
   lat: BENGALURU_CENTER.lat,
   lng: BENGALURU_CENTER.lng,
-  locationSource: "manual_pin",
+  locationSource: "GPS_API",
   gpsConfirmed: false,
   category: "",
   severity: "medium",
@@ -153,7 +154,7 @@ export default function ReportPage() {
           ...f,
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
-          locationSource: "manual_pin", // browser geo, not EXIF
+          locationSource: "GPS_API", // FIX-13: browser GPS API, canonical value
           gpsConfirmed: true,
         }));
         setGpsLocating(false);
@@ -316,7 +317,7 @@ export default function ReportPage() {
       file: finalFile,
       lat: gps?.latitude ?? f.lat,
       lng: gps?.longitude ?? f.lng,
-      locationSource: gps ? "exif" : "manual_pin",
+      locationSource: gps ? "EXIF_GPS" : "GPS_API", // FIX-13 (D-33): canonical values
       gpsConfirmed: !!gps,
       photoTime,
     }));
@@ -416,7 +417,7 @@ export default function ReportPage() {
           reportId={submittedReportId ?? undefined}
           locationLabel={nearRoad ?? undefined}
           wardLabel={wardLabel ?? undefined}
-          onReportAnother={resetAll}
+          onReportAnother={() => { window.location.href = "/"; }}
           onClose={() => {
             window.location.href = "/";
           }}
@@ -659,7 +660,7 @@ export default function ReportPage() {
                     style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)" }}
                   />
                   <span className="mono" style={{ fontSize: 12 }}>
-                    {form.lat.toFixed(4)}, {form.lng.toFixed(4)}
+                    {form.lat.toFixed(3)}, {form.lng.toFixed(3)}
                   </span>
                 </Pill>
               ) : gpsLocating ? (
@@ -915,7 +916,7 @@ export default function ReportPage() {
                   ...f,
                   lat,
                   lng,
-                  locationSource: "manual_pin",
+                  locationSource: "MANUAL_ADJUST", // FIX-13: was "manual_pin"
                   gpsConfirmed: false,
                 }));
               }}
@@ -967,7 +968,7 @@ export default function ReportPage() {
             }}
           >
             <span>
-              {form.lat.toFixed(4)}° N, {form.lng.toFixed(4)}° E
+              {form.lat.toFixed(3)}° N, {form.lng.toFixed(3)}° E
             </span>
           </div>
 

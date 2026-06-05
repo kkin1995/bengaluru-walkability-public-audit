@@ -264,9 +264,9 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* Floating Report here CTA */}
+      {/* Floating Report here CTA — FIX-03 (D-06): href changed from /report to / */}
       <Link
-        href="/report"
+        href="/"
         style={{
           position: "absolute",
           right: 16,
