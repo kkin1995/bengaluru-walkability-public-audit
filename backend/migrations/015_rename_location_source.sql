@@ -13,7 +13,9 @@
 -- converted to the new canonical values.
 --
 -- Non-transactional: ALTER TYPE ... ADD VALUE cannot run inside a transaction
--- block in PostgreSQL < 12. SQLx migrations run in a transaction by default;
+-- block in any PostgreSQL version. PostgreSQL 12+ made new enum values visible
+-- within the same transaction, but the requirement to run outside a transaction
+-- remains in all versions. SQLx migrations run in a transaction by default;
 -- the pragma below disables the transaction wrapper for this migration.
 --
 -- Idempotency: IF NOT EXISTS guards the ADD VALUE statements so re-running
@@ -27,5 +29,13 @@ ALTER TYPE location_source ADD VALUE IF NOT EXISTS 'EXIF_GPS';
 -- Migrate existing data to canonical values.
 -- 'manual_pin' rows become 'GPS_API' (browser Geolocation API was the source)
 -- 'exif' rows become 'EXIF_GPS' (EXIF GPS tag was the source)
+--
+-- ATOMICITY NOTE: These UPDATE statements run outside a transaction (due to the
+-- sqlx:noTransaction pragma required for ALTER TYPE above). If the first UPDATE
+-- succeeds and the second fails (disk full, OOM, connection loss), the migration
+-- leaves the DB in a partially migrated state. Both UPDATE predicates are
+-- idempotent (already-migrated rows are no-ops), so a retry is safe. The
+-- IF NOT EXISTS guards on ALTER TYPE also make a re-run safe for those statements.
+-- Practical risk is low but the migration is not atomic by design.
 UPDATE reports SET location_source = 'GPS_API' WHERE location_source::TEXT = 'manual_pin';
 UPDATE reports SET location_source = 'EXIF_GPS' WHERE location_source::TEXT = 'exif';
