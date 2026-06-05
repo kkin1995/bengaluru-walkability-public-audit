@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stabilise, Launch, and Triage
 status: planning
-last_updated: "2026-06-05T00:00:00Z"
-last_activity: 2026-06-05
+last_updated: "2026-06-05T07:19:43.010Z"
+last_activity: 2026-06-05 — v1.1 roadmap created (Phases 5, 6, 7)
 progress:
   total_phases: 3
   completed_phases: 0
@@ -34,6 +34,7 @@ Progress: [░░░░░░░░░░] 0%
 ## Performance Metrics
 
 **Velocity (v1.0 reference):**
+
 - Total plans completed (v1.0): 59
 - Average duration: ~15 min/plan
 - Total execution time: ~89 days
@@ -53,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 ### Decisions
 
 Key v1.0 decisions carried forward (see PROJECT.md Key Decisions for full log):
+
 - [v1.0]: Self-hosted Arch Linux + Cloudflare Tunnel — existing tunnel routes nammadaari.com; no new infra needed for Phase 6
 - [v1.0]: AdminReport.image_url type mismatch known tech debt — FIX-01 (public photo) may surface same fallback gap; audit image_url vs image_path at Phase 5
 - [v1.0]: /report route deprecated in Phase 02.3.2 — FIX-02 and FIX-03 complete the cleanup by removing all remaining NavLinks to deprecated route
@@ -78,6 +80,6 @@ Items carried forward from v1.0 close (2026-06-01):
 
 ## Session Continuity
 
-Last session: 2026-06-05
-Stopped at: v1.1 roadmap created — Phases 5, 6, 7 defined with success criteria
-Resume file: None
+Last session: 2026-06-05T07:19:43.004Z
+Stopped at: Phase 5 context gathered
+Resume file: .planning/phases/05-uat-stabilisation/05-CONTEXT.md
