@@ -96,4 +96,19 @@ describe("SuccessCard", () => {
     render(<SuccessCard {...defaultProps} />);
     expect(screen.getByText("Status")).toBeInTheDocument();
   });
+
+  it("renders 'Auto-detected' when wardLabel is provided (FIX-12)", () => {
+    // FIX-12: ward label source is always displayed as "Auto-detected", never "Auto-routed".
+    render(<SuccessCard {...defaultProps} wardLabel="Shivajinagar" />);
+    expect(screen.getByText("Auto-detected")).toBeInTheDocument();
+    expect(screen.queryByText("Auto-routed")).not.toBeInTheDocument();
+  });
+
+  it("does NOT render 'Auto-routed' in any scenario (FIX-12 non-regression)", () => {
+    // Adversarial: neither with nor without wardLabel should "Auto-routed" appear.
+    const { rerender } = render(<SuccessCard {...defaultProps} />);
+    expect(screen.queryByText("Auto-routed")).not.toBeInTheDocument();
+    rerender(<SuccessCard {...defaultProps} wardLabel="Koramangala" />);
+    expect(screen.queryByText("Auto-routed")).not.toBeInTheDocument();
+  });
 });

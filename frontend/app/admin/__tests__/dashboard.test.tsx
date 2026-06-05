@@ -115,8 +115,10 @@ import * as adminApi from "../lib/adminApi";
 
 // Phase 03 (D-03): by_status now uses 6-value lifecycle shape.
 // Mapping: open→submitted, acknowledged+assigned+in_progress→under_review, resolved+closed→resolved
+// FIX-08: today_count field added to AdminStats (creation-date-based, independent of status)
 const STATS_FIXTURE = {
   total_reports: 142,
+  today_count: 7,
   by_status: { open: 38, acknowledged: 21, assigned: 20, in_progress: 20, resolved: 43, closed: 0 },
   by_category: {
     no_footpath: 20,
@@ -131,6 +133,7 @@ const STATS_FIXTURE = {
 
 const ZERO_STATS_FIXTURE = {
   total_reports: 0,
+  today_count: 0,
   by_status: { open: 0, acknowledged: 0, assigned: 0, in_progress: 0, resolved: 0, closed: 0 },
   by_category: {
     no_footpath: 0,
@@ -236,6 +239,23 @@ describe("R-DASH-1 / AC-DASH-1-S1 — Dashboard renders a heading and fetches st
         "StatsCards must receive and display resolved = 43"
       );
     });
+  });
+
+  it("renders +today_count today counter after stats resolve (FIX-08)", async () => {
+    // FIX-08: today_count is a creation-date-based count independent of status transitions.
+    // Rendered directly in admin/page.tsx as `+${stats.today_count} today`.
+    (adminApi.getStats as jest.Mock).mockResolvedValueOnce(STATS_FIXTURE);
+    render(<AdminDashboard />);
+    await waitFor(() => {
+      expect(screen.getByText("+7 today")).toBeInTheDocument();
+    });
+  });
+
+  it("renders em dash when stats are not yet loaded (FIX-08 loading state)", async () => {
+    (adminApi.getStats as jest.Mock).mockReturnValueOnce(new Promise(() => {}));
+    render(<AdminDashboard />);
+    // Before stats resolve, today_count placeholder is "—"
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 });
 
