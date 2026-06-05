@@ -553,8 +553,16 @@ export default function ReportPage() {
           </p>
         )}
 
-        {/* ABUSE-02 honeypot — type="hidden" so browser autofill never fills it */}
-        <input type="hidden" data-hp="1" />
+        {/* ABUSE-02 honeypot — type="text" so bots fill it; visually hidden via absolute positioning */}
+        <input
+          type="text"
+          name="website"
+          data-hp="1"
+          aria-hidden="true"
+          tabIndex={-1}
+          autoComplete="off"
+          style={{ opacity: 0, position: "absolute", left: "-9999px", width: 1, height: 1 }}
+        />
       </main>
     );
   }
@@ -748,8 +756,16 @@ export default function ReportPage() {
           </Btn>
         </div>
 
-        {/* ABUSE-02 honeypot — type="hidden" so browser autofill never fills it */}
-        <input type="hidden" data-hp="1" />
+        {/* ABUSE-02 honeypot — type="text" so bots fill it; visually hidden via absolute positioning */}
+        <input
+          type="text"
+          name="website"
+          data-hp="1"
+          aria-hidden="true"
+          tabIndex={-1}
+          autoComplete="off"
+          style={{ opacity: 0, position: "absolute", left: "-9999px", width: 1, height: 1 }}
+        />
       </main>
     );
   }
@@ -1220,8 +1236,16 @@ export default function ReportPage() {
         </Btn>
       </div>
 
-      {/* ABUSE-02 honeypot — type="hidden" so browser autofill never fills it */}
-      <input type="hidden" data-hp="1" />
+      {/* ABUSE-02 honeypot — type="text" so bots fill it; visually hidden via absolute positioning */}
+      <input
+        type="text"
+        name="website"
+        data-hp="1"
+        aria-hidden="true"
+        tabIndex={-1}
+        autoComplete="off"
+        style={{ opacity: 0, position: "absolute", left: "-9999px", width: 1, height: 1 }}
+      />
     </main>
   );
 }
