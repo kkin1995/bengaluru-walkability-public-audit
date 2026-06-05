@@ -17,14 +17,14 @@ key_files:
 decisions:
   - "FIX-04: CSP added directly to location / block (not server block) per nginx add_header inheritance rule (PATTERNS.md Pitfall 7)"
   - "FIX-04: connect-src includes https://*.tile.openstreetmap.org — iOS Safari enforces connect-src for XHR tile fetches; admin block omitted this, public block now includes it"
-  - "FIX-11: PENDING — injection method to be selected at checkpoint:decision (Task 2)"
+  - "FIX-11: User selected vercel-build-command — Vercel Build Command set to NEXT_PUBLIC_BUILD_HASH=$(git rev-parse --short HEAD) npm run build; documented in deploy.yml; D-28 compliant (per-deploy SHA, never static)"
 metrics:
-  duration: "~2 min (Task 1 only; Task 2 pending checkpoint)"
-  completed_date: "2026-06-05T12:01:48Z"
-  tasks_completed: 1
+  duration: "~3 min (Tasks 1 + 2)"
+  completed_date: "2026-06-05T12:15:00Z"
+  tasks_completed: 2
   tasks_total: 2
-  files_changed: 1
-status: partial — stopped at checkpoint:decision (Task 2)
+  files_changed: 2
+status: complete
 ---
 
 # Phase 05 Plan 04: Infrastructure CSP + Build Hash Summary
@@ -71,25 +71,40 @@ Acceptance criteria met:
 
 ## Task 2: FIX-11 — NEXT_PUBLIC_BUILD_HASH injection
 
-**Status: PENDING CHECKPOINT:DECISION**
+**Status: COMPLETE** — commit `c8c5bc8`
 
-Execution paused at `type="checkpoint:decision"`. The user must choose the injection mechanism before Task 2 can be implemented. See checkpoint details below.
+### Checkpoint resolution
 
-### Decision required
+User selected: **`vercel-build-command`**
 
-**Where is NEXT_PUBLIC_BUILD_HASH injected for the production frontend build, such that it carries a fresh per-deploy git short SHA (D-28: never a static value)?**
+### What was done
 
-**Context:** The production frontend deploys to Vercel — `deploy.yml` only builds the backend Docker image on the LXC server. The frontend Dockerfile is NOT used in the production deploy path. Therefore, `NEXT_PUBLIC_BUILD_HASH` cannot be injected by the CI SSH step.
+Added a documentation comment block to `.github/workflows/deploy.yml` under the existing "Required GitHub Actions configuration" header. The comment:
+- Contains the literal string `NEXT_PUBLIC_BUILD_HASH`
+- Specifies the exact Vercel Build Command: `NEXT_PUBLIC_BUILD_HASH=$(git rev-parse --short HEAD) npm run build`
+- Names the Vercel dashboard location (Build & Development Settings → Build Command)
+- Explicitly prohibits static/hardcoded hash values (D-28)
 
-| Option | Label | Pros | Cons |
-|--------|-------|------|------|
-| `vercel-build-command` | Vercel build command override (recommended) | Matches production deploy path; per-deploy SHA via live `git rev-parse --short HEAD`; no Docker build added; inherently D-28-compliant | Requires user to set Vercel project Build Command in dashboard — Claude cannot do this |
-| `vercel-env-var` | Vercel project environment variable | Simple dashboard toggle; no build-command change | D-28 CONSTRAINT: must map to Vercel system variable `$VERCEL_GIT_COMMIT_SHA` (per-deploy), NOT a hardcoded literal hash. Static value violates D-28. |
-| `docker-build-arg` | Docker build-arg in deploy.yml | Keeps injection in version-controlled CI; D-28-compliant via live `git rev-parse` | Only valid if frontend moves to LXC Docker stack — currently it does NOT; would change deployment architecture (out of scope for a bug-fix phase) |
+No code change injects a static hash. No Docker frontend build was added to deploy.yml. frontend/Dockerfile was not modified.
 
-**D-28 constraint applies to ALL options:** The value must update per deployment. A static hash string is prohibited regardless of which option is chosen.
+### User action required
 
-**Resume signal:** Select `vercel-build-command`, `vercel-env-var`, or `docker-build-arg` — and confirm whether you will set the Vercel dashboard config yourself. If you select `vercel-env-var`, confirm you will map it to `VERCEL_GIT_COMMIT_SHA` (not a static value), per D-28.
+The operator must set the Vercel project Build Command in the Vercel dashboard:
+```
+NEXT_PUBLIC_BUILD_HASH=$(git rev-parse --short HEAD) npm run build
+```
+(Vercel Dashboard → Project → Settings → Build & Development Settings → Build Command)
+
+### Post-deploy verification (manual)
+
+After the next Vercel deployment, confirm the admin footer on staging.nammadaari.com shows a non-zero git short SHA (not `0000000`) that matches `git rev-parse --short HEAD` of the deployed commit.
+
+### Acceptance criteria
+
+- [x] `.github/workflows/deploy.yml` contains `NEXT_PUBLIC_BUILD_HASH` in an actionable documentation comment
+- [x] `grep -rn "0000000" .github frontend/Dockerfile` returns 0 lines
+- [x] No static hash introduced anywhere
+- [x] Comment names the exact Vercel build command and dashboard location
 
 ---
 
@@ -105,11 +120,13 @@ None — the CSP added is scoped to `https://*.tile.openstreetmap.org` only. No 
 
 None in Task 1's output. The `nginx/nginx.conf` change is complete and not a stub.
 
-## Self-Check: PARTIAL
+## Self-Check: PASSED
 
-Task 1 complete. Task 2 pending checkpoint decision from user.
+Both tasks complete.
 
 - [x] nginx/nginx.conf modified — `b23cae1` confirmed in git log
-- [ ] Task 2 not yet implemented (blocked at checkpoint:decision)
-- [ ] deploy.yml comment/changes — pending Task 2 after checkpoint resolves
-- [ ] frontend/Dockerfile changes — only applicable if `docker-build-arg` chosen
+- [x] Public `location /` CSP allows `https://*.tile.openstreetmap.org` in both img-src and connect-src
+- [x] deploy.yml documentation comment added — `c8c5bc8` — contains NEXT_PUBLIC_BUILD_HASH instruction
+- [x] No static hash introduced; `grep -rn "0000000" .github frontend/Dockerfile` → 0 lines
+- [x] frontend/Dockerfile not modified (vercel-build-command path does not require it)
+- [x] User action recorded: set Vercel Build Command to inject per-deploy SHA
