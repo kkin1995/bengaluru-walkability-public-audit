@@ -41,7 +41,7 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 
 **Milestone Goal:** Fix all live UAT issues found in the v1.0 field test, ship nammadaari.com with a coming soon page, wire the main/staging/feature branching workflow for CI/CD, and improve admin triage UX + public map for daily use.
 
-- [ ] **Phase 5: UAT Stabilisation** — Fix 13 confirmed bugs from live iPhone field test on staging.nammadaari.com
+- [x] **Phase 5: UAT Stabilisation** — Fix 13 confirmed bugs from live iPhone field test on staging.nammadaari.com (completed 2026-06-05)
 - [ ] **Phase 6: Production Launch + Git Branching Workflow** — Ship nammadaari.com coming soon page and wire CI/CD for main/staging branches
 - [ ] **Phase 7: Admin Triage UX + Public Map** — Add ward/corp filter to admin queue, filter chips and ward overlay to public map, before/after resolution photo on detail page
 
@@ -71,7 +71,7 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 05-03-PLAN.md — Admin frontend: read-only map, today_count render, iOS scroll fix, BUILD_HASH wiring, LOCATION_SRC labels
+- [x] 05-03-PLAN.md — Admin frontend: read-only map, today_count render, iOS scroll fix, BUILD_HASH wiring, LOCATION_SRC labels
 
 **UI hint**: yes
 
@@ -129,7 +129,7 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 | 3.4 Org Auto-assign + Compact Nav | v1.0 | 2/2 | ✅ Complete | 2026-06-01 |
 | 4. Export and Public Analytics | v1.0 | 5/5 | ✅ Complete | 2026-05-31 |
 | 04.1 Ward-Org Link Gap Closure | v1.0 | 4/4 | ✅ Complete | 2026-06-01 |
-| 5. UAT Stabilisation | v1.1 | 3/4 | In Progress|  |
+| 5. UAT Stabilisation | v1.1 | 4/4 | Complete   | 2026-06-05 |
 | 6. Production Launch + Git Branching | v1.1 | 0/TBD | Not started | — |
 | 7. Admin Triage UX + Public Map | v1.1 | 0/TBD | Not started | — |
 
