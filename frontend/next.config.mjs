@@ -26,17 +26,13 @@ const nextConfig = {
       { protocol: "https", hostname: "staging.nammadaari.com" },
     ],
   },
-  // FIX-02/03 (D-07): Permanent redirects for deprecated routes.
-  // /report and /reports are replaced by the home page flow.
-  // permanent: true emits HTTP 308 (Next.js App Router), intercepting before route rendering.
-  // T-05-07: destinations are hardcoded to "/" — no open-redirect surface.
+  // FIX-03 (D-07): Permanent redirect for deprecated /reports list route.
+  // /report is NOT redirected here — the form page at /report is still active
+  // and reached via router.push("/report") from ReportCTA after photo capture.
+  // permanent: true emits HTTP 308 (Next.js App Router).
+  // T-05-07: destination is hardcoded to "/" — no open-redirect surface.
   async redirects() {
     return [
-      {
-        source: "/report",
-        destination: "/",
-        permanent: true,
-      },
       {
         source: "/reports",
         destination: "/",
