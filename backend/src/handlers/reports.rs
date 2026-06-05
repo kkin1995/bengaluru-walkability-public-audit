@@ -289,9 +289,14 @@ pub async fn create_report(
         None
     };
 
-    // Strip EXIF from image before saving — propagate error on parse failure
+    // [FIX-06] Bake EXIF orientation into pixels before stripping EXIF metadata.
+    // If orientation tag is absent or equals 1, bytes are returned unchanged.
+    // Must run BEFORE strip_exif — after stripping, the orientation tag is gone.
+    let oriented_bytes = bake_orientation(&req.image_bytes)?;
+
+    // Strip EXIF from orientation-baked bytes — propagate error on parse failure
     // instead of writing potentially malformed bytes to disk (WR-02).
-    let clean_bytes = strip_exif(&req.image_bytes)?;
+    let clean_bytes = strip_exif(&oriented_bytes)?;
 
     // Save to disk
     let file_uuid = Uuid::new_v4();
@@ -376,6 +381,140 @@ pub async fn get_report(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let v = queries::get_report_with_detail(&state.pool, id, &state.api_base_url).await?;
     Ok(Json(v))
+}
+
+/// FIX-06: Reads tag 0x0112 (Orientation) from raw EXIF/TIFF bytes.
+///
+/// The EXIF APP1 payload starts with "Exif\0\0" (6 bytes), followed by a TIFF
+/// header. This function handles both little-endian ("II") and big-endian ("MM")
+/// byte order. Returns None if the tag is absent or the bytes are malformed.
+///
+/// TIFF structure (simplified):
+///   [byte order marker 2B] [magic 0x2A 2B] [IFD0 offset 4B] [IFD entries...]
+/// Each IFD entry: [tag 2B] [type 2B] [count 4B] [value/offset 4B]
+fn read_exif_orientation_tag(exif_bytes: &[u8]) -> Option<u16> {
+    // EXIF payload starts with "Exif\0\0" (6 bytes) then TIFF data
+    if exif_bytes.len() < 14 {
+        return None;
+    }
+    // Skip the "Exif\0\0" header
+    let tiff = &exif_bytes[6..];
+    if tiff.len() < 8 {
+        return None;
+    }
+
+    // Determine byte order
+    let little_endian = match &tiff[0..2] {
+        b"II" => true,
+        b"MM" => false,
+        _ => return None, // unknown byte order
+    };
+
+    let read_u16 = |buf: &[u8], offset: usize| -> Option<u16> {
+        let b = buf.get(offset..offset + 2)?;
+        Some(if little_endian {
+            u16::from_le_bytes([b[0], b[1]])
+        } else {
+            u16::from_be_bytes([b[0], b[1]])
+        })
+    };
+    let read_u32 = |buf: &[u8], offset: usize| -> Option<u32> {
+        let b = buf.get(offset..offset + 4)?;
+        Some(if little_endian {
+            u32::from_le_bytes([b[0], b[1], b[2], b[3]])
+        } else {
+            u32::from_be_bytes([b[0], b[1], b[2], b[3]])
+        })
+    };
+
+    // Verify TIFF magic (42)
+    let magic = read_u16(tiff, 2)?;
+    if magic != 42 {
+        return None;
+    }
+
+    // IFD0 offset
+    let ifd_offset = read_u32(tiff, 4)? as usize;
+    if ifd_offset + 2 > tiff.len() {
+        return None;
+    }
+
+    // Number of IFD entries
+    let entry_count = read_u16(tiff, ifd_offset)? as usize;
+    let entries_start = ifd_offset + 2;
+
+    for i in 0..entry_count {
+        let entry_offset = entries_start + i * 12;
+        if entry_offset + 12 > tiff.len() {
+            break;
+        }
+        let tag = read_u16(tiff, entry_offset)?;
+        if tag == 0x0112 {
+            // Orientation tag found — value is stored inline as a u16 in the
+            // value/offset field (bytes 8..10 of the 12-byte IFD entry).
+            return read_u16(tiff, entry_offset + 8);
+        }
+    }
+    None
+}
+
+/// FIX-06: Bake EXIF orientation into pixels before stripping EXIF metadata.
+///
+/// Reads the EXIF Orientation tag (0x0112) from the JPEG bytes using img-parts,
+/// then applies the required transform using the `image` crate.
+///
+/// - Orientation 1 (or absent): returns input bytes unchanged — no decode/re-encode.
+/// - Orientation 3: rotate 180°.
+/// - Orientation 6 (iPhone portrait): rotate 90° CW.
+/// - Orientation 8: rotate 90° CCW.
+/// - Mirror variants (2, 4, 5, 7): flip accordingly.
+/// - Unknown values: passthrough (unchanged).
+/// - Malformed JPEG: returns AppError::BadRequest.
+///
+/// Re-encodes to JPEG at 85% quality when rotation is applied.
+fn bake_orientation(bytes: &[u8]) -> Result<Vec<u8>, crate::errors::AppError> {
+    use image::codecs::jpeg::JpegEncoder;
+    use img_parts::{jpeg::Jpeg, ImageEXIF};
+
+    // Parse JPEG to read the orientation tag
+    let jpeg = Jpeg::from_bytes(bytes.to_vec().into())
+        .map_err(|_| crate::errors::AppError::BadRequest("Image processing failed: not a valid JPEG".into()))?;
+
+    let orientation: u16 = jpeg
+        .exif()
+        .as_deref()
+        .and_then(|exif_bytes| read_exif_orientation_tag(exif_bytes))
+        .unwrap_or(1);
+
+    // No rotation needed for orientation 1 (normal) or absent tag
+    if orientation <= 1 {
+        return Ok(bytes.to_vec());
+    }
+
+    // Decode image pixels using the `image` crate
+    let img = image::load_from_memory(bytes)
+        .map_err(|_| crate::errors::AppError::BadRequest("Failed to decode image for orientation correction".into()))?;
+
+    // Apply transform based on EXIF orientation value
+    let rotated = match orientation {
+        3 => img.rotate180(),
+        6 => img.rotate90(),
+        8 => img.rotate270(),
+        2 => img.fliph(),
+        4 => img.flipv(),
+        5 => img.rotate90().fliph(),
+        7 => img.rotate270().fliph(),
+        _ => return Ok(bytes.to_vec()), // unknown orientation — passthrough
+    };
+
+    // Re-encode to JPEG at 85% quality
+    let mut output = Vec::new();
+    let encoder = JpegEncoder::new_with_quality(&mut output, 85);
+    rotated
+        .write_with_encoder(encoder)
+        .map_err(|_| crate::errors::AppError::BadRequest("JPEG re-encode failed after orientation correction".into()))?;
+
+    Ok(output)
 }
 
 /// Strip all EXIF metadata from JPEG bytes using img-parts.
@@ -842,6 +981,141 @@ mod jpeg_validation_tests {
         assert!(
             !is_jpeg(&[0xFF]),
             "Single byte 0xFF is not a complete JPEG SOI marker — must be rejected"
+        );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// bake_orientation unit tests (FIX-06)
+//
+// Requirements covered:
+//   FIX-06 — EXIF orientation baking before EXIF strip
+//
+// Tests verify that:
+//   - orientation 1 (normal): input bytes returned unchanged
+//   - orientation 6 (iPhone portrait, 90 CW): output image dimensions swapped
+//   - malformed bytes: returns AppError::BadRequest
+// ─────────────────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod bake_orientation_tests {
+    use super::*;
+
+    /// Builds a minimal 2x1 pixel JPEG (width=2, height=1) with an EXIF APP1 segment
+    /// containing TIFF IFD0 tag 0x0112 (Orientation) set to `orientation_value`.
+    /// Returns raw JPEG bytes with embedded EXIF.
+    fn make_jpeg_with_orientation(width: u32, height: u32, orientation_value: u16) -> Vec<u8> {
+        use image::{DynamicImage, ImageBuffer, Rgb, codecs::jpeg::JpegEncoder};
+        use std::io::Write;
+
+        // Create a simple colored image
+        let img_buf: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_fn(width, height, |x, _y| {
+            if x == 0 { Rgb([255u8, 0u8, 0u8]) } else { Rgb([0u8, 255u8, 0u8]) }
+        });
+        let img = DynamicImage::ImageRgb8(img_buf);
+
+        // Encode to JPEG bytes first
+        let mut jpeg_bytes = Vec::new();
+        let encoder = JpegEncoder::new_with_quality(&mut jpeg_bytes, 85);
+        img.write_with_encoder(encoder).expect("JPEG encode must succeed for test");
+
+        if orientation_value == 1 {
+            // No EXIF needed — orientation 1 is the default no-op
+            return jpeg_bytes;
+        }
+
+        // Build a synthetic EXIF APP1 segment with Orientation tag
+        // TIFF header (little-endian): II + 42 + IFD offset
+        // IFD entry: tag 0x0112 (Orientation), type SHORT (3), count 1, value = orientation_value
+        let orientation_bytes = orientation_value.to_le_bytes();
+
+        // Minimal TIFF structure (little-endian):
+        // "II"  = 0x49 0x49 (little-endian byte order)
+        // 0x2A 0x00 = magic number 42 (LE)
+        // 0x08 0x00 0x00 0x00 = offset to first IFD (8 bytes from start of TIFF = right after header)
+        // IFD:
+        //   0x01 0x00 = 1 entry
+        //   0x12 0x01 = tag 0x0112 (Orientation)
+        //   0x03 0x00 = type SHORT
+        //   0x01 0x00 0x00 0x00 = count = 1
+        //   [orientation_bytes padded to 4 bytes] = value
+        //   0x00 0x00 0x00 0x00 = next IFD offset = 0 (end)
+        let mut tiff: Vec<u8> = Vec::new();
+        tiff.extend_from_slice(b"II"); // little-endian
+        tiff.extend_from_slice(&42u16.to_le_bytes()); // magic
+        tiff.extend_from_slice(&8u32.to_le_bytes()); // IFD offset
+        // IFD entry count
+        tiff.extend_from_slice(&1u16.to_le_bytes());
+        // Tag entry: tag, type, count, value (padded to 4 bytes)
+        tiff.extend_from_slice(&0x0112u16.to_le_bytes()); // Orientation tag
+        tiff.extend_from_slice(&3u16.to_le_bytes()); // type SHORT
+        tiff.extend_from_slice(&1u32.to_le_bytes()); // count
+        tiff.extend_from_slice(&[orientation_bytes[0], orientation_bytes[1], 0, 0]); // value
+        // Next IFD offset = 0
+        tiff.extend_from_slice(&0u32.to_le_bytes());
+
+        // EXIF APP1 marker: 0xFF 0xE1 + length (2 bytes, big-endian) + "Exif\0\0" + TIFF
+        let _exif_payload_len = 6 + tiff.len(); // "Exif\0\0" + TIFF bytes (for documentation)
+
+        // Now inject the APP1 segment into the JPEG after SOI marker (first 2 bytes)
+        // by using img-parts to set the EXIF bytes
+        let exif_bytes: Vec<u8> = {
+            let mut e = b"Exif\0\0".to_vec();
+            e.extend_from_slice(&tiff);
+            e
+        };
+
+        // Use img-parts to inject EXIF into the clean JPEG
+        use img_parts::{jpeg::Jpeg, ImageEXIF};
+        let mut jpeg_parsed = Jpeg::from_bytes(jpeg_bytes.into())
+            .expect("JPEG parse must succeed for test JPEG bytes");
+        jpeg_parsed.set_exif(Some(exif_bytes.into()));
+        jpeg_parsed.encoder().bytes().to_vec()
+    }
+
+    /// FIX-06 — orientation 1 (normal): bake_orientation returns input bytes unchanged.
+    /// No decode/re-encode should occur for the no-op case.
+    #[test]
+    fn bake_orientation_1_returns_input_unchanged() {
+        // Build a 3x2 JPEG with orientation = 1 (normal, no-op)
+        let input = make_jpeg_with_orientation(3, 2, 1);
+        let result = bake_orientation(&input).expect("bake_orientation must succeed for valid JPEG");
+        // Orientation 1 must return the exact same bytes (no decode+re-encode)
+        assert_eq!(
+            result, input,
+            "bake_orientation with orientation=1 must return input bytes unchanged"
+        );
+    }
+
+    /// FIX-06 — orientation 6 (iPhone portrait, rotate 90 CW): output width/height swapped.
+    /// A 3×2 image rotated 90° CW becomes a 2×3 image.
+    #[test]
+    fn bake_orientation_6_swaps_width_height() {
+        // Build a 3×2 JPEG (width=3, height=2) with orientation = 6 (90 CW)
+        let input = make_jpeg_with_orientation(3, 2, 6);
+        let output = bake_orientation(&input).expect("bake_orientation must succeed for orientation=6");
+
+        // Decode output to verify dimensions
+        let decoded = image::load_from_memory(&output)
+            .expect("Output of bake_orientation must be a valid JPEG");
+        assert_eq!(
+            decoded.width(), 2,
+            "After 90 CW rotation, width (was 3) must become 2 (the original height)"
+        );
+        assert_eq!(
+            decoded.height(), 3,
+            "After 90 CW rotation, height (was 2) must become 3 (the original width)"
+        );
+    }
+
+    /// FIX-06 — malformed bytes must return AppError::BadRequest, never panic.
+    #[test]
+    fn bake_orientation_malformed_returns_bad_request() {
+        let garbage = b"not a jpeg at all";
+        let result = bake_orientation(garbage);
+        assert!(
+            matches!(result, Err(AppError::BadRequest(_))),
+            "bake_orientation must return AppError::BadRequest for malformed JPEG input, got: {:?}",
+            result
         );
     }
 }
