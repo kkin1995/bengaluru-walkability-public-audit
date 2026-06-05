@@ -10,7 +10,8 @@ import {
   type AdminReport,
   type StatusHistoryEntry,
 } from "../../lib/adminApi";
-import { getCategoryLabel } from "@/app/lib/translations";
+import nextDynamic from "next/dynamic";
+import { getCategoryLabel, getLocationSourceLabel } from "@/app/lib/translations";
 import StatusBadge from "../../components/StatusBadge";
 import { SeverityIndicator } from "../../components/SeverityIndicator";
 import { Card } from "../../components/Card";
@@ -23,6 +24,12 @@ import StatusActionPanel from "../../components/StatusActionPanel";
 import OrgAssignPanel from "../../components/OrgAssignPanel";
 import GbaHierarchyPanel from "../../components/GbaHierarchyPanel";
 import ResolveModal from "../../components/ResolveModal";
+
+// FIX-05: Leaflet uses window — must use SSR-off dynamic import per CLAUDE.md architectural rule.
+const LocationMap = nextDynamic(
+  () => import("@/app/components/LocationMap"),
+  { ssr: false }
+);
 
 // ─── Status timeline constants ─────────────────────────────────────────────────
 
@@ -103,7 +110,7 @@ function PhotoHero({ report, categoryLabel, showOverlays = false }: PhotoHeroPro
 
           {/* Top-right: EXIF chip */}
           <div style={{ position: "absolute", top: 8, right: 8 }}>
-            {report.location_source === "exif" && (
+            {report.location_source === "EXIF_GPS" && (
               <Pill tone="accent" size="sm" style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
                 EXIF_OK
               </Pill>
@@ -344,7 +351,7 @@ export default function ReportDetailPage({
             { key: "LAT", value: report.latitude?.toFixed(5) ?? "—" },
             { key: "LNG", value: report.longitude?.toFixed(5) ?? "—" },
             { key: "WARD", value: report.ward_name ?? "—" },
-            { key: "LOCATION_SRC", value: (report.location_source ?? "—").toUpperCase() },
+            { key: "LOCATION_SRC", value: getLocationSourceLabel(report.location_source ?? "").en },
             { key: "SUBMITTED_AT", value: formatDate(report.created_at) },
             // Raw category slug — machine truth for admin telemetry (test: "renders the category text")
             { key: "CATEGORY", value: report.category },
@@ -422,19 +429,31 @@ export default function ReportDetailPage({
         {/* Kannada description would render here when the API exposes a locale-tagged field */}
       </Card>
 
-      {/* Map placeholder + Open in Maps link */}
+      {/* Map + Open in Maps link — FIX-05: real read-only Leaflet map when coordinates exist */}
       <Card padded={false} style={{ marginBottom: 16, overflow: "hidden" }}>
-        <div style={{
-          height: 140,
-          background: "linear-gradient(135deg, var(--surface-2), var(--surface-3))",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", textTransform: "uppercase" }}>
-            MAP
-          </span>
-        </div>
+        {(report.latitude != null && report.longitude != null) ? (
+          <div style={{ height: 140 }}>
+            <LocationMap
+              lat={report.latitude}
+              lng={report.longitude}
+              onChange={() => {}}
+              readOnly
+              className="w-full h-full"
+            />
+          </div>
+        ) : (
+          <div style={{
+            height: 140,
+            background: "linear-gradient(135deg, var(--surface-2), var(--surface-3))",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)", textTransform: "uppercase" }}>
+              No coordinates
+            </span>
+          </div>
+        )}
         <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <div>
             {report.ward_name && (
