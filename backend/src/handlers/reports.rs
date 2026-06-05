@@ -175,10 +175,17 @@ pub async fn create_report(
                 }
             }
             "location_source" => {
-                req.location_source = field
+                let raw = field
                     .text()
                     .await
                     .map_err(|e| AppError::BadRequest(e.to_string()))?;
+                req.location_source = match raw.as_str() {
+                    "GPS_API" | "EXIF_GPS" | "MANUAL_ADJUST" => raw,
+                    // Accept legacy enum values from pre-015 clients
+                    "exif" | "manual_pin" => raw,
+                    // Unknown value: default to canonical GPS_API rather than a 500
+                    _ => "GPS_API".to_string(),
+                };
             }
             "website" => {
                 // ABUSE-02: Honeypot field — legitimate users never fill this.
