@@ -241,6 +241,9 @@ pub struct JwtClaims {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StatsResponse {
     pub total_reports: i64,
+    /// FIX-08: count of reports submitted today (UTC, date-only filter on created_at).
+    /// Replaces the incorrect `by_status.open` proxy for the "+N today" admin UI card.
+    pub today_count: i64,
     /// Keys: "open", "acknowledged", "assigned", "in_progress", "resolved", "closed"
     /// (Phase 03 6-value enum — D-03, D-04)
     pub by_status: HashMap<String, i64>,
@@ -1082,6 +1085,7 @@ mod tests {
         // R33: the 'total_reports' field must be present and carry an integer value.
         let stats = StatsResponse {
             total_reports: 42,
+            today_count: 0,
             by_status: HashMap::new(),
             by_category: HashMap::new(),
             by_severity: HashMap::new(),
@@ -1111,6 +1115,7 @@ mod tests {
 
         let stats = StatsResponse {
             total_reports: 7,
+            today_count: 0,
             by_status,
             by_category: HashMap::new(),
             by_severity: HashMap::new(),
@@ -1167,6 +1172,7 @@ mod tests {
 
         let stats = StatsResponse {
             total_reports: 0,
+            today_count: 0,
             by_status: HashMap::new(),
             by_category,
             by_severity: HashMap::new(),
@@ -1183,6 +1189,31 @@ mod tests {
         assert!(
             json.contains("\"broken_footpath\":0"),
             "broken_footpath with zero count must appear as 0 (not be absent), but got: {}",
+            json
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Suite 6b — StatsResponse.today_count (FIX-08)
+    // Requirements: FIX-08 — admin "+N today" counter must be date-based
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// FIX-08 — StatsResponse must carry a today_count field (i64).
+    /// This test verifies the field serializes correctly to JSON.
+    #[test]
+    fn test_stats_response_today_count_serializes_correctly() {
+        let stats = StatsResponse {
+            total_reports: 100,
+            today_count: 5,
+            by_status: HashMap::new(),
+            by_category: HashMap::new(),
+            by_severity: HashMap::new(),
+        };
+        let json =
+            serde_json::to_string(&stats).expect("StatsResponse must serialize without error");
+        assert!(
+            json.contains("\"today_count\":5"),
+            "StatsResponse JSON must contain 'today_count':5 (FIX-08), but got: {}",
             json
         );
     }

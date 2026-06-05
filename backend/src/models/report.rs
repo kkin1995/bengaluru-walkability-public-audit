@@ -183,7 +183,7 @@ mod tests {
             submitter_name: None,
             submitter_contact: None,
             status: "new".to_string(),
-            location_source: "manual_pin".to_string(),
+            location_source: "GPS_API".to_string(), // FIX-13: canonical value
             ward_id: None,
             photo_hash: None,
             duplicate_of_id: None,
