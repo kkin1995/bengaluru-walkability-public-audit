@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stabilise, Launch, and Triage
 status: executing
-last_updated: "2026-06-05T11:57:56.444Z"
-last_activity: 2026-06-05 -- Phase 05 execution started
+last_updated: "2026-06-05T14:41:42Z"
+last_activity: 2026-06-05 -- Phase 05 UAT complete (9 passed, 2 bugs fixed inline, 2 skipped to staging)
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 0
-  percent: 0
+  completed_plans: 4
+  percent: 33
 ---
 
 # Project State
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-05 after v1.1 roadmap created)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase 05 — uat-stabilisation
+**Current focus:** Phase 06 — production-launch-git-branching-workflow
 
 ## Current Position
 
-Phase: 05 (uat-stabilisation) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 05
-Last activity: 2026-06-05 -- Phase 05 execution started
+Phase: 05 (uat-stabilisation) — COMPLETE ✅
+Phase: 06 (production-launch-git-branching-workflow) — UP NEXT
+Status: Phase 05 UAT complete; 2 bugs found and fixed inline; ready for Phase 06 planning
+Last activity: 2026-06-05 -- Phase 05 UAT complete
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
