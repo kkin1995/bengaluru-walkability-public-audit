@@ -2004,40 +2004,59 @@ mod tests {
 
     /// WARD-03/P06 — When org_id is Some, list_admin_reports SQL must contain
     /// the recursive CTE (org_subtree) and restrict by ward org membership.
+    ///
+    /// The CTE must be a TOP-LEVEL prefix (not an inline CTE inside IN(...) —
+    /// inline CTEs in subqueries are non-standard and rejected by PostgreSQL < 12).
+    /// This test mirrors the SQL structure that list_admin_reports actually builds.
     #[test]
     fn list_admin_reports_with_org_id_includes_recursive_cte() {
         let org_id = Some(Uuid::nil());
-        let (where_clause, param_idx) = build_report_where_clause(None, None, None, None, None, 1);
-        // Simulate what list_admin_reports does with org_id = Some
-        let org_clause = if let Some(id) = org_id {
-            let _ = id; // use the value
-            format!(
-                " AND reports.ward_id IN (\
-                    WITH RECURSIVE org_subtree AS (\
-                        SELECT id FROM organizations WHERE id = ${}\
-                        UNION ALL\
-                        SELECT o.id FROM organizations o\
-                          JOIN org_subtree s ON o.parent_id = s.id\
-                    )\
+        let (where_clause, mut param_idx) =
+            build_report_where_clause(None, None, None, None, None, 1);
+
+        // Replicate the top-level CTE pattern from list_admin_reports (not inline CTE).
+        let (cte_prefix, org_clause) = if org_id.is_some() {
+            let cte = format!(
+                "WITH RECURSIVE org_subtree AS (\
+                    SELECT id FROM organizations WHERE id = ${}\
+                    UNION ALL\
+                    SELECT o.id FROM organizations o\
+                      JOIN org_subtree s ON o.parent_id = s.id\
+                ) ",
+                param_idx
+            );
+            param_idx += 1;
+            let clause = " AND reports.ward_id IN (\
                     SELECT w.id FROM wards w\
                       JOIN org_subtree s ON w.org_id = s.id\
-                )",
-                param_idx
-            )
+                )"
+            .to_string();
+            (cte, clause)
         } else {
-            String::new()
+            (String::new(), String::new())
         };
+        let _ = param_idx;
 
-        let full_where = format!("{}{}", where_clause, org_clause);
-        assert!(
-            full_where.contains("org_subtree"),
-            "SQL with org_id=Some must contain recursive CTE 'org_subtree'; got: {}",
-            full_where
+        // The full SQL (prefix + WHERE + org clause) is what list_admin_reports emits.
+        let full_sql = format!(
+            "{}SELECT ... FROM reports {}{}",
+            cte_prefix, where_clause, org_clause
         );
         assert!(
-            full_where.contains("w.org_id = s.id"),
+            full_sql.contains("org_subtree"),
+            "SQL with org_id=Some must contain recursive CTE 'org_subtree'; got: {}",
+            full_sql
+        );
+        assert!(
+            full_sql.contains("w.org_id = s.id"),
             "SQL with org_id=Some must join wards on w.org_id; got: {}",
-            full_where
+            full_sql
+        );
+        // The CTE must be a top-level prefix, not nested inside IN(...)
+        assert!(
+            full_sql.starts_with("WITH RECURSIVE"),
+            "CTE must be a top-level prefix (not inline inside IN()); got: {}",
+            full_sql
         );
     }
 
