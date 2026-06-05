@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ADMIN_API_BASE_URL as BASE } from "@/app/lib/config";
+import { ADMIN_API_BASE_URL as BASE, BUILD_HASH } from "@/app/lib/config";
 import { Input } from "../components/Input";
 import { Btn } from "../components/Btn";
 import { Icon } from "../components/Icon";
@@ -243,7 +243,7 @@ export default function LoginPage() {
         borderTop: "1px solid var(--border)",
         paddingTop: 12,
       }}>
-        <span>BUILD_HASH: 0000000 · {new Date().getFullYear()}</span>
+        <span>BUILD_HASH: {BUILD_HASH} · {new Date().getFullYear()}</span>
         <span>STATUS: <span style={{ color: "var(--accent-ink)" }}>● OK</span></span>
       </div>
     </div>

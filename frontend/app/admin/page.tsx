@@ -354,7 +354,7 @@ export default function AdminDashboard() {
             marginBottom: 14,
           }}
         >
-          {statsForCards ? `+${statsForCards.submitted} today` : "—"}
+          {stats ? `+${stats.today_count} today` : "—"}
         </div>
         <Btn variant="accent" size="lg" style={{ width: "100%" }} onClick={() => router.push("/admin/reports")}>
           Start reviewing
