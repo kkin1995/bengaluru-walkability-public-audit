@@ -416,7 +416,7 @@ export default function ReportPage() {
           reportId={submittedReportId ?? undefined}
           locationLabel={nearRoad ?? undefined}
           wardLabel={wardLabel ?? undefined}
-          onReportAnother={resetAll}
+          onReportAnother={() => { window.location.href = "/"; }}
           onClose={() => {
             window.location.href = "/";
           }}
