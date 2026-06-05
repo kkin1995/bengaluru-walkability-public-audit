@@ -2,8 +2,8 @@
 
 ## Milestones
 
-- ✅ **v1.0 MVP** — Phases 1–4 + 10 insertions (shipped 2026-06-01) — [archive](.planning/milestones/v1.0-ROADMAP.md)
-- 📋 **v1.1** — TBD — run `/gsd-new-milestone` to define scope
+- ✅ **v1.0 MVP** — Phases 1–4 + 10 insertions (shipped 2026-06-01) — [archive](milestones/v1.0-ROADMAP.md)
+- 🚧 **v1.1 Stabilise, Launch, and Triage** — Phases 5–7 (in progress)
 
 ---
 
@@ -37,16 +37,54 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 
 ---
 
-### 📋 v1.1 (Planned)
+### 🚧 v1.1 Stabilise, Launch, and Triage (In Progress)
 
-Next milestone scope to be defined with `/gsd-new-milestone`.
+**Milestone Goal:** Fix all live UAT issues found in the v1.0 field test, ship nammadaari.com with a coming soon page, wire the main/staging/feature branching workflow for CI/CD, and improve admin triage UX + public map for daily use.
 
-Candidate themes based on v1.0 tech debt + v2 requirements:
-- Coming soon homepage + production domain launch (nammadaari.com)
-- Live browser UAT for 6 human_needed phases
-- Dedup job `closed` status fix (WARNING-01)
-- AdminReport TypeScript type cleanup (WARNING-02, WARNING-03)
-- Phase 05: Coming Soon Homepage + Branching Workflow Setup
+- [ ] **Phase 5: UAT Stabilisation** — Fix 13 confirmed bugs from live iPhone field test on staging.nammadaari.com
+- [ ] **Phase 6: Production Launch + Git Branching Workflow** — Ship nammadaari.com coming soon page and wire CI/CD for main/staging branches
+- [ ] **Phase 7: Admin Triage UX + Public Map** — Add ward/corp filter to admin queue, filter chips and ward overlay to public map, before/after resolution photo on detail page
+
+---
+
+## Phase Details
+
+### Phase 5: UAT Stabilisation
+**Goal**: All 13 confirmed UAT bugs from the v1.0 live iPhone field test are fixed so citizens can submit and view reports correctly and admins can triage without UI breakage
+**Depends on**: Phase 04.1 (last completed v1.0 phase)
+**Requirements**: FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, FIX-06, FIX-07, FIX-08, FIX-09, FIX-10, FIX-11, FIX-12, FIX-13
+**Success Criteria** (what must be TRUE):
+  1. A citizen visiting a public report detail page (unauthenticated) sees the submitted photo load correctly
+  2. After submitting a report, tapping "Report another" and the map FAB both navigate to the home page, not the deprecated /report route
+  3. The embedded Leaflet map renders with visible tiles in iOS Safari on both the citizen confirm screen and the admin report detail view
+  4. Report photos appear upright (no 90-degree rotation) in the admin portal; public STATUS HISTORY shows exactly one "Open" entry per report
+  5. The admin footer BUILD_HASH shows a real git SHA; the admin dashboard scrolls freely on iOS Safari; GPS coordinates in the citizen form display at 3dp; ward label and LOCATION_SRC labels use the correct canonical strings
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 6: Production Launch + Git Branching Workflow
+**Goal**: nammadaari.com serves a coming soon page auto-deployed from main, staging.nammadaari.com auto-deploys from the staging branch, and the feature/fix branch workflow is documented and enforced
+**Depends on**: Phase 5
+**Requirements**: LAUNCH-01, LAUNCH-02, LAUNCH-03, LAUNCH-04, LAUNCH-05
+**Success Criteria** (what must be TRUE):
+  1. Visiting nammadaari.com shows a coming soon page with the @nammadaariblr Instagram CTA, matching the citizen portal design language
+  2. Pushing a commit to main triggers a GitHub Actions CI run that deploys the updated app to nammadaari.com via the existing Cloudflare Tunnel
+  3. Pushing a commit to the staging branch triggers a CI run that deploys to staging.nammadaari.com
+  4. DEPLOYMENT.md documents the branching model (feature/fix → staging → main at milestone) so any contributor can follow it without asking
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 7: Admin Triage UX + Public Map
+**Goal**: Admins can filter the reports queue by ward or corporation, and the public map gains category/status filter chips, a ward boundary overlay, and a before/after resolution photo on report detail pages
+**Depends on**: Phase 6
+**Requirements**: TRIAGE-01, TRIAGE-02, TRIAGE-03, TRIAGE-04, TRIAGE-05
+**Success Criteria** (what must be TRUE):
+  1. An admin can select a ward or corporation from a filter control in the reports queue and see only reports belonging to that geographic scope
+  2. A citizen visiting /map can tap a category chip to show only reports of that category, and a status chip to show only open, in-progress, or resolved reports
+  3. A citizen can toggle a ward boundary overlay on the public /map to see ward polygons drawn over the base map
+  4. A citizen viewing a resolved report's detail page sees both the original submission photo and the admin-uploaded resolution photo side by side
+**Plans**: TBD
+**UI hint**: yes
 
 ---
 
@@ -72,8 +110,11 @@ Candidate themes based on v1.0 tech debt + v2 requirements:
 | 3.4 Org Auto-assign + Compact Nav | v1.0 | 2/2 | ✅ Complete | 2026-06-01 |
 | 4. Export and Public Analytics | v1.0 | 5/5 | ✅ Complete | 2026-05-31 |
 | 04.1 Ward-Org Link Gap Closure | v1.0 | 4/4 | ✅ Complete | 2026-06-01 |
-| 5. Coming Soon Homepage | v1.1 | 0/TBD | Not started | — |
+| 5. UAT Stabilisation | v1.1 | 0/TBD | Not started | — |
+| 6. Production Launch + Git Branching | v1.1 | 0/TBD | Not started | — |
+| 7. Admin Triage UX + Public Map | v1.1 | 0/TBD | Not started | — |
 
 ---
 
-*v1.0 shipped: 2026-06-01 — archive: .planning/milestones/v1.0-ROADMAP.md*
+*v1.0 shipped: 2026-06-01 — archive: .planning/milestones/v1.0-ROADMAP.md*  
+*v1.1 roadmap created: 2026-06-05*

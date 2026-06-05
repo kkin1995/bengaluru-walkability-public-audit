@@ -72,10 +72,28 @@ Bug fixes confirmed in live field UAT on staging.nammadaari.com (2026-06-01, iPh
 
 ## Traceability
 
-*Filled during roadmap creation.*
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FIX-01 – FIX-13 | Phase 05 | Pending |
-| LAUNCH-01 – LAUNCH-05 | Phase 06 | Pending |
-| TRIAGE-01 – TRIAGE-05 | Phase 07 | Pending |
+| FIX-01 | Phase 5 | Pending |
+| FIX-02 | Phase 5 | Pending |
+| FIX-03 | Phase 5 | Pending |
+| FIX-04 | Phase 5 | Pending |
+| FIX-05 | Phase 5 | Pending |
+| FIX-06 | Phase 5 | Pending |
+| FIX-07 | Phase 5 | Pending |
+| FIX-08 | Phase 5 | Pending |
+| FIX-09 | Phase 5 | Pending |
+| FIX-10 | Phase 5 | Pending |
+| FIX-11 | Phase 5 | Pending |
+| FIX-12 | Phase 5 | Pending |
+| FIX-13 | Phase 5 | Pending |
+| LAUNCH-01 | Phase 6 | Pending |
+| LAUNCH-02 | Phase 6 | Pending |
+| LAUNCH-03 | Phase 6 | Pending |
+| LAUNCH-04 | Phase 6 | Pending |
+| LAUNCH-05 | Phase 6 | Pending |
+| TRIAGE-01 | Phase 7 | Pending |
+| TRIAGE-02 | Phase 7 | Pending |
+| TRIAGE-03 | Phase 7 | Pending |
+| TRIAGE-04 | Phase 7 | Pending |
+| TRIAGE-05 | Phase 7 | Pending |
