@@ -76,7 +76,7 @@ reason: Verify on staging after ship.
 
 total: 13
 passed: 9
-issues: 3
+issues: 2
 pending: 0
 skipped: 2
 blocked: 0
@@ -90,12 +90,10 @@ blocked: 0
   test: 1
 
 - truth: "Photo displays when clicking a report dot on /map popup"
-  status: failed
-  reason: "User reported: photo does not show up when clicking report dot on /map. Works on /reports/[id]. FIX-01 was only applied to reports/[id]/page.tsx; the map popup component still uses raw image_url with internal backend:3001 hostname."
-  severity: major
+  status: not-a-bug
+  reason: "image_url is intentionally excluded from the GeoJSON endpoint (WR-04 — privacy by design). The popup renders without a photo by design. ReportsMap.tsx line 46 documents this. Not a Phase 5 regression."
+  severity: cosmetic
   test: 2
-  artifacts: []
-  missing: []
 
 - truth: "After selecting a photo on home page, the report flow proceeds to /report form"
   status: fixed
