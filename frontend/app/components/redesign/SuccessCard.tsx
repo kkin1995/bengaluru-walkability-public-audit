@@ -29,7 +29,8 @@ export function SuccessCard({
   }
 
   async function handleShare() {
-    const url = typeof window !== "undefined" ? window.location.origin : "";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const url = reportId ? `${origin}/reports/${reportId}` : origin;
     const nav = typeof navigator !== "undefined" ? navigator : null;
     if (nav && "share" in nav) {
       try {
