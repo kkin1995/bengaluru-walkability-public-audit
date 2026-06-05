@@ -88,7 +88,7 @@ fn fake_success_response() -> ReportResponse {
         severity: "medium".to_string(),
         description: None,
         status: "open".to_string(),
-        location_source: "manual_pin".to_string(),
+        location_source: "GPS_API".to_string(), // FIX-13: canonical value
         ward_name: None,
         resolution_photo_url: None,
     }
@@ -213,7 +213,7 @@ pub async fn create_report(
         return Err(AppError::BadRequest("Category is required".into()));
     }
     if req.location_source.is_empty() {
-        req.location_source = "manual_pin".to_string();
+        req.location_source = "GPS_API".to_string(); // FIX-13: canonical default (replaces deprecated 'manual_pin')
     }
     if req.severity.is_empty() {
         req.severity = "medium".to_string();
@@ -718,15 +718,29 @@ mod tests {
     }
 
     #[test]
-    fn test_default_location_source_is_manual_pin() {
-        // Verifies the defaulting logic for location_source matches the handler.
+    fn test_default_location_source_is_gps_api() {
+        // FIX-13: Verifies the defaulting logic for location_source uses canonical GPS_API.
+        // 'manual_pin' is deprecated — new code emits 'GPS_API' as the default.
         let mut location_source = String::new();
         if location_source.is_empty() {
-            location_source = "manual_pin".to_string();
+            location_source = "GPS_API".to_string();
         }
         assert_eq!(
-            location_source, "manual_pin",
-            "Empty location_source must default to 'manual_pin'"
+            location_source, "GPS_API",
+            "Empty location_source must default to 'GPS_API' (FIX-13 canonical value)"
+        );
+    }
+
+    /// FIX-13: fake_success_response must emit 'GPS_API', never 'manual_pin'.
+    /// This test calls the actual production function to verify the canonical value.
+    #[test]
+    fn test_fake_success_response_location_source_is_gps_api() {
+        let response = fake_success_response();
+        assert_eq!(
+            response.location_source, "GPS_API",
+            "fake_success_response must emit 'GPS_API' location_source (FIX-13), \
+             but got: '{}'",
+            response.location_source
         );
     }
 
