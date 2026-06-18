@@ -490,7 +490,7 @@ fn bake_orientation(bytes: &[u8]) -> Result<Vec<u8>, crate::errors::AppError> {
     let orientation: u16 = jpeg
         .exif()
         .as_deref()
-        .and_then(|exif_bytes| read_exif_orientation_tag(exif_bytes))
+        .and_then(read_exif_orientation_tag)
         .unwrap_or(1);
 
     // No rotation needed for orientation 1 (normal) or absent tag
