@@ -3,11 +3,15 @@ FROM rust:1.88-slim-bookworm AS builder
 
 WORKDIR /app
 
-# Install build dependencies
+# Install build dependencies.
+# clang is used instead of gcc-12 (Bookworm default) to avoid a known GCC 12
+# ICE (segfault in cc1) when compiling the ring crate's C crypto files.
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
+    clang \
     && rm -rf /var/lib/apt/lists/*
+ENV CC=clang
 
 # Cache dependencies by building a dummy main first
 COPY Cargo.toml ./
