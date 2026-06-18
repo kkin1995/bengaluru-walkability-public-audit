@@ -2,9 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stabilise, Launch, and Triage
-status: executing
-last_updated: "2026-06-05T14:41:42Z"
-last_activity: 2026-06-05 -- Phase 05 UAT complete (9 passed, 2 bugs fixed inline, 2 skipped to staging)
+status: "Phase 05 shipped — PR #19"
+stopped_at: Phase 5 context gathered
+last_updated: "2026-06-18T15:41:25.847Z"
+last_activity: 2026-06-18
 progress:
   total_phases: 3
   completed_phases: 1
@@ -26,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-06-05 after v1.1 roadmap created)
 
 Phase: 05 (uat-stabilisation) — COMPLETE ✅
 Phase: 06 (production-launch-git-branching-workflow) — UP NEXT
-Status: Phase 05 UAT complete; 2 bugs found and fixed inline; ready for Phase 06 planning
-Last activity: 2026-06-05 -- Phase 05 UAT complete
+Status: Phase 05 shipped — PR #19
+Last activity: 2026-06-18
 
 Progress: [███░░░░░░░] 33%
 
