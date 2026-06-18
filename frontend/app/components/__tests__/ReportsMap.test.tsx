@@ -546,7 +546,6 @@ describe("Phase 03 / MAP-03 — ReportsMap: popup shows status label and Read Mo
     mockFetchSuccess([
       makeReport({
         status: "open",
-        // @ts-expect-error - extending with optional fields
         corporation: "West Corporation",
         ward_name: "Shivajinagar",
       }),

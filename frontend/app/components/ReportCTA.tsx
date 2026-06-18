@@ -6,34 +6,7 @@ import { Bi } from "@/app/components/ui/Bi";
 import { Btn } from "@/app/components/ui/Btn";
 import { Icon } from "@/app/components/ui/Icon";
 import { storePendingPhoto } from "@/app/lib/photo-store";
-
-const MAX_BYTES = 10 * 1024 * 1024;
-
-async function compressImage(file: File): Promise<Blob | null> {
-  if (file.size <= MAX_BYTES) return file;
-  const url = URL.createObjectURL(file);
-  const img = document.createElement("img");
-  try {
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = reject;
-      img.src = url;
-    });
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-  const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
-  canvas.getContext("2d")!.drawImage(img, 0, 0);
-  for (const quality of [0.85, 0.75, 0.65, 0.55, 0.45, 0.4]) {
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", quality)
-    );
-    if (blob && blob.size <= MAX_BYTES) return blob;
-  }
-  return null;
-}
+import { MAX_BYTES, compressImage } from "@/app/lib/image-utils";
 
 export function ReportCTA() {
   const router = useRouter();
@@ -55,7 +28,8 @@ export function ReportCTA() {
     let lat: number | null = null;
     let lng: number | null = null;
     let gpsConfirmed = false;
-    let locationSource: "exif" | "manual_pin" = "manual_pin";
+    // FIX-13 (D-33): Canonical location_source values
+    let locationSource: "EXIF_GPS" | "GPS_API" | "MANUAL_ADJUST" = "GPS_API";
     let photoTime: Date | null = null;
     try {
       const exifrModule = require("exifr");
@@ -71,7 +45,7 @@ export function ReportCTA() {
         lat = gpsResult.latitude;
         lng = gpsResult.longitude;
         gpsConfirmed = true;
-        locationSource = "exif";
+        locationSource = "EXIF_GPS"; // FIX-13: was "exif"
       }
       if (exifData?.DateTimeOriginal instanceof Date) {
         photoTime = exifData.DateTimeOriginal as Date;
@@ -118,7 +92,8 @@ export function ReportCTA() {
     let lat: number | null = null;
     let lng: number | null = null;
     let gpsConfirmed = false;
-    let locationSource: "exif" | "manual_pin" = "manual_pin";
+    // FIX-13 (D-33): Canonical location_source values
+    let locationSource: "EXIF_GPS" | "GPS_API" | "MANUAL_ADJUST" = "GPS_API";
     let photoTime: Date | null = null;
     try {
       const exifrModule = require("exifr");
@@ -134,7 +109,7 @@ export function ReportCTA() {
         lat = gpsResult.latitude;
         lng = gpsResult.longitude;
         gpsConfirmed = true;
-        locationSource = "exif";
+        locationSource = "EXIF_GPS"; // FIX-13: was "exif"
       }
       if (exifData?.DateTimeOriginal instanceof Date) {
         photoTime = exifData.DateTimeOriginal as Date;

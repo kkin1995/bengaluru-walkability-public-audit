@@ -130,13 +130,38 @@ beforeEach(() => {
 });
 
 describe("PublicReportPage — full report rendering", () => {
-  it("renders the hero image with src from report.image_url", async () => {
+  it("renders the hero image with src built from API_BASE_URL + /uploads/ + filename (FIX-01)", async () => {
+    // FIX-01: public photo URL is reconstructed from API_BASE_URL + /uploads/ + filename
+    // The config mock has API_BASE_URL: "" (empty string), simulating Docker nginx proxy mode.
+    // The raw image_url "http://test-api/uploads/test.jpg" contains an internal Docker hostname.
+    // The implementation splits on "/uploads/" and builds: "" + "/uploads/" + "test.jpg" = "/uploads/test.jpg"
     mockFetchOk(makeFullReport());
     const jsx = await PublicReportPage({ params: { id: "test-report-abc" } });
     render(jsx);
 
-    const img = screen.getByRole("img", { hidden: true });
-    expect(img).toHaveAttribute("src", "http://test-api/uploads/test.jpg");
+    const imgs = screen.getAllByRole("img", { hidden: true });
+    // The hero image must be the one with the public URL, not the raw internal image_url
+    const heroImg = imgs[0];
+    // FIX-01: URL uses the extracted filename, not the raw internal image_url
+    expect(heroImg).toHaveAttribute("src", "/uploads/test.jpg");
+    // The raw internal Docker hostname must NOT appear in any img src
+    expect(heroImg).not.toHaveAttribute("src", "http://test-api/uploads/test.jpg");
+  });
+
+  it("hero image src does NOT contain raw internal image_url (FIX-01 non-regression)", async () => {
+    // Adversarial: the image_url has an internal Docker hostname that browsers cannot reach.
+    // After FIX-01 the img src must never equal the raw image_url.
+    const internalImageUrl = "http://backend:3001/uploads/some-file.jpg";
+    mockFetchOk(makeFullReport({ image_url: internalImageUrl }));
+    const jsx = await PublicReportPage({ params: { id: "test-report-abc" } });
+    render(jsx);
+
+    const imgs = screen.getAllByRole("img", { hidden: true });
+    const heroImg = imgs[0];
+    // Must NOT be the raw internal URL
+    expect(heroImg.getAttribute("src")).not.toBe(internalImageUrl);
+    // Must use only the filename portion
+    expect(heroImg).toHaveAttribute("src", "/uploads/some-file.jpg");
   });
 
   it("renders the report status chip with public label (In progress)", async () => {

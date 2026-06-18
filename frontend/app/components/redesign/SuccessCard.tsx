@@ -29,7 +29,8 @@ export function SuccessCard({
   }
 
   async function handleShare() {
-    const url = typeof window !== "undefined" ? window.location.origin : "";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const url = reportId ? `${origin}/reports/${reportId}` : origin;
     const nav = typeof navigator !== "undefined" ? navigator : null;
     if (nav && "share" in nav) {
       try {
@@ -238,7 +239,7 @@ export function SuccessCard({
                 {wardLabel}
               </span>
               <span style={{ fontSize: 10, color: "var(--muted-2)", marginLeft: "auto" }}>
-                Auto-routed
+                Auto-detected
               </span>
             </div>
           )}

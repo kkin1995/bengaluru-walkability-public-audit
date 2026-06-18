@@ -21,9 +21,9 @@ function formatActivityTime(isoString: string): string {
 }
 
 function statusActionLabel(status: string): string {
-  if (status === "resolved") return "Resolved";
-  if (status === "under_review") return "Under review";
-  return "New";
+  if (status === "resolved" || status === "closed") return "Resolved";
+  if (status === "in_progress" || status === "assigned" || status === "acknowledged") return "In progress";
+  return "New"; // open + unknown
 }
 
 export default function AdminDashboard() {
@@ -354,7 +354,7 @@ export default function AdminDashboard() {
             marginBottom: 14,
           }}
         >
-          {statsForCards ? `+${statsForCards.submitted} today` : "—"}
+          {stats ? `+${stats.today_count} today` : "—"}
         </div>
         <Btn variant="accent" size="lg" style={{ width: "100%" }} onClick={() => router.push("/admin/reports")}>
           Start reviewing

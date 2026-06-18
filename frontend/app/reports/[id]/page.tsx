@@ -9,7 +9,7 @@
  */
 
 import { notFound } from "next/navigation";
-import { INTERNAL_API_URL } from "@/app/lib/config";
+import { INTERNAL_API_URL, API_BASE_URL } from "@/app/lib/config";
 import { getCategoryLabel, publicStatusLabel, publicStatusColor } from "@/app/lib/translations";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -220,6 +220,13 @@ export default async function PublicReportPage({
 
   const report: PublicReport = await res.json();
 
+  // FIX-01 (D-01/D-02): Reconstruct browser-reachable URL from filename only.
+  // report.image_url contains an internal Docker hostname (http://backend:3001/uploads/...)
+  // which is unreachable from the browser. Extract the filename and build the public URL.
+  // T-05-05: use .split("/uploads/").pop() to extract only the basename (path traversal safe).
+  const imageFilename = (report.image_url ?? "").split("/uploads/").pop() ?? "";
+  const publicImageUrl = imageFilename ? `${API_BASE_URL}/uploads/${imageFilename}` : "";
+
   const statusLabel = publicStatusLabel(report.status);
   const statusColor = publicStatusColor(report.status);
   const isResolved = report.status === "resolved" || report.status === "closed";
@@ -295,7 +302,7 @@ export default async function PublicReportPage({
       <div style={{ position: "relative", width: "100%", height: 260, overflow: "hidden" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={report.image_url}
+          src={publicImageUrl}
           alt=""
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />

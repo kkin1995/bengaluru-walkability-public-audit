@@ -45,6 +45,23 @@ export function getCategoryLabel(value: string): { en: string; kn: string } {
   return CATEGORY_LABEL_MAP[value] ?? { en: value, kn: value };
 }
 
+// FIX-13: Canonical location_source display labels for admin detail page.
+// Maps canonical backend values (GPS_API, MANUAL_ADJUST, EXIF_GPS) to bilingual labels.
+// Legacy values (manual_pin, exif) included for DB rows not yet migrated.
+// Threat T-05-10: values are rendered as React text (auto-escaped) — no dangerouslySetInnerHTML.
+const LOCATION_SOURCE_LABEL_MAP: Record<string, { en: string; kn: string }> = {
+  GPS_API:       { en: "GPS (device)",   kn: "GPS (ಸಾಧನ)" },
+  MANUAL_ADJUST: { en: "Manual pin",     kn: "ಮ್ಯಾನ್ಯುಯಲ್ ಪಿನ್" },
+  EXIF_GPS:      { en: "Photo GPS",      kn: "ಫೋಟೋ GPS" },
+  // Legacy values — kept for DB rows not yet migrated to canonical enum
+  manual_pin:    { en: "Manual pin",     kn: "ಮ್ಯಾನ್ಯುಯಲ್ ಪಿನ್" },
+  exif:          { en: "Photo GPS",      kn: "ಫೋಟೋ GPS" },
+};
+
+export function getLocationSourceLabel(value: string): { en: string; kn: string } {
+  return LOCATION_SOURCE_LABEL_MAP[value] ?? { en: value, kn: value };
+}
+
 // MAP-03 / D-42: public 3-state mapping for citizens — 6-state admin enum is collapsed for clarity.
 // open, acknowledged, assigned → "Open" (red — attention needed)
 // in_progress                  → "In progress" (amber — in motion)

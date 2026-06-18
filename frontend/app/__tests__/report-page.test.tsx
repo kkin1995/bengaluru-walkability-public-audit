@@ -124,12 +124,16 @@ describe("Report page — photo step", () => {
     expect(honeypot).not.toBeNull();
   });
 
-  it("honeypot is type=hidden so browser autofill never fills it", () => {
+  it("honeypot is type=text (visually hidden via CSS positioning) so bot scripts fill it (ABUSE-02)", () => {
+    // ABUSE-02: honeypot uses type="text" so bot automation scripts that scan DOM inputs will fill it.
+    // The field is visually hidden via absolute positioning (left: -9999px) — NOT via type=hidden.
+    // type="hidden" would make the field invisible to bots, defeating the honeypot trap.
     render(<ReportPage />);
     const honeypot = document.querySelector(
       'input[data-hp="1"]'
     ) as HTMLInputElement;
-    expect(honeypot.type).toBe("hidden");
+    expect(honeypot).not.toBeNull();
+    expect(honeypot.type).toBe("text");
   });
 
   it("shows 'Step 1 · Photo' section label", () => {
@@ -250,6 +254,21 @@ describe("Report page — confirm step", () => {
       expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument()
     );
   });
+
+  it("GPS coordinates render at exactly 3 decimal places on confirm step (FIX-10)", async () => {
+    // FIX-10: form.lat.toFixed(3) and form.lng.toFixed(3) — never 4dp.
+    // The exifr mock returns lat=12.9716, lng=77.5946.
+    // toFixed(3): 12.9716 → "12.972", 77.5946 → "77.595"
+    render(<ReportPage />);
+    await goToConfirm();
+    // The confirm step renders GPS coordinates at 3dp in the location display
+    const pageText = document.body.textContent ?? "";
+    expect(pageText).toContain("12.972");
+    expect(pageText).toContain("77.595");
+    // Must NOT show 4 decimal places for these coordinates
+    expect(pageText).not.toContain("12.9716");
+    expect(pageText).not.toContain("77.5946");
+  });
 });
 
 // ─── Submit ───────────────────────────────────────────────────────────────────
@@ -298,6 +317,32 @@ describe("Report page — submit", () => {
     expect(body.has("lng")).toBe(true);
   });
 
+  it("location_source in FormData is a canonical value — never legacy 'exif' or 'manual_pin' (FIX-13)", async () => {
+    // FIX-13: location_source must be one of GPS_API / EXIF_GPS / MANUAL_ADJUST.
+    // Pre-migration legacy values were "exif" (→ EXIF_GPS) and "manual_pin" (→ GPS_API).
+    // This test asserts the emitted value is always canonical.
+    render(<ReportPage />);
+    await goToConfirm();
+    const submitBtn = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.includes("Submit report"));
+    fireEvent.click(submitBtn!);
+    await waitFor(() => {
+      const calls = (global.fetch as jest.Mock).mock.calls;
+      expect(calls.some(([url]: [string]) => url.includes("/api/reports"))).toBe(true);
+    });
+    const submitCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url]: [string]) => url.includes("/api/reports")
+    )!;
+    const body = submitCall[1].body as FormData;
+    const locationSource = body.get("location_source") as string;
+    // Must be one of the three canonical post-FIX-13 values
+    expect(["GPS_API", "EXIF_GPS", "MANUAL_ADJUST"]).toContain(locationSource);
+    // Must never be the pre-migration legacy strings
+    expect(locationSource).not.toBe("exif");
+    expect(locationSource).not.toBe("manual_pin");
+  });
+
   it("successful submit shows SuccessCard with report ID", async () => {
     render(<ReportPage />);
     await goToConfirm();
@@ -311,7 +356,22 @@ describe("Report page — submit", () => {
     expect(screen.getByText("test-report-123")).toBeInTheDocument();
   });
 
-  it("clicking Report another on SuccessCard resets to photo step", async () => {
+  it("clicking Report another on SuccessCard navigates to / (FIX-02 — full page navigation, not SPA reset)", async () => {
+    // FIX-02: onReportAnother is wired to window.location.href = "/" — full browser navigation away.
+    // The SPA form does NOT reset; instead the browser navigates away from /report to /.
+    // We capture the href assignment via Object.defineProperty on window.location.
+    const hrefSetter = jest.fn();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      writable: true,
+      value: { ...originalLocation, href: "/" },
+    });
+    Object.defineProperty(window.location, "href", {
+      get: () => "/",
+      set: hrefSetter,
+      configurable: true,
+    });
+
     render(<ReportPage />);
     await goToConfirm();
     const submitBtn = screen
@@ -325,9 +385,15 @@ describe("Report page — submit", () => {
       .getAllByRole("button")
       .find((b) => b.textContent?.includes("Report another"));
     fireEvent.click(reportAnotherBtn!);
-    await waitFor(() =>
-      expect(screen.getByText(/Take Photo/i)).toBeInTheDocument()
-    );
+
+    // FIX-02: must navigate to "/" via window.location.href, not reset the SPA form
+    expect(hrefSetter).toHaveBeenCalledWith("/");
+
+    // Restore
+    Object.defineProperty(window, "location", {
+      writable: true,
+      value: originalLocation,
+    });
   });
 
   it("server error shows error message", async () => {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import { BENGALURU_CENTER } from "../lib/constants";
 import { getCategoryLabel, publicStatusLabel, publicStatusColor } from "../lib/translations";
 // MAP-02: HeatmapLayer is safe here — ReportsMap is the ssr:false boundary.
@@ -9,6 +9,18 @@ import { getCategoryLabel, publicStatusLabel, publicStatusColor } from "../lib/t
 import HeatmapLayer from "./HeatmapLayer";
 
 const BENGALURU_MAP_CENTER: [number, number] = [BENGALURU_CENTER.lat, BENGALURU_CENTER.lng];
+
+// FIX-04 (D-10): Call invalidateSize() after mount for iOS Safari tile blank fix.
+// Must be a child of <MapContainer> so useMap() can access the map instance.
+// ReportsMap is already an ssr:false dynamic import boundary (per map/page.tsx).
+function MapSizeUpdater() {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => { map.invalidateSize(); }, 100);
+    return () => clearTimeout(t);
+  }, [map]);
+  return null;
+}
 
 // MAP-01 (D-30): status-based public pin colors — 3-state mapping for citizens.
 // open, acknowledged, assigned → red (var(--danger)) — attention needed
@@ -51,6 +63,13 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // WR-06: Use a ref to hold onReportsLoaded so fetchReports does not depend on
+  // the callback prop directly. An inline callback passed by a caller would be a
+  // new reference every render, causing fetchReports to be recreated, triggering
+  // the useEffect, and producing an infinite API request loop.
+  const onLoadedRef = useRef(onReportsLoaded);
+  useEffect(() => { onLoadedRef.current = onReportsLoaded; }, [onReportsLoaded]);
 
   // Patch Leaflet's default icon once on mount — before any fetch so it is
   // always set regardless of how quickly the API responds.
@@ -109,13 +128,13 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
         // image_url is not included in the GeoJSON endpoint (privacy by design)
       }));
       setReports(items);
-      onReportsLoaded?.(items);
+      onLoadedRef.current?.(items);
     } catch {
       setError("Couldn't load reports — tap to retry.");
     } finally {
       setLoading(false);
     }
-  }, [apiUrl, onReportsLoaded]);
+  }, [apiUrl]); // onReportsLoaded intentionally omitted — see onLoadedRef above
 
   useEffect(() => {
     fetchReports();
@@ -143,6 +162,7 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
         scrollWheelZoom
         zoomControl={false}
       >
+        <MapSizeUpdater />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

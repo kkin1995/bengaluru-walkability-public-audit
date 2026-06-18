@@ -26,6 +26,20 @@ const nextConfig = {
       { protocol: "https", hostname: "staging.nammadaari.com" },
     ],
   },
+  // FIX-03 (D-07): Permanent redirect for deprecated /reports list route.
+  // /report is NOT redirected here — the form page at /report is still active
+  // and reached via router.push("/report") from ReportCTA after photo capture.
+  // permanent: true emits HTTP 308 (Next.js App Router).
+  // T-05-07: destination is hardcoded to "/" — no open-redirect surface.
+  async redirects() {
+    return [
+      {
+        source: "/reports",
+        destination: "/",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     // Proxy /uploads/* to the backend so uploaded images load correctly when
     // the frontend and backend are on different origins (Vercel + Cloudflare

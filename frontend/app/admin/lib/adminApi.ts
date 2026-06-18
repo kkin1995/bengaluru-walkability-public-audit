@@ -116,6 +116,8 @@ export interface AdminReportListResponse {
 
 export interface AdminStats {
   total_reports: number;
+  // FIX-08 (D-20/D-21): Reports submitted today — date-based (UTC), independent of status transitions.
+  today_count: number;
   // Phase 03 (D-03): 6-value status enum shape
   by_status: { open: number; acknowledged: number; assigned: number; in_progress: number; resolved: number; closed: number };
   by_category: Record<string, number>;

@@ -20,3 +20,12 @@ export const ADMIN_API_BASE_URL = "";
 export const INTERNAL_API_URL =
   process.env.INTERNAL_API_URL ?? "http://localhost:3001";
 export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0";
+// FIX-11 (D-27/D-29): Build hash baked at CI build time via NEXT_PUBLIC_BUILD_HASH env var.
+// Injected by the Vercel build command (NEXT_PUBLIC_BUILD_HASH=$(git rev-parse --short HEAD)).
+// Defaults to "0000000" in local dev where the env var is absent.
+export const BUILD_HASH = process.env.NEXT_PUBLIC_BUILD_HASH ?? "0000000";
+
+// WR-07: Nominatim ToS requires a valid descriptive User-Agent with a contact URL or email.
+// Derive from NEXT_PUBLIC_SITE_URL so production, staging, and dev all self-identify correctly.
+export const NOMINATIM_USER_AGENT =
+  `Nammadaari Walkability Audit (${process.env.NEXT_PUBLIC_SITE_URL ?? "nammadaari.com"})`;

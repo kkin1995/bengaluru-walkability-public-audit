@@ -34,10 +34,22 @@ describe("ABUSE-02: honeypot field", () => {
     expect(honeypot).not.toBeNull();
   });
 
-  it("honeypot is type=hidden so browser autofill never fills it", () => {
+  it("honeypot is type=text (visually hidden via CSS) so bot scripts can fill it (ABUSE-02)", () => {
+    // The implementation uses type="text" (not type="hidden") so that automated bot scripts
+    // that enumerate DOM inputs will fill the field — this is the trap strategy.
+    // Browsers will NOT autofill it because: (a) the field is positioned off-screen
+    // via absolute positioning at left:-9999px, (b) autocomplete="off", (c) tabIndex=-1.
+    // type="hidden" would prevent bots from seeing/filling it, defeating the honeypot.
     render(<ReportPage />);
     const honeypot = document.querySelector('input[data-hp="1"]') as HTMLInputElement | null;
     expect(honeypot).not.toBeNull();
-    expect(honeypot!.type).toBe("hidden");
+    // ABUSE-02 implementation: type=text so bots fill it; NOT type=hidden
+    expect(honeypot!.type).toBe("text");
+    // Visually hidden via absolute positioning (off-screen)
+    expect(honeypot!.style.position).toBe("absolute");
+    // tabIndex=-1 prevents keyboard focus
+    expect(honeypot!.tabIndex).toBe(-1);
+    // autocomplete off to reduce browser fill attempts
+    expect(honeypot!.autocomplete).toBe("off");
   });
 });

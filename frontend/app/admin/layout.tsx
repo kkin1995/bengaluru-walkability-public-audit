@@ -63,7 +63,7 @@ export default async function AdminLayout({
           __html: `(function(){var d=localStorage.getItem('admin-theme');if(d==='dark')document.documentElement.classList.add('dark');else if(d==='light')document.documentElement.classList.remove('dark');})();`,
         }}
       />
-      <div className="admin-portal" style={{ height: '100vh', overflow: 'hidden', display: 'flex', background: 'var(--bg)' }}>
+      <div className="admin-portal" style={{ minHeight: '100dvh', display: 'flex', background: 'var(--bg)' }}>
         {/* Sidebar — client component handles responsive drawer */}
         <AdminSidebar role={role} />
 
