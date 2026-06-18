@@ -1,23 +1,26 @@
 ---
 phase: 05-uat-stabilisation
 verified: 2026-06-05T14:45:00Z
-status: human_needed
-score: 12/13 must-haves verified
-overrides_applied: 0
+overrides_applied_at: 2026-06-18T00:00:00Z
+status: passed
+score: 11/13 must-haves verified; 2 overrides applied
+overrides_applied: 2
 human_verification:
   - test: "FIX-09 root cause: confirm admin dashboard scrolls freely on iOS Safari"
     expected: "Admin dashboard page scrolls without rubber-banding back to top on iPhone Safari"
     why_human: "admin/layout.tsx line 66 retains `height: '100vh', overflow: 'hidden'` on the authenticated wrapper div — this is the actual iOS scroll trap documented in plan 05-03 as out-of-scope. The plan's accepted criteria (admin/page.tsx and admin.css have no overflow:hidden on the scrollable wrapper) pass, but the root cause in layout.tsx was explicitly deferred. Cannot verify free scrolling on iOS Safari from the repo. The fix required is: change `height: '100vh', overflow: 'hidden'` to `minHeight: '100dvh'` on the admin-portal wrapper in the authenticated branch of layout.tsx."
+    override: "deferred — plan 05-03 explicitly scoped the root cause (layout.tsx:66) out of Phase 5; tracked as v1.1 post-ship tech debt"
   - test: "FIX-11 BUILD_HASH: confirm Vercel build command has been set"
     expected: "Admin login footer on staging.nammadaari.com shows a non-zero git short SHA (e.g. 'a726edf'), not '0000000'"
     why_human: "The Vercel dashboard build command injection is operator configuration outside this repo. deploy.yml contains the documentation comment instructing the operator to set the build command to `NEXT_PUBLIC_BUILD_HASH=$(git rev-parse --short HEAD) npm run build`. Whether the dashboard has been configured cannot be verified from the repo. Verify by loading https://staging.nammadaari.com/admin/login and checking the footer."
+    override: "post-deploy-only — UAT-05-HUMAN-UAT.md explicitly blocks this on Phase 5 deployment; verify on staging after this PR merges"
 ---
 
 # Phase 05: UAT Stabilisation Verification Report
 
 **Phase Goal:** Fix 13 confirmed bugs from live iPhone field test on staging.nammadaari.com
 **Verified:** 2026-06-05T14:45:00Z
-**Status:** human_needed
+**Status:** passed (2 overrides applied 2026-06-18 — FIX-09 deferred out-of-scope, FIX-11 post-deploy-only)
 **Re-verification:** No — initial verification
 
 ---
