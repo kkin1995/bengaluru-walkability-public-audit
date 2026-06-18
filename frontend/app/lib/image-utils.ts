@@ -11,17 +11,26 @@ export const MAX_BYTES = 10 * 1024 * 1024;
  */
 export async function compressImage(file: File): Promise<Blob | null> {
   if (file.size <= MAX_BYTES) return file;
-  const url = URL.createObjectURL(file);
-  const img = document.createElement("img");
-  try {
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = reject;
-      img.src = url; // lgtm[js/xss-through-dom] -- url is always a blob: URL from URL.createObjectURL; never javascript: or data:
-    });
-  } finally {
-    URL.revokeObjectURL(url);
+
+  // Use FileReader to produce a data: URL so img.src receives a string
+  // whose prefix is statically verifiable — satisfies XSS data-flow analysis.
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target?.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  if (!dataUrl.startsWith("data:image/")) {
+    throw new Error("compressImage: file is not a supported image type");
   }
+
+  const img = document.createElement("img");
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+
   const canvas = document.createElement("canvas");
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
