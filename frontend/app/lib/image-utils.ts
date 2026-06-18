@@ -17,7 +17,7 @@ export async function compressImage(file: File): Promise<Blob | null> {
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
       img.onerror = reject;
-      img.src = url;
+      img.src = url; // lgtm[js/xss-through-dom] -- url is always a blob: URL from URL.createObjectURL; never javascript: or data:
     });
   } finally {
     URL.revokeObjectURL(url);
