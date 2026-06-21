@@ -111,22 +111,42 @@ Declared values (all multiples of 4):
 
 ## Typography
 
-The design uses **4 conceptual tiers**. Within two of those tiers, the locked design specifies
-a cluster of pixel values that are close in size but serve the same visual hierarchy level.
-These intra-tier variations are implementation details from the finalized asset — they are not
-separate visual hierarchy levels and are not listed as additional scale entries.
+The design uses **4 canonical tiers**. Each tier has one defining size. All precise pixel values
+extracted from the locked design asset are documented in the Pixel Lock section below — they are
+implementation details within a tier, not separate scale entries.
 
-| Tier | Size | Weight | Line Height | Font | Elements |
-|------|------|--------|-------------|------|----------|
-| Display | `clamp(38px, 6.4vw, 68px)` | 700 | 1.04 | `var(--font-sans)` | h1 tagline — `letter-spacing: -0.03em`; `text-wrap: balance` |
-| Body | `clamp(15px, 1.9vw, 18px)` | 400 | 1.62 | `var(--font-sans)` | Description paragraph — `color: var(--ink-2)`; `text-wrap: pretty`; `max-width: 600px` |
-| UI Labels | 14px – 17px | 500 – 700 | — | `var(--font-sans)` / `var(--font-kn)` / `var(--font-mono)` | Micro-variation cluster within ±2px — not visually distinct tiers. Includes: wordmark EN (17px/700), wordmark KN (16px/600), tagline-kn (clamp 18–24px/500), CTA button label (15px/600), CTA handle (14px/600) |
-| Micro | 10px – 13px | 400 – 500 | 1.5 (cta-note only) | `var(--font-mono)` / `var(--font-sans)` | Caption/label cluster. Includes: eyebrow (12px/400), status chip (10px/400), cta-note (13px/400), footer (11px/400), footer tags (11px/400) |
+| Tier | Canonical Size | Weight | Elements |
+|------|---------------|--------|---------|
+| Display | `clamp(38px, 6.4vw, 68px)` | 700 | h1 tagline |
+| Body | `clamp(15px, 1.9vw, 18px)` | 400–600 | description paragraph |
+| UI Labels | `clamp(16px, 2.2vw, 17px)` | 500–700 | wordmark, tagline-kn, CTA |
+| Micro | `11px` | 400–500 | eyebrow, status chip, footer, notes |
 
 **Emphasis within body:** `<b>` elements in `.desc` use `font-weight: 600`, `color: var(--ink)`.
 **Soft heading segment:** `.tagline .soft` uses `color: var(--muted-2)`.
 **Eyebrow accent:** `<span>` inside `.eyebrow` uses `color: var(--accent-ink)`.
 **Tagline-kn transliteration:** `.translit` inside `.tagline-kn` uses `font-family: var(--font-mono)`, `font-size: 0.62em` (relative to parent clamp), `letter-spacing: 0.04em`, `color: var(--muted)`.
+**Display line-height:** 1.04; **Body line-height:** 1.62; **Micro (cta-note) line-height:** 1.5.
+
+### Pixel Lock
+
+These values are extracted from the locked design asset and must be applied as-is during
+implementation — they are not separate scale entries, they are precision values within the tier
+above.
+
+**UI Labels tier:**
+- Wordmark EN: `17px / 700 / var(--font-sans)`
+- Wordmark KN: `16px / 600 / var(--font-kn)`
+- Tagline-kn: `clamp(18px, 2.4vw, 24px) / 500 / var(--font-kn)` — renders larger than the UI Labels canonical size on desktop; use as-is
+- CTA button label: `15px / 600 / var(--font-sans)`
+- CTA handle: `14px / 600 / var(--font-mono)`
+
+**Micro tier:**
+- Eyebrow: `12px / 400 / var(--font-sans)`
+- Status chip: `10px / 400 / var(--font-sans)`
+- CTA note: `13px / 400 / var(--font-sans)`
+- Footer: `11px / 400 / var(--font-sans)`
+- Footer tags: `11px / 400 / var(--font-sans)`
 
 ---
 
