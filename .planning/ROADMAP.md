@@ -137,3 +137,11 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 
 *v1.0 shipped: 2026-06-01 — archive: .planning/milestones/v1.0-ROADMAP.md*  
 *v1.1 roadmap created: 2026-06-05*
+
+---
+
+## Backlog (v1.1)
+
+Items confirmed during v1.1 UAT that do not belong to a current phase scope:
+
+- **Unit test: bake_orientation orientation=6 path** — During Phase 5 UAT on staging, the photo submitted via iOS Safari had stored dimensions 4032×3024 (landscape) instead of the expected 3024×4032 (portrait). iOS likely pre-bakes the EXIF rotation before delivering the file to the browser, so the `rotate90` branch in `bake_orientation` (reports.rs) was never exercised by the live flow. Add a backend unit test that feeds a synthetic JPEG with EXIF orientation=6 through `bake_orientation` and asserts output dimensions are 3024×4032. See: Phase 5, Test 11 (partial).
