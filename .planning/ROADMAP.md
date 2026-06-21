@@ -87,7 +87,20 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
   3. Pushing a commit to the staging branch triggers a CI run that deploys to staging.nammadaari.com
   4. DEPLOYMENT.md documents the branching model (feature/fix → staging → main at milestone) so any contributor can follow it without asking
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+**Wave 1**
+- [ ] 06-01-PLAN.md — Create staging branch, GitHub Environments, runner label, branch protection (LAUNCH-02, LAUNCH-03)
+
+**Wave 2** *(parallel — depends on Wave 1)*
+- [ ] 06-02-PLAN.md — Restructure deploy.yml for dual-branch, rename docker-compose.server.yml, delete railway.toml (LAUNCH-02, LAUNCH-03)
+- [ ] 06-03-PLAN.md — Create staging Docker Compose stack and nginx config (port 3011, isolated volumes) (LAUNCH-03)
+- [ ] 06-05-PLAN.md — Coming soon page on main branch per UI-SPEC.md (LAUNCH-01) [targets main branch]
+
+**Wave 3** *(depends on Wave 2)*
+- [ ] 06-04-PLAN.md — Update DEPLOYMENT.md, add GSD branching config to config.json (LAUNCH-04, LAUNCH-05)
+
 **UI hint**: yes
 
 ### Phase 7: Admin Triage UX + Public Map
