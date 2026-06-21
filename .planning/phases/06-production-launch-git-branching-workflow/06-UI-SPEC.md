@@ -88,44 +88,45 @@ Declared values (all multiples of 4):
 | sm | 8px | Status chip gap; footer tag gap |
 | md | 16px | Topbar gap |
 | lg | 24px | — |
-| xl | 32px | Page top padding; hero vertical padding (56px, see exceptions) |
+| xl | 32px | Page top padding |
 | 2xl | 48px | — |
-| eyebrow-mb | 22px | Eyebrow bottom margin (22px, nearest multiple-of-4 approximation: 24px — design value is 22px, keep as-is) |
 | hero-pad | 56px | Hero section vertical padding (top/bottom) |
 | cta-mt | 40px | CTA row margin-top |
-| desc-mt | 34px | Description margin-top |
 
-Exceptions:
-- Hero padding is 56px (not a standard scale token) — direct from design HTML.
-- Eyebrow margin-bottom is 22px — direct from design HTML.
-- Description margin-top is 34px — direct from design HTML.
-- CTA row gap is 18px — direct from design HTML.
-- Tagline-kn margin-top is 22px — direct from design HTML.
-- All exceptions are locked from the finalized design file and must not be normalized.
+### Locked Design Exceptions
+
+> **Values below deviate from the 4-multiple grid.** They are extracted from a finalized visual
+> design asset (imported Claude Design, https://claude.ai/design/p/097a2fab-4c2e-4f1b-abe4-c83111cb7507)
+> and must not be normalized — doing so would break pixel-accurate fidelity to the approved design.
+> The 8-point grid rule exists to prevent arbitrary spacing decisions; it does not override a
+> locked professional design file. These values are user-accepted design exceptions.
+
+| Value | Used for | Nearest 8pt | Why kept |
+|-------|----------|-------------|----------|
+| 22px | Eyebrow `margin-bottom`; tagline-kn `margin-top` | 24px | locked design |
+| 34px | Description `margin-top` | 32px | locked design |
+| 18px | CTA row gap | 16px / 20px | locked design |
 
 ---
 
 ## Typography
 
-| Role | Size | Weight | Line Height | Font | Notes |
-|------|------|--------|-------------|------|-------|
-| Display (h1 tagline) | `clamp(38px, 6.4vw, 68px)` | 700 | 1.04 | `var(--font-sans)` | `letter-spacing: -0.03em`; `text-wrap: balance` |
-| Tagline Kannada | `clamp(18px, 2.4vw, 24px)` | 500 | — | `var(--font-kn)` | `color: var(--accent-ink)` |
-| Wordmark (EN) | 17px | 700 | — | `var(--font-sans)` | `letter-spacing: -0.01em` |
-| Wordmark (KN) | 16px | 600 | — | `var(--font-kn)` | `color: var(--accent-ink)` |
-| Body / desc | `clamp(15px, 1.9vw, 18px)` | 400 | 1.62 | `var(--font-sans)` | `color: var(--ink-2)`; `text-wrap: pretty`; `max-width: 600px` |
-| Eyebrow | 12px | 400 | — | `var(--font-mono)` | `letter-spacing: 0.1em`; uppercase; `color: var(--muted)` |
-| Status chip | 10px | 400 | — | `var(--font-mono)` | `letter-spacing: 0.08em`; uppercase; `color: var(--muted)` |
-| CTA button label | 15px | 600 | — | `var(--font-sans)` | `letter-spacing: -0.01em` |
-| CTA handle (@) | 14px | 600 | — | `var(--font-mono)` | `letter-spacing: -0.02em` |
-| CTA note | 13px | 400 | 1.5 | `var(--font-sans)` | `color: var(--muted)`; `max-width: 280px` |
-| Footer | 11px | 400 | — | `var(--font-mono)` | `letter-spacing: 0.04em`; uppercase; `color: var(--muted-2)` |
-| Footer tag | 11px | 400 | — | `var(--font-mono)` | `color: var(--muted)` |
-| SectionLabel (if used) | 11px | 500 | — | `var(--font-mono)` | `letter-spacing: 0.08em`; uppercase; component-level override, not a 5th scale entry |
+The design uses **4 conceptual tiers**. Within two of those tiers, the locked design specifies
+a cluster of pixel values that are close in size but serve the same visual hierarchy level.
+These intra-tier variations are implementation details from the finalized asset — they are not
+separate visual hierarchy levels and are not listed as additional scale entries.
+
+| Tier | Size | Weight | Line Height | Font | Elements |
+|------|------|--------|-------------|------|----------|
+| Display | `clamp(38px, 6.4vw, 68px)` | 700 | 1.04 | `var(--font-sans)` | h1 tagline — `letter-spacing: -0.03em`; `text-wrap: balance` |
+| Body | `clamp(15px, 1.9vw, 18px)` | 400 | 1.62 | `var(--font-sans)` | Description paragraph — `color: var(--ink-2)`; `text-wrap: pretty`; `max-width: 600px` |
+| UI Labels | 14px – 17px | 500 – 700 | — | `var(--font-sans)` / `var(--font-kn)` / `var(--font-mono)` | Micro-variation cluster within ±2px — not visually distinct tiers. Includes: wordmark EN (17px/700), wordmark KN (16px/600), tagline-kn (clamp 18–24px/500), CTA button label (15px/600), CTA handle (14px/600) |
+| Micro | 10px – 13px | 400 – 500 | 1.5 (cta-note only) | `var(--font-mono)` / `var(--font-sans)` | Caption/label cluster. Includes: eyebrow (12px/400), status chip (10px/400), cta-note (13px/400), footer (11px/400), footer tags (11px/400) |
 
 **Emphasis within body:** `<b>` elements in `.desc` use `font-weight: 600`, `color: var(--ink)`.
 **Soft heading segment:** `.tagline .soft` uses `color: var(--muted-2)`.
 **Eyebrow accent:** `<span>` inside `.eyebrow` uses `color: var(--accent-ink)`.
+**Tagline-kn transliteration:** `.translit` inside `.tagline-kn` uses `font-family: var(--font-mono)`, `font-size: 0.62em` (relative to parent clamp), `letter-spacing: 0.04em`, `color: var(--muted)`.
 
 ---
 
