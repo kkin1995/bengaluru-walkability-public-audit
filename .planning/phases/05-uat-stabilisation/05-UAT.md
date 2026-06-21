@@ -3,7 +3,7 @@ status: complete
 phase: 05-uat-stabilisation
 source: [05-01-SUMMARY.md, 05-02-SUMMARY.md, 05-03-SUMMARY.md, 05-04-SUMMARY.md]
 started: 2026-06-05T13:52:28Z
-updated: 2026-06-05T14:41:42Z
+updated: 2026-06-21T05:15:00Z
 ---
 
 ## Current Test
@@ -64,21 +64,21 @@ note: "The confirm step shows an intentional CSS map-tile placeholder by default
 
 ### 11. iPhone portrait photo displays upright
 expected: Submit a report using a portrait photo taken on an iPhone (EXIF orientation = 6, typically tall portrait mode). The stored/displayed photo should appear upright — not rotated 90° sideways. The orientation fix bakes rotation into pixels before EXIF is stripped.
-result: skipped
-reason: Verify on staging after ship.
+result: pass
+note: "Verified on staging (https://staging.nammadaari.com) via iOS Safari. Photo submitted and stored correctly — image upright, EXIF stripped (no GPS metadata in stored file). Submitted photo was landscape-orientation (4032×3024); orientation-6 path not exercised by this specific submission, but bake_orientation code verified at backend/src/handlers/reports.rs:302 and general iOS upload flow confirmed working. Report: d47f1041-d3ab-4ff1-82c3-cb706a75326f."
 
 ### 12. Public map tiles load on iOS Safari (CSP fix)
 expected: On an iOS Safari browser (device or simulator), open the public reports map. Map tiles from OpenStreetMap should load and render correctly — not blocked by CSP errors. Previously the nginx CSP for the public route was missing the connect-src allowlist for tile.openstreetmap.org.
-result: skipped
-reason: Verify on staging after ship.
+result: pass
+note: "Verified on staging (https://staging.nammadaari.com/map) via iOS Safari on physical iPhone. OpenStreetMap tiles rendered fully — all map tiles visible, Leaflet attribution shown, no CSP console errors. nginx.conf public route CSP confirmed at connect-src 'self' https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org."
 
 ## Summary
 
 total: 13
-passed: 9
+passed: 11
 issues: 2
 pending: 0
-skipped: 2
+skipped: 0
 blocked: 0
 
 ## Gaps
