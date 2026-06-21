@@ -2,9 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stabilise, Launch, and Triage
+current_phase: 05
+current_phase_name: uat-stabilisation
 status: "Phase 05 shipped — PR #19"
-stopped_at: Phase 5 context gathered
-last_updated: "2026-06-18T15:41:25.847Z"
+stopped_at: Phase 6 context gathered
+last_updated: "2026-06-21T18:18:31.978Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 3
@@ -81,6 +83,6 @@ Items carried forward from v1.0 close (2026-06-01):
 
 ## Session Continuity
 
-Last session: 2026-06-05T07:19:43.004Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-uat-stabilisation/05-CONTEXT.md
+Last session: 2026-06-21T18:18:31.974Z
+Stopped at: Phase 6 context gathered
+Resume file: .planning/phases/06-production-launch-git-branching-workflow/06-CONTEXT.md
