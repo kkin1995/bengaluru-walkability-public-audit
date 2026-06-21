@@ -145,3 +145,19 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 Items confirmed during v1.1 UAT that do not belong to a current phase scope:
 
 - **Unit test: bake_orientation orientation=6 path** — During Phase 5 UAT on staging, the photo submitted via iOS Safari had stored dimensions 4032×3024 (landscape) instead of the expected 3024×4032 (portrait). iOS likely pre-bakes the EXIF rotation before delivering the file to the browser, so the `rotate90` branch in `bake_orientation` (reports.rs) was never exercised by the live flow. Add a backend unit test that feeds a synthetic JPEG with EXIF orientation=6 through `bake_orientation` and asserts output dimensions are 3024×4032. See: Phase 5, Test 11 (partial).
+
+**UAT batch — admin portal mobile Safari (iPhone 16 Pro Max, 2026-06-21, staging.nammadaari.com):**
+
+- **[BUG] Admin Ops page — scroll blocked by bottom nav bar** — On mobile Safari, the "Recent Activity" section cannot be scrolled to the bottom; content is clipped behind the fixed bottom nav bar. Fix: add `padding-bottom` to the scrollable container equal to the nav bar height + safe-area-inset-bottom. Affects: `/admin` (Ops tab).
+
+- **[BUG] Admin Queue page — scroll blocked by bottom nav bar** — Same root cause as the Ops page: content hidden behind the fixed bottom nav bar on mobile Safari. Affects: `/admin` (Queue tab).
+
+- **[BUG] Admin Analytics — "Reports per week (12 weeks)" chart renders blank** — Chart shows grid and axes but no data lines, despite reports existing in the DB. Likely a data-shape mismatch or date bucketing issue in the chart component. Affects: `/admin` (Analytics tab).
+
+- **[BUG] Admin Analytics — chart legend shows raw DB enum strings** — Legend labels render as `broken_footpath`, `no_footpath`, `unsafe_crossing` instead of human-readable UI labels (e.g. "Broken Footpath"). Fix: map enum values to display labels before rendering. Affects: `/admin` (Analytics tab, chart legend).
+
+- **[BUG] Admin Analytics — ward choropleth map rendered off-screen** — The ward map section overflows horizontally and is not visible without horizontal scrolling on mobile. Likely a fixed-width or flex layout issue. Affects: `/admin` (Analytics tab, ward map section).
+
+- **[BUG] Admin Analytics — ward boundary fetch fails with visible error** — Red error box: "Failed to load ward boundaries. The choropleth map will not show data." Ward GeoJSON is not loading; root cause TBD (CORS, wrong URL, missing data). Affects: `/admin` (Analytics tab).
+
+- **[BUG] Admin /map page — Leaflet attribution and legend overlap bottom nav** — On mobile Safari, the Leaflet attribution bar and the map legend panel both render over the bottom navigation bar, making nav tabs inaccessible. Fix: position legend and attribution above the nav bar height + safe-area-inset-bottom. Affects: `/admin/map`.
