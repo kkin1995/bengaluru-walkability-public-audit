@@ -107,8 +107,6 @@ services:
 
   nginx:
     image: nginx:alpine
-    ports:
-      - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     # P1-2: Gate nginx startup on both upstream services being healthy, not just started.
