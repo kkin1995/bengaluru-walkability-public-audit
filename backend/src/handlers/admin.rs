@@ -474,6 +474,8 @@ pub async fn admin_list_reports(
             page,
             limit,
             org_id,
+            params.ward_id,       // D-04 (TRIAGE-01): geographic filter
+            params.corporation_id, // D-04 (TRIAGE-01): geographic filter
         ),
         admin_queries::count_admin_reports(
             &state.pool,
@@ -483,6 +485,8 @@ pub async fn admin_list_reports(
             params.date_from,
             params.date_to,
             org_id,
+            params.ward_id,        // D-04 (TRIAGE-01): geographic filter
+            params.corporation_id, // D-04 (TRIAGE-01): geographic filter
         ),
     )?;
 

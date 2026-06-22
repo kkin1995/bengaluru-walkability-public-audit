@@ -186,12 +186,21 @@ pub async fn deactivate_admin_user(pool: &PgPool, user_id: Uuid) -> Result<bool,
 /// Build the dynamic WHERE clause and return (clause_string, next_param_idx).
 /// Shared by list_admin_reports and count_admin_reports so the WHERE logic is
 /// always in sync.
+///
+/// D-04 (TRIAGE-01): Two new geographic filter params:
+/// - `ward_id`: restricts to reports.ward_id = $N (exact ward match)
+/// - `corporation_id`: restricts to reports.ward_id IN (SELECT id FROM wards WHERE org_id = $N)
+///
+/// Both are appended as AND conditions on top of the existing org_id CTE scoping (D-05).
+/// All values are bound via $N parameters — never interpolated (T-07-02, ASVS V5).
 fn build_report_where_clause(
     category: Option<&str>,
     status: Option<&str>,
     severity: Option<&str>,
     date_from: Option<DateTime<Utc>>,
     date_to: Option<DateTime<Utc>>,
+    ward_id: Option<Uuid>,
+    corporation_id: Option<Uuid>,
     start_idx: i32,
 ) -> (String, i32) {
     let mut conditions: Vec<String> = Vec::new();
@@ -217,6 +226,19 @@ fn build_report_where_clause(
         conditions.push(format!("reports.created_at <= ${}", param_idx));
         param_idx += 1;
     }
+    // D-04 (TRIAGE-01): geographic filter — exact ward match
+    if ward_id.is_some() {
+        conditions.push(format!("reports.ward_id = ${}", param_idx));
+        param_idx += 1;
+    }
+    // D-04 (TRIAGE-01): geographic filter — corporation scope (subquery, fully parameterized)
+    if corporation_id.is_some() {
+        conditions.push(format!(
+            "reports.ward_id IN (SELECT id FROM wards WHERE org_id = ${})",
+            param_idx
+        ));
+        param_idx += 1;
+    }
 
     let where_clause = if conditions.is_empty() {
         String::new()
@@ -231,6 +253,8 @@ fn build_report_where_clause(
 /// Returns the total filtered row count (accurate regardless of limit/offset).
 /// When `org_id` is Some, applies the same recursive CTE scoping as list_admin_reports
 /// so pagination totals are accurate.
+///
+/// D-04 (TRIAGE-01): `ward_id` and `corporation_id` filter the count by geographic scope.
 #[allow(clippy::too_many_arguments)]
 pub async fn count_admin_reports(
     pool: &PgPool,
@@ -240,9 +264,11 @@ pub async fn count_admin_reports(
     date_from: Option<DateTime<Utc>>,
     date_to: Option<DateTime<Utc>>,
     org_id: Option<Uuid>,
+    ward_id: Option<Uuid>,
+    corporation_id: Option<Uuid>,
 ) -> Result<i64, AppError> {
     let (where_clause, mut param_idx) =
-        build_report_where_clause(category, status, severity, date_from, date_to, 1);
+        build_report_where_clause(category, status, severity, date_from, date_to, ward_id, corporation_id, 1);
 
     // WR-01: use a top-level CTE so the query is compatible with PostgreSQL 11
     // and earlier. Inline CTEs inside IN(...) subqueries are non-standard and
@@ -303,6 +329,13 @@ pub async fn count_admin_reports(
     if let Some(v) = date_to {
         q = q.bind(v);
     }
+    // D-04 (TRIAGE-01): bind geographic filter params in the same order as WHERE clause
+    if let Some(id) = ward_id {
+        q = q.bind(id);
+    }
+    if let Some(id) = corporation_id {
+        q = q.bind(id);
+    }
     if let Some(id) = org_id {
         q = q.bind(id);
     }
@@ -316,7 +349,10 @@ pub async fn count_admin_reports(
 /// When `org_id` is Some, restricts to reports whose ward_id belongs to the
 /// org's recursive subtree (walks organizations tree downward via parent_id).
 /// When `org_id` is None, returns all reports unfiltered.
-#[allow(clippy::too_many_arguments)] // all 9 params are distinct filter axes; no sensible grouping
+///
+/// D-04 (TRIAGE-01): `ward_id` and `corporation_id` add geographic filters on top
+/// of the existing org_id CTE scoping (D-05). Both are AND conditions.
+#[allow(clippy::too_many_arguments)] // all 11 params are distinct filter axes; no sensible grouping
 pub async fn list_admin_reports(
     pool: &PgPool,
     category: Option<&str>,
@@ -327,9 +363,11 @@ pub async fn list_admin_reports(
     page: i64,
     limit: i64,
     org_id: Option<Uuid>,
+    ward_id: Option<Uuid>,
+    corporation_id: Option<Uuid>,
 ) -> Result<Vec<serde_json::Value>, AppError> {
     let (where_clause, mut param_idx) =
-        build_report_where_clause(category, status, severity, date_from, date_to, 1);
+        build_report_where_clause(category, status, severity, date_from, date_to, ward_id, corporation_id, 1);
 
     // WR-01: use a top-level CTE so the query is compatible with PostgreSQL 11
     // and earlier. Inline CTEs inside IN(...) subqueries are non-standard and
@@ -415,6 +453,13 @@ pub async fn list_admin_reports(
     }
     if let Some(v) = date_to {
         q = q.bind(v);
+    }
+    // D-04 (TRIAGE-01): bind geographic filter params in the same order as WHERE clause
+    if let Some(id) = ward_id {
+        q = q.bind(id);
+    }
+    if let Some(id) = corporation_id {
+        q = q.bind(id);
     }
     if let Some(id) = org_id {
         q = q.bind(id);
@@ -1323,7 +1368,9 @@ pub fn build_export_where_clause(
     date_from: Option<DateTime<Utc>>,
     date_to: Option<DateTime<Utc>>,
 ) -> (String, i32) {
-    build_report_where_clause(category, status, severity, date_from, date_to, 1)
+    // Ward/corp export filtering is out of scope for this phase (D-04 scopes the
+    // filter to the queue list, not exports). Pass None, None for both geographic params.
+    build_report_where_clause(category, status, severity, date_from, date_to, None, None, 1)
 }
 
 /// Returns the CSV export SQL base fragment used by the streaming handler.
@@ -1816,7 +1863,7 @@ mod tests {
     #[test]
     fn list_admin_reports_sql_includes_ward_join() {
         // Build the SQL the same way list_admin_reports does (no filters).
-        let (where_clause, param_idx) = build_report_where_clause(None, None, None, None, None, 1);
+        let (where_clause, param_idx) = build_report_where_clause(None, None, None, None, None, None, None, 1);
         let limit_idx = param_idx;
         let offset_idx = param_idx + 1;
         let sql = format!(
@@ -1859,7 +1906,7 @@ mod tests {
     /// SELECT COUNT(*) so the total matches across the same filter set.
     #[test]
     fn count_admin_reports_sql_includes_ward_join_and_count() {
-        let (where_clause, _) = build_report_where_clause(None, None, None, None, None, 1);
+        let (where_clause, _) = build_report_where_clause(None, None, None, None, None, None, None, 1);
         let sql = format!(
             r#"
             SELECT COUNT(*)
@@ -1881,8 +1928,8 @@ mod tests {
         );
     }
 
-    /// WARD-03 — build_report_where_clause with all filters must produce
-    /// a clause with 5 conditions and advance param_idx to 6.
+    /// WARD-03 — build_report_where_clause with all 5 original filters must produce
+    /// a clause with 5 conditions and advance param_idx to 6 (ward/corp not set).
     #[test]
     fn build_report_where_clause_all_filters_advances_param_idx() {
         use chrono::Utc;
@@ -1893,6 +1940,8 @@ mod tests {
             Some("high"),
             Some(now),
             Some(now),
+            None,  // ward_id — not set
+            None,  // corporation_id — not set
             1,
         );
         assert!(
@@ -1906,11 +1955,39 @@ mod tests {
         );
     }
 
+    /// TRIAGE-01 — build_report_where_clause with ward_id and corporation_id must
+    /// advance param_idx by 2 (one slot per geographic filter).
+    #[test]
+    fn build_report_where_clause_with_ward_and_corp_advances_param_idx() {
+        let ward = Uuid::nil();
+        let corp = Uuid::nil();
+        let (clause, next_idx) = build_report_where_clause(
+            None, None, None, None, None,
+            Some(ward),
+            Some(corp),
+            1,
+        );
+        assert!(
+            clause.contains("reports.ward_id = $1"),
+            "ward_id filter must bind to $1; got: {}",
+            clause
+        );
+        assert!(
+            clause.contains("org_id = $2"),
+            "corporation_id filter must bind to $2; got: {}",
+            clause
+        );
+        assert_eq!(
+            next_idx, 3,
+            "With ward_id + corporation_id from index 1, next param_idx must be 3"
+        );
+    }
+
     /// WARD-03 — build_report_where_clause with no filters must produce
     /// an empty string and leave param_idx at 1.
     #[test]
     fn build_report_where_clause_no_filters_is_empty() {
-        let (clause, next_idx) = build_report_where_clause(None, None, None, None, None, 1);
+        let (clause, next_idx) = build_report_where_clause(None, None, None, None, None, None, None, 1);
         assert!(
             clause.is_empty(),
             "No-filter clause must be empty; got: {:?}",
@@ -2012,7 +2089,7 @@ mod tests {
     fn list_admin_reports_with_org_id_includes_recursive_cte() {
         let org_id = Some(Uuid::nil());
         let (where_clause, mut param_idx) =
-            build_report_where_clause(None, None, None, None, None, 1);
+            build_report_where_clause(None, None, None, None, None, None, None, 1);
 
         // Replicate the top-level CTE pattern from list_admin_reports (not inline CTE).
         let (cte_prefix, org_clause) = if org_id.is_some() {
@@ -2088,7 +2165,7 @@ mod tests {
     #[test]
     fn list_admin_reports_with_no_org_id_has_no_cte() {
         let org_id: Option<Uuid> = None;
-        let (where_clause, _param_idx) = build_report_where_clause(None, None, None, None, None, 1);
+        let (where_clause, _param_idx) = build_report_where_clause(None, None, None, None, None, None, None, 1);
         let org_clause = if org_id.is_some() {
             "WITH RECURSIVE org_subtree".to_string()
         } else {
@@ -2219,7 +2296,7 @@ mod tests {
     /// not read corporation from wards.corporation directly.
     #[test]
     fn list_admin_reports_corp_join_uses_assigned_org_id() {
-        let (where_clause, param_idx) = build_report_where_clause(None, None, None, None, None, 1);
+        let (where_clause, param_idx) = build_report_where_clause(None, None, None, None, None, None, None, 1);
         let limit_idx = param_idx;
         let offset_idx = param_idx + 1;
         let sql = format!(

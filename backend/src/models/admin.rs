@@ -162,6 +162,14 @@ pub struct AdminReportFilters {
     /// When present, return only reports whose duplicate_of_id matches this UUID.
     /// Used by the admin frontend expandable row to fetch linked duplicates.
     pub duplicate_of_id: Option<uuid::Uuid>,
+    /// D-04 (TRIAGE-01): When present, filter reports to only those whose
+    /// reports.ward_id equals this UUID. Non-UUID input is rejected by Axum
+    /// at deserialization (Uuid's Deserialize impl).
+    pub ward_id: Option<uuid::Uuid>,
+    /// D-04 (TRIAGE-01): When present, filter reports to only those whose
+    /// ward_id is in the set of wards belonging to this corporation's org_id.
+    /// Non-UUID input is rejected at deserialization.
+    pub corporation_id: Option<uuid::Uuid>,
 }
 
 /// Body for PATCH /api/admin/reports/:id/status.
