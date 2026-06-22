@@ -16,5 +16,18 @@
   },
   "ui": {
     "spacing_exceptions_allowed": true
+  },
+  "branching": {
+    "working_branch": "staging",
+    "protected": ["main", "staging"],
+    "merge_targets": {
+      "feat": "staging",
+      "fix": "staging",
+      "phase": "staging"
+    },
+    "milestone_merge": {
+      "from": "staging",
+      "to": "main"
+    }
   }
 }
