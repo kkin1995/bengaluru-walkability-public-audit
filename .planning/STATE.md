@@ -5,15 +5,15 @@ milestone_name: Stabilise, Launch, and Triage
 current_phase: 07
 current_phase_name: admin-triage-ux-public-map
 status: executing
-stopped_at: Phase 07, Plan 06 complete
-last_updated: "2026-06-22T18:31:07.922Z"
+stopped_at: Phase 07, Plan 04 complete
+last_updated: "2026-06-22T18:37:52.120Z"
 last_activity: 2026-06-22
 last_activity_desc: Plan 07-01 complete (corp/ward filter backend tier)
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 17
-  completed_plans: 13
+  completed_plans: 14
   percent: 67
 ---
 
@@ -28,10 +28,9 @@ See: .planning/PROJECT.md (updated 2026-06-05 after v1.1 roadmap created)
 
 ## Current Position
 
-Phase: 07 (admin-triage-ux-public-map) — EXECUTING (Plan 01 complete)
-Phase: 06 (production-launch-git-branching-workflow) — UP NEXT
-Status: Executing Phase 07 — 1/8 plans complete
-Last activity: 2026-06-22 — Plan 07-01 complete (corp/ward filter backend tier)
+Phase: 07 (admin-triage-ux-public-map) — EXECUTING (Plans 01, 02, 03, 04, 06 complete)
+Status: Executing Phase 07 — 5/8 plans complete
+Last activity: 2026-06-23 — Plan 07-04 complete (corp/ward filter UI — TRIAGE-01)
 
 Progress: [████░░░░░░] 41%
 
@@ -76,6 +75,8 @@ Key decisions from Phase 07, Plan 01:
 - [Phase ?]: [Phase 07-03]: Used 756x1008 proxy (1/4-scale of iPhone 3024x4032) for bake_orientation orientation=6 test - TEST-01 acceptance criterion satisfied
 - [Phase ?]: [Phase 07-06]: Used inline CSS class + @media query for SSR-safe before/after photo grid in Next.js server component (avoids JS window width check)
 - [Phase ?]: [Phase 07-06]: Resolution URL via split('/uploads/').pop() (FIX-01 pattern); date from last resolved/closed history entry; corp from ward_hierarchy?.corporation fallback 'GBA'
+- [Phase 07-04]: Custom popover with position:absolute (not fixed) for corp/ward selects — iOS Safari scroll offset bug avoided; no third-party dropdown library (T-07-SC mitigated)
+- [Phase 07-04]: corpIdRef + wardIdRef mirror categoryRef/statusRef pattern — avoids stale closure in fetchReports when geographic filters change
 
 ### Pending Todos
 
@@ -97,6 +98,6 @@ Items carried forward from v1.0 close (2026-06-01):
 
 ## Session Continuity
 
-Last session: 2026-06-22T18:31:07.918Z
+Last session: 2026-06-22T18:37:52.116Z
 Stopped at: Phase 07, Plan 06 complete
 Resume file: .planning/phases/07-admin-triage-ux-public-map/07-07-PLAN.md
