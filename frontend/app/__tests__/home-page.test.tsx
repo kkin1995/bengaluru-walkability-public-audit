@@ -1,160 +1,165 @@
 /**
- * Tests for frontend/app/page.tsx — Walkable BLR Home page (Phase 02.3.1 redesign)
+ * Tests for frontend/app/page.tsx — Coming Soon page (Phase 06 / LAUNCH-01)
+ *
+ * The home page on the `main` branch is the coming soon page.
+ * These tests replaced the old citizen home page tests when page.tsx was
+ * replaced in Phase 06 Plan 05.
  */
 
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import HomePage from "../page";
+import ComingSoonPage from "../page";
 
-jest.mock("next/link", () => {
-  const MockLink = ({
-    href,
-    children,
-    ...rest
-  }: {
-    href: string;
-    children: React.ReactNode;
-    [key: string]: unknown;
-  }) => (
-    <a href={href} {...rest}>
-      {children}
-    </a>
-  );
-  MockLink.displayName = "MockLink";
-  return MockLink;
-});
-
-// Mock next/navigation — ReportCTA uses useRouter for programmatic navigation
-jest.mock("next/navigation", () => ({
-  useRouter: () => ({
-    push: jest.fn(),
-    replace: jest.fn(),
-    prefetch: jest.fn(),
-    back: jest.fn(),
-  }),
-}));
-
-// HomePage is an async Server Component — mock fetch so fetchReportTotal resolves,
-// then render the awaited JSX (jsdom cannot suspend on Promises like the RSC runtime).
-beforeEach(() => {
-  global.fetch = jest.fn().mockResolvedValue({
-    ok: true,
-    json: async () => ({ total: 42 }),
-  }) as jest.Mock;
-});
-
-afterEach(() => {
-  jest.clearAllMocks();
-});
-
-async function renderPage() {
-  const element = await (HomePage as () => Promise<React.ReactElement>)();
-  return render(element);
+function renderPage() {
+  return render(<ComingSoonPage />);
 }
 
-describe("Home page — Walkable BLR redesign (Phase 02.3.1)", () => {
-  describe("Brand header", () => {
-    it("renders Namma brand text", async () => {
-      await renderPage();
-      expect(screen.getByText(/Namma/)).toBeInTheDocument();
-    });
-
-    it("renders Kannada ದಾರಿ alongside Namma", async () => {
-      await renderPage();
-      expect(screen.getByText("ದಾರಿ")).toBeInTheDocument();
-    });
-
-    it("renders Walkable BLR mono tagline", async () => {
-      await renderPage();
-      expect(screen.getByText("Walkable BLR")).toBeInTheDocument();
-    });
-
-    it("renders language toggle display text (EN · ಕ)", async () => {
-      await renderPage();
-      expect(screen.getByText(/EN · ಕ/)).toBeInTheDocument();
+describe("Coming soon page (Phase 06 / LAUNCH-01)", () => {
+  describe("Metadata", () => {
+    it("page component renders without crashing", () => {
+      expect(() => renderPage()).not.toThrow();
     });
   });
 
-  describe("Hero", () => {
-    it("renders SectionLabel: Citizen Audit · ನಾಗರಿಕ", async () => {
-      await renderPage();
-      expect(screen.getByText("Citizen Audit · ನಾಗರಿಕ")).toBeInTheDocument();
+  describe("Wordmark", () => {
+    it("renders English wordmark 'Namma Daari'", () => {
+      renderPage();
+      expect(screen.getByText("Namma Daari")).toBeInTheDocument();
     });
 
-    it("renders h1: Fix the footpath.", async () => {
-      await renderPage();
-      const h1 = screen.getByRole("heading", { level: 1 });
-      expect(h1).toHaveTextContent("Fix the footpath.");
+    it("renders Kannada wordmark 'ನಮ್ಮ ದಾರಿ' in wordmark", () => {
+      renderPage();
+      // There are two instances: wordmark and taglineKn — both should be present
+      const elements = screen.getAllByText("ನಮ್ಮ ದಾರಿ");
+      expect(elements.length).toBeGreaterThanOrEqual(1);
     });
+  });
 
-    it("renders subtext about snapping a photo", async () => {
-      await renderPage();
+  describe("Status chip", () => {
+    it("renders 'Coming soon · Bengaluru' status chip", () => {
+      renderPage();
+      expect(screen.getByText(/Coming soon · Bengaluru/)).toBeInTheDocument();
+    });
+  });
+
+  describe("Eyebrow", () => {
+    it("renders eyebrow text about citizen reporting", () => {
+      renderPage();
       expect(
-        screen.getByText(/Spot a broken, blocked, or missing footpath/)
+        screen.getByText(/Citizen reporting for/i)
+      ).toBeInTheDocument();
+    });
+
+    it("renders 'walkable streets' accent span in eyebrow", () => {
+      renderPage();
+      expect(screen.getByText("walkable streets")).toBeInTheDocument();
+    });
+  });
+
+  describe("Tagline", () => {
+    it("renders h1 with tagline text", () => {
+      renderPage();
+      const h1 = screen.getByRole("heading", { level: 1 });
+      expect(h1).toHaveTextContent(/Snap a broken footpath/);
+    });
+
+    it("renders soft segment of tagline", () => {
+      renderPage();
+      const h1 = screen.getByRole("heading", { level: 1 });
+      expect(h1).toHaveTextContent(/Put it on Bengaluru/);
+    });
+
+    it("renders Kannada tagline 'ನಮ್ಮ ದಾರಿ'", () => {
+      renderPage();
+      const elements = screen.getAllByText(/ನಮ್ಮ ದಾರಿ/);
+      expect(elements.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("renders transliteration 'namma daari · our path'", () => {
+      renderPage();
+      expect(screen.getByText(/namma daari · our path/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("Description", () => {
+    it("renders description paragraph", () => {
+      renderPage();
+      expect(
+        screen.getByText(/Namma Daari turns a quick phone photo/)
+      ).toBeInTheDocument();
+    });
+
+    it("renders bold 'Every report lands in front of BBMP / GBA'", () => {
+      renderPage();
+      expect(
+        screen.getByText("Every report lands in front of BBMP / GBA")
       ).toBeInTheDocument();
     });
   });
 
-  describe("Map preview", () => {
-    it("Open map link points to /map", async () => {
-      await renderPage();
-      const links = screen.getAllByRole("link");
+  describe("Instagram CTA", () => {
+    it("renders Instagram CTA link pointing to nammadaariblr", () => {
+      renderPage();
+      const link = screen.getByRole("link");
+      expect(link).toHaveAttribute("href", "https://instagram.com/nammadaariblr");
+    });
+
+    it("CTA opens in new tab with rel=noopener", () => {
+      renderPage();
+      const link = screen.getByRole("link");
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener");
+    });
+
+    it("renders '@nammadaariblr' handle in CTA", () => {
+      renderPage();
+      expect(screen.getByText("@nammadaariblr")).toBeInTheDocument();
+    });
+
+    it("renders CTA note about not being live yet", () => {
+      renderPage();
+      expect(
+        screen.getByText(/We're not live yet/)
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe("Footer", () => {
+    it("renders 'Built for Bengaluru' footer text", () => {
+      renderPage();
+      expect(screen.getByText(/Built for Bengaluru/)).toBeInTheDocument();
+    });
+
+    it("renders all four category tags", () => {
+      renderPage();
+      expect(screen.getByText("Footpaths")).toBeInTheDocument();
+      expect(screen.getByText("Crossings")).toBeInTheDocument();
+      expect(screen.getByText("Lighting")).toBeInTheDocument();
+      expect(screen.getByText("BBMP / GBA")).toBeInTheDocument();
+    });
+  });
+
+  describe("Regression guards — old citizen home page content must not appear", () => {
+    it("does not render old 'Fix the footpath.' heading", () => {
+      renderPage();
+      expect(screen.queryByText("Fix the footpath.")).toBeNull();
+    });
+
+    it("does not render 'Walkable BLR' mono tagline", () => {
+      renderPage();
+      expect(screen.queryByText("Walkable BLR")).toBeNull();
+    });
+
+    it("does not render 'No login' trust sub-copy", () => {
+      renderPage();
+      expect(screen.queryByText("No login")).toBeNull();
+    });
+
+    it("does not render map link to /map", () => {
+      renderPage();
+      const links = screen.queryAllByRole("link");
       const mapLink = links.find((l) => l.getAttribute("href") === "/map");
-      expect(mapLink).toBeDefined();
-      expect(mapLink).toHaveTextContent(/Open map/);
-    });
-
-    it("renders live report count pill from API", async () => {
-      await renderPage();
-      expect(screen.getByText("42")).toBeInTheDocument();
-    });
-  });
-
-  describe("Primary CTA", () => {
-    it("renders a file input for camera capture (ReportCTA — not a link to /report)", async () => {
-      await renderPage();
-      // CTA is now a label wrapping a hidden file input with capture="environment"
-      const cameraInput = document.querySelector('input[type="file"][capture="environment"]');
-      expect(cameraInput).not.toBeNull();
-    });
-
-    it("has English copy 'Report an issue' (lowercase i)", async () => {
-      await renderPage();
-      expect(screen.getByText("Report an issue")).toBeInTheDocument();
-    });
-
-    it("has Kannada copy 'ಸಮಸ್ಯೆ ವರದಿ ಮಾಡಿ'", async () => {
-      await renderPage();
-      expect(screen.getByText("ಸಮಸ್ಯೆ ವರದಿ ಮಾಡಿ")).toBeInTheDocument();
-    });
-  });
-
-  describe("Trust sub-copy", () => {
-    it("renders 'No login'", async () => {
-      await renderPage();
-      expect(screen.getByText("No login")).toBeInTheDocument();
-    });
-
-    it("renders 'Takes 20 seconds'", async () => {
-      await renderPage();
-      expect(screen.getByText("Takes 20 seconds")).toBeInTheDocument();
-    });
-
-    it("renders 'Anonymous'", async () => {
-      await renderPage();
-      expect(screen.getByText("Anonymous")).toBeInTheDocument();
-    });
-  });
-
-  describe("Removed from old design (regression guards)", () => {
-    it("no longer has data-testid 'trust-pills'", async () => {
-      await renderPage();
-      expect(screen.queryByTestId("trust-pills")).toBeNull();
-    });
-
-    it("no longer has old capital 'Report an Issue' heading", async () => {
-      await renderPage();
-      expect(screen.queryByText("Report an Issue")).toBeNull();
+      expect(mapLink).toBeUndefined();
     });
   });
 });

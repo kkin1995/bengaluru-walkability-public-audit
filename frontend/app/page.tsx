@@ -1,253 +1,102 @@
-import Link from "next/link";
-import { Icon } from "@/app/components/ui/Icon";
-import { Pill } from "@/app/components/ui/Pill";
-import { SectionLabel } from "@/app/components/ui/SectionLabel";
-import { ReportCTA } from "@/app/components/ReportCTA";
-import { INTERNAL_API_URL } from "@/app/lib/config";
+import type { Metadata } from "next";
+import styles from "./coming-soon.module.css";
 
-// Static scatter positions for map preview (10 dots; deterministic to avoid hydration mismatch)
-const MAP_DOTS: Array<[number, number, "accent" | "warn" | "danger"]> = [
-  [22, 30, "danger"],
-  [34, 45, "warn"],
-  [45, 28, "accent"],
-  [58, 55, "danger"],
-  [70, 38, "warn"],
-  [30, 68, "accent"],
-  [65, 72, "danger"],
-  [48, 82, "warn"],
-  [78, 62, "accent"],
-  [18, 55, "danger"],
-];
-
-const DOT_COLORS: Record<"accent" | "warn" | "danger", string> = {
-  accent: "var(--accent)",
-  warn: "var(--warn)",
-  danger: "var(--danger)",
+export const metadata: Metadata = {
+  title: "Namma Daari — Coming Soon",
 };
 
-async function fetchReportTotal(): Promise<number | null> {
-  try {
-    const res = await fetch(`${INTERNAL_API_URL}/api/reports?limit=1`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { total?: number };
-    return typeof data.total === "number" ? data.total : null;
-  } catch {
-    return null;
-  }
-}
-
-export default async function HomePage() {
-  const reportTotal = await fetchReportTotal();
-
+export default function ComingSoonPage() {
   return (
-    <main
-      style={{
-        flex: 1,
-        maxWidth: 428,
-        margin: "0 auto",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        background: "var(--bg)",
-      }}
-    >
-      {/* Header — brand + language toggle (display only) */}
-      <header
-        style={{
-          padding: "20px 20px 0",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              background: "var(--ink)",
-              display: "grid",
-              placeItems: "center",
-              flexShrink: 0,
-            }}
-            aria-hidden="true"
-          >
-            <Icon name="pin" size={16} style={{ color: "#fafaf9" }} />
-          </div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6, minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: 15,
-                fontWeight: 700,
-                letterSpacing: "-0.01em",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Namma <span className="kn" style={{ fontWeight: 600 }}>ದಾರಿ</span>
-            </div>
-            <div
-              style={{
-                fontSize: 10,
-                fontFamily: "var(--font-mono)",
-                color: "var(--muted-2)",
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Walkable BLR
-            </div>
-          </div>
+    <div className={styles.page}>
+      {/* Top bar */}
+      <header className={styles.topbar}>
+        <div className={styles.wordmark}>
+          <span className={styles.en}>Namma Daari</span>
+          <span className={`${styles.kn} kn`}>ನಮ್ಮ ದಾರಿ</span>
         </div>
-        {/* Language toggle display-only (CONTEXT.md: deferred functionality) */}
-        <div
-          aria-label="Language toggle (display only)"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            fontSize: 12,
-            color: "var(--muted)",
-            whiteSpace: "nowrap",
-            flexShrink: 0,
-          }}
-        >
-          <Icon name="globe" size={14} /> EN · ಕ
+        <div className={styles.statusChip}>
+          <span className={`${styles.dot} pulse`} />
+          Coming soon · Bengaluru
         </div>
       </header>
 
       {/* Hero */}
-      <section
-        style={{
-          flex: 1,
-          padding: "32px 20px 16px",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "flex-end",
-        }}
-      >
-        <SectionLabel style={{ marginBottom: 12 }}>Citizen Audit · ನಾಗರಿಕ</SectionLabel>
-        <h1
-          style={{
-            fontSize: 28,
-            fontWeight: 700,
-            letterSpacing: "-0.02em",
-            lineHeight: 1.2,
-            margin: 0,
-            color: "var(--ink)",
-          }}
-        >
-          Fix the footpath.
+      <main className={styles.hero}>
+        <p className={styles.eyebrow}>
+          Citizen reporting for <span>walkable streets</span>
+        </p>
+
+        <h1 className={styles.tagline}>
+          Snap a broken footpath.
+          <br />
+          <span className={styles.soft}>Put it on Bengaluru&#39;s map.</span>
         </h1>
-        <p
-          style={{
-            fontSize: 16,
-            color: "var(--ink-2)",
-            lineHeight: 1.5,
-            marginTop: 14,
-            marginBottom: 0,
-            maxWidth: 320,
-          }}
-        >
-          Spot a broken, blocked, or missing footpath? Snap it — it goes straight to the
-          public map.
-        </p>
-      </section>
 
-      {/* Map preview */}
-      <div style={{ padding: "0 20px" }}>
-        <div
-          className="map-tile"
-          style={{
-            height: 180,
-            borderRadius: "var(--r-lg)",
-            position: "relative",
-            overflow: "hidden",
-            border: "1px solid var(--border)",
-            boxShadow: "var(--shadow-md)",
-          }}
-        >
-          {MAP_DOTS.map(([x, y, tone], i) => (
-            <div
-              key={i}
-              style={{
-                position: "absolute",
-                left: `${x}%`,
-                top: `${y}%`,
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                background: DOT_COLORS[tone],
-                boxShadow: "0 0 0 3px rgba(255,255,255,0.7)",
-              }}
-              aria-hidden="true"
-            />
-          ))}
-          <div style={{ position: "absolute", left: 12, bottom: 12, display: "flex", gap: 6 }}>
-            {reportTotal !== null && (
-              <Pill tone="glass">
-                <span className="mono">{reportTotal}</span>
-                <span>{reportTotal === 1 ? "report" : "reports"}</span>
-              </Pill>
-            )}
-          </div>
-          <Link
-            href="/map"
-            className="press"
-            style={{
-              position: "absolute",
-              right: 12,
-              bottom: 12,
-              background: "rgba(255,255,255,0.95)",
-              border: "1px solid var(--border)",
-              padding: "8px 12px",
-              borderRadius: "var(--r-full)",
-              fontSize: 12,
-              fontWeight: 500,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              whiteSpace: "nowrap",
-              color: "var(--ink)",
-              textDecoration: "none",
-            }}
+        <p className={styles.taglineKn}>
+          ನಮ್ಮ ದಾರಿ{" "}
+          <span className={`${styles.translit} mono`}>namma daari · our path</span>
+        </p>
+
+        <p className={styles.desc}>
+          Namma Daari turns a quick phone photo into a tracked civic report —
+          cracked footpaths, blocked crossings, missing kerb ramps and dark
+          stretches along the Namma Metro corridor and beyond.{" "}
+          <b>Every report lands in front of BBMP / GBA</b> with a location, a
+          ward and a status attached, so nothing quietly disappears. Walkable
+          streets start with what we choose to notice.
+        </p>
+
+        <div className={styles.ctaRow}>
+          <a
+            href="https://instagram.com/nammadaariblr"
+            target="_blank"
+            rel="noopener"
+            className={`${styles.igBtn} press`}
           >
-            Open map <Icon name="arrow_right" size={14} />
-          </Link>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <rect
+                x="2.5"
+                y="2.5"
+                width="19"
+                height="19"
+                rx="5.5"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <circle
+                cx="12"
+                cy="12"
+                r="4.2"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <circle cx="17.3" cy="6.7" r="1.3" fill="currentColor" />
+            </svg>
+            Follow <span className={styles.handle}>@nammadaariblr</span>
+          </a>
+          <p className={styles.ctaNote}>
+            We&#39;re not live yet. Follow along for the launch and the first
+            wards we&#39;re mapping.
+          </p>
         </div>
-      </div>
+      </main>
 
-      {/* Primary CTA + trust sub-copy */}
-      <div
-        style={{
-          padding: "20px",
-          paddingBottom: "max(20px, env(safe-area-inset-bottom))",
-        }}
-      >
-        <ReportCTA />
-        <p
-          style={{
-            display: "flex",
-            gap: 6,
-            justifyContent: "center",
-            flexWrap: "wrap",
-            marginTop: 10,
-            marginBottom: 0,
-            fontSize: 14,
-            color: "var(--muted)",
-          }}
-        >
-          <span style={{ whiteSpace: "nowrap" }}>No login</span>
-          <span aria-hidden="true">·</span>
-          <span style={{ whiteSpace: "nowrap" }}>Takes 20 seconds</span>
-          <span aria-hidden="true">·</span>
-          <span style={{ whiteSpace: "nowrap" }}>Anonymous</span>
-        </p>
-      </div>
-    </main>
+      {/* Footer */}
+      <footer className={styles.footer}>
+        <span>Built for Bengaluru · ಬೆಂಗಳೂರಿಗಾಗಿ</span>
+        <div className={styles.tags}>
+          <span className={styles.tag}>Footpaths</span>
+          <span className={styles.tag}>Crossings</span>
+          <span className={styles.tag}>Lighting</span>
+          <span className={styles.tag}>BBMP / GBA</span>
+        </div>
+      </footer>
+    </div>
   );
 }
