@@ -1,0 +1,295 @@
+/*
+ * coming-soon.module.css
+ * Scoped styles for the coming soon page (frontend/app/page.tsx on main branch).
+ * All colors reference CSS variable tokens from globals.css — no hardcoded hex values.
+ * Do NOT re-declare .press, .pulse, .kn (global), .mono (global) — they live in globals.css.
+ */
+
+/* ─── Page wrapper ─────────────────────────────────────────────── */
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 32px 28px 28px;
+  box-sizing: border-box;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 18% 22%, oklch(0.96 0.03 145) 0%, transparent 42%),
+    radial-gradient(circle at 84% 78%, rgba(180, 165, 140, 0.18) 0%, transparent 46%);
+  background-attachment: fixed;
+}
+
+/* ─── Top bar ──────────────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* ─── Wordmark ─────────────────────────────────────────────────── */
+.wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+/* Scoped .en — wordmark English span */
+.en {
+  font-size: 17px;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+/*
+ * Scoped .kn — wordmark Kannada span only.
+ * Shadows the global .kn (which sets font-family) within this module's scope.
+ * Intentional: the global .kn provides the Kannada font; this adds color/size overrides.
+ */
+.kn {
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--font-kn);
+  color: var(--accent-ink);
+}
+
+/* ─── Status chip ──────────────────────────────────────────────── */
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+}
+
+/* Dot inside status chip — base appearance only; animation via global .pulse class */
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ─── Hero section ─────────────────────────────────────────────── */
+.hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 56px 0;
+  max-width: 760px;
+}
+
+/* ─── Eyebrow ──────────────────────────────────────────────────── */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 22px;
+}
+
+.eyebrow span {
+  color: var(--accent-ink);
+}
+
+/* ─── Tagline ──────────────────────────────────────────────────── */
+.tagline {
+  font-size: clamp(38px, 6.4vw, 68px);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  margin: 0;
+  text-wrap: balance;
+}
+
+/* .soft is referenced as styles.soft in JSX; cascade from .tagline applies */
+.soft {
+  color: var(--muted-2);
+}
+
+/* ─── Tagline Kannada ──────────────────────────────────────────── */
+.taglineKn {
+  font-size: clamp(18px, 2.4vw, 24px);
+  font-weight: 500;
+  font-family: var(--font-kn);
+  color: var(--accent-ink);
+  margin: 0;
+  margin-top: 22px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.translit {
+  font-family: var(--font-mono);
+  font-size: 0.62em;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-transform: lowercase;
+}
+
+/* ─── Description ──────────────────────────────────────────────── */
+.desc {
+  font-size: clamp(15px, 1.9vw, 18px);
+  font-weight: 400;
+  line-height: 1.62;
+  color: var(--ink-2);
+  margin: 0;
+  margin-top: 34px;
+  max-width: 600px;
+  text-wrap: pretty;
+}
+
+.desc b {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ─── CTA row ──────────────────────────────────────────────────── */
+.ctaRow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 40px;
+}
+
+/* ─── Instagram CTA button ─────────────────────────────────────── */
+.igBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  padding: 14px 22px 14px 18px;
+  background: var(--ink);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--r-full);
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  cursor: pointer;
+  align-self: flex-start;
+  box-shadow: var(--shadow-md);
+}
+
+.igBtn svg {
+  display: block;
+}
+
+.handle {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.ctaNote {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 280px;
+}
+
+/* ─── Footer ───────────────────────────────────────────────────── */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 22px;
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--muted-2);
+  text-transform: uppercase;
+}
+
+.tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 4px 9px;
+}
+
+/* ─── Responsive — ≤560px ──────────────────────────────────────── */
+@media (max-width: 560px) {
+  .page {
+    padding: 22px 20px 24px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+  }
+
+  .hero {
+    padding: 36px 0;
+  }
+
+  .tagline {
+    letter-spacing: -0.02em;
+  }
+
+  .desc {
+    margin-top: 28px;
+  }
+
+  .ctaRow {
+    gap: 16px;
+    margin-top: 32px;
+  }
+
+  .igBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ctaNote {
+    max-width: none;
+  }
+}
+
+/* ─── Responsive — ≤380px ──────────────────────────────────────── */
+@media (max-width: 380px) {
+  .wordmark {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .wordmark .kn {
+    font-size: 14px;
+  }
+}

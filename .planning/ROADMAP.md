@@ -92,15 +92,19 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 
 ### Phase 7: Admin Triage UX + Public Map
 
-**Goal**: Admins can filter the reports queue by ward or corporation, and the public map gains category/status filter chips, a ward boundary overlay, and a before/after resolution photo on report detail pages
+**Goal**: Admins can filter the reports queue by ward or corporation; the public map gains category/status filter chips, a ward boundary overlay, and before/after resolution photos; all admin portal mobile Safari layout bugs are fixed; and the bake_orientation unit test covers the orientation=6 path
 **Depends on**: Phase 6
-**Requirements**: TRIAGE-01, TRIAGE-02, TRIAGE-03, TRIAGE-04, TRIAGE-05
+**Requirements**: TRIAGE-01, TRIAGE-02, TRIAGE-03, TRIAGE-04, TRIAGE-05, MOB-01, MOB-02, MOB-03, MOB-04, MOB-05, MOB-06, MOB-07, TEST-01
 **Success Criteria** (what must be TRUE):
 
   1. An admin can select a ward or corporation from a filter control in the reports queue and see only reports belonging to that geographic scope
   2. A citizen visiting /map can tap a category chip to show only reports of that category, and a status chip to show only open, in-progress, or resolved reports
   3. A citizen can toggle a ward boundary overlay on the public /map to see ward polygons drawn over the base map
   4. A citizen viewing a resolved report's detail page sees both the original submission photo and the admin-uploaded resolution photo side by side
+  5. On mobile Safari, the Ops page and Queue page scroll to their full content without being clipped behind the bottom nav bar (MOB-01, MOB-02)
+  6. The Analytics "Reports per week (12 weeks)" chart renders data lines correctly; chart legend shows human-readable category labels, not raw DB enum strings; the ward choropleth map is fully visible without horizontal scrolling; and the ward boundary GeoJSON loads without error (MOB-03, MOB-04, MOB-05, MOB-06)
+  7. On mobile Safari, the /admin/map Leaflet attribution bar and legend panel are positioned above the bottom nav bar height + safe-area-inset-bottom so nav tabs remain accessible (MOB-07)
+  8. A backend unit test feeds a synthetic JPEG with EXIF orientation=6 through `bake_orientation` and asserts output dimensions are 3024×4032 (TEST-01)
 
 **Plans**: TBD
 **UI hint**: yes
@@ -137,3 +141,9 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 
 *v1.0 shipped: 2026-06-01 — archive: .planning/milestones/v1.0-ROADMAP.md*  
 *v1.1 roadmap created: 2026-06-05*
+
+---
+
+## Backlog (v1.1)
+
+*(empty — all items promoted to Phase 7)*

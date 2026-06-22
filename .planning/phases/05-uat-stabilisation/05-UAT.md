@@ -3,7 +3,7 @@ status: complete
 phase: 05-uat-stabilisation
 source: [05-01-SUMMARY.md, 05-02-SUMMARY.md, 05-03-SUMMARY.md, 05-04-SUMMARY.md]
 started: 2026-06-05T13:52:28Z
-updated: 2026-06-05T14:41:42Z
+updated: 2026-06-21T05:15:00Z
 ---
 
 ## Current Test
@@ -64,22 +64,23 @@ note: "The confirm step shows an intentional CSS map-tile placeholder by default
 
 ### 11. iPhone portrait photo displays upright
 expected: Submit a report using a portrait photo taken on an iPhone (EXIF orientation = 6, typically tall portrait mode). The stored/displayed photo should appear upright — not rotated 90° sideways. The orientation fix bakes rotation into pixels before EXIF is stripped.
-result: skipped
-reason: Verify on staging after ship.
+result: partial
+note: "Tested on staging (https://staging.nammadaari.com) via iOS Safari — photo submitted and stored upright, EXIF stripped. However stored dimensions are 4032×3024 (landscape), whereas portrait photos from this iPhone are 3024×4032. The EXIF orientation=6 code path in bake_orientation (reports.rs:302) was therefore not confirmed exercised — iOS may have pre-baked the orientation before delivery, or photo was captured in landscape. General iOS upload flow confirmed. Report: d47f1041-d3ab-4ff1-82c3-cb706a75326f. To fully close: submit a raw portrait JPEG with EXIF orientation=6 verified before upload."
 
 ### 12. Public map tiles load on iOS Safari (CSP fix)
 expected: On an iOS Safari browser (device or simulator), open the public reports map. Map tiles from OpenStreetMap should load and render correctly — not blocked by CSP errors. Previously the nginx CSP for the public route was missing the connect-src allowlist for tile.openstreetmap.org.
-result: skipped
-reason: Verify on staging after ship.
+result: pass
+note: "Verified on staging (https://staging.nammadaari.com/map) via iOS Safari on physical iPhone. OpenStreetMap tiles rendered fully — all map tiles visible, Leaflet attribution shown, no CSP console errors. nginx.conf public route CSP confirmed at connect-src 'self' https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org."
 
 ## Summary
 
 total: 13
-passed: 9
+passed: 10
 issues: 2
 pending: 0
-skipped: 2
+skipped: 1
 blocked: 0
+notes: "Test 11 partial — iOS upload flow works, EXIF stripped, but orientation-6 rotate path not confirmed exercised (stored dims 4032×3024 vs expected 3024×4032 for portrait)."
 
 ## Gaps
 
