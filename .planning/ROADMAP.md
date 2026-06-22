@@ -127,7 +127,7 @@ Plans:
 Plans:
 **Wave 1** *(independent — backend + test + frontend-only)*
 
-- [ ] 07-01-PLAN.md — Backend admin ward/corp filter endpoints + SQL filter clauses (TRIAGE-01)
+- [x] 07-01-PLAN.md — Backend admin ward/corp filter endpoints + SQL filter clauses (TRIAGE-01)
 - [ ] 07-03-PLAN.md — TEST-01 bake_orientation orientation=6 iPhone-dimensions unit test (TEST-01)
 - [ ] 07-06-PLAN.md — Public report detail before/after resolution photo layout (TRIAGE-05)
 

@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stabilise, Launch, and Triage
-current_phase: 7
-current_phase_name: Admin Triage UX + Public Map
+current_phase: 07
+current_phase_name: admin-triage-ux-public-map
 status: executing
 stopped_at: Phase 07 UI-SPEC approved
-last_updated: "2026-06-22T18:02:23.307Z"
+last_updated: "2026-06-22T18:15:12Z"
 last_activity: 2026-06-22
-last_activity_desc: Phase 06 complete, transitioned to Phase 7
+last_activity_desc: Phase 07, Plan 01 complete — corp/ward filter backend data tier
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
-  percent: 67
+  total_plans: 17
+  completed_plans: 10
+  percent: 59
 ---
 
 # Project State
@@ -24,16 +24,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-05 after v1.1 roadmap created)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase 07 — admin-triage-ux-+-public-map
+**Current focus:** Phase 07 — admin-triage-ux-public-map
 
 ## Current Position
 
-Phase: 7 — Admin Triage UX + Public Map
+Phase: 07 (admin-triage-ux-public-map) — EXECUTING (Plan 01 complete)
 Phase: 06 (production-launch-git-branching-workflow) — UP NEXT
-Status: Ready to execute
-Last activity: 2026-06-22 — Phase 06 complete, transitioned to Phase 7
+Status: Executing Phase 07 — 1/8 plans complete
+Last activity: 2026-06-22 — Plan 07-01 complete (corp/ward filter backend tier)
 
-Progress: [███░░░░░░░] 33%
+Progress: [████░░░░░░] 41%
 
 ## Performance Metrics
 
@@ -65,6 +65,12 @@ Key decisions from Phase 06 (see PROJECT.md Key Decisions for full log):
 - [Phase 06]: frontend parked behind `profiles: [frontend-only]` in staging compose — staging stack starts db + backend + nginx only
 - [Phase 06]: GSD config.json branching section added — /gsd-ship now routes PRs to staging; milestone merges go staging → main
 
+Key decisions from Phase 07, Plan 01:
+
+- [Phase 07-01]: corporation_id filter uses subquery pattern (reports.ward_id IN SELECT id FROM wards WHERE org_id = $N) rather than JOIN — keeps WHERE builder composable and additive on org_id CTE scoping
+- [Phase 07-01]: ward_id and corporation_id typed as Option<Uuid> on AdminReportFilters — Axum Query extractor rejects non-UUID at deserialization (no explicit validation needed)
+- [Phase 07-01]: build_export_where_clause passes None, None for ward/corp — export filtering is out of scope for Phase 07 (D-04)
+
 ### Pending Todos
 
 None.
@@ -85,6 +91,6 @@ Items carried forward from v1.0 close (2026-06-01):
 
 ## Session Continuity
 
-Last session: 2026-06-22T17:37:29.816Z
-Stopped at: Phase 07 UI-SPEC approved
-Resume file: .planning/phases/07-admin-triage-ux-public-map/07-UI-SPEC.md
+Last session: 2026-06-22T18:15:12Z
+Stopped at: Phase 07, Plan 01 complete
+Resume file: .planning/phases/07-admin-triage-ux-public-map/07-02-PLAN.md
