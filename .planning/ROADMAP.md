@@ -150,7 +150,7 @@ Plans:
 | 4. Export and Public Analytics | v1.0 | 5/5 | ✅ Complete | 2026-05-31 |
 | 04.1 Ward-Org Link Gap Closure | v1.0 | 4/4 | ✅ Complete | 2026-06-01 |
 | 5. UAT Stabilisation | v1.1 | 4/4 | Complete   | 2026-06-05 |
-| 6. Production Launch + Git Branching | v1.1 | 5/5 | Complete   | 2026-06-22 |
+| 6. Production Launch + Git Branching | v1.1 | 5/5 | Complete    | 2026-06-22 |
 | 7. Admin Triage UX + Public Map | v1.1 | 0/TBD | Not started | — |
 
 ---
