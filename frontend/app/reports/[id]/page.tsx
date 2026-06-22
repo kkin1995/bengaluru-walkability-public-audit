@@ -147,6 +147,175 @@ function BureaucraticRow({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Before/After photo components (TRIAGE-05 — D-24/D-25/D-26/D-27/D-28)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Floating pill badge overlaid on the After photo (D-25) */
+function ResolutionBadge() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: "absolute",
+        top: 8,
+        left: 8,
+        zIndex: 1,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "4px 8px",
+        background: "var(--accent)",
+        color: "#ffffff",
+        borderRadius: "var(--r-full)",
+        fontFamily: "var(--font-mono)",
+        fontSize: 10,
+        fontWeight: 400,
+        letterSpacing: "0.05em",
+        textTransform: "uppercase",
+        pointerEvents: "none",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {/* Inline check icon — 12px, no stroke, matches check icon path from Icon.tsx */}
+      <svg
+        viewBox="0 0 24 24"
+        width={12}
+        height={12}
+        aria-hidden="true"
+        style={{ flexShrink: 0 }}
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth={2.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M4 12l5 5L20 6" />
+      </svg>
+      RESOLUTION
+    </div>
+  );
+}
+
+/** Single photo frame with label, mono sub-label, and image (D-26) */
+function PhotoFrame({
+  label,
+  subLabel,
+  src,
+  badge,
+}: {
+  label: string;
+  subLabel: string;
+  src: string;
+  badge?: boolean;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {/* Label row: label (14px/600) left + sub-label (10px mono muted) right, 4px gap */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: 4,
+          marginBottom: 6,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: "var(--ink)",
+            fontFamily: "var(--font-sans)",
+            lineHeight: 1.2,
+          }}
+        >
+          {label}
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            color: "var(--muted)",
+            letterSpacing: "0.05em",
+            lineHeight: 1.4,
+            textAlign: "right",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {subLabel}
+        </span>
+      </div>
+      {/* Image wrapper — position:relative for badge overlay */}
+      <div style={{ position: "relative" }}>
+        {badge && <ResolutionBadge />}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt=""
+          style={{
+            width: "100%",
+            aspectRatio: "16/9",
+            objectFit: "cover",
+            borderRadius: "var(--r-md)",
+            display: "block",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Responsive before/after grid (TRIAGE-05).
+ * Uses a CSS class (.ba-grid) toggled by a <style> block to avoid a JS
+ * width check that would break SSR. Matches the page's existing inline-style
+ * pattern while adding a single media query for the two-column desktop layout.
+ */
+function BeforeAfterGrid({
+  originalSrc,
+  originalSubLabel,
+  resolutionSrc,
+  resolutionSubLabel,
+}: {
+  originalSrc: string;
+  originalSubLabel: string;
+  resolutionSrc: string;
+  resolutionSubLabel: string;
+}) {
+  return (
+    <>
+      <style>{`
+        .ba-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        @media (min-width: 768px) {
+          .ba-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+          }
+        }
+      `}</style>
+      <div className="ba-grid">
+        <PhotoFrame
+          label="Before"
+          subLabel={originalSubLabel}
+          src={originalSrc}
+        />
+        <PhotoFrame
+          label="After"
+          subLabel={resolutionSubLabel}
+          src={resolutionSrc}
+          badge
+        />
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Timeline entry component
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -230,6 +399,36 @@ export default async function PublicReportPage({
   const statusLabel = publicStatusLabel(report.status);
   const statusColor = publicStatusColor(report.status);
   const isResolved = report.status === "resolved" || report.status === "closed";
+
+  // ── TRIAGE-05: Before/After photo derivation ───────────────────────────────
+  // Derive resolution photo URL with the same Docker-hostname-safe extraction
+  // used for the original (FIX-01 / T-05-05): split on "/uploads/" and rebuild.
+  const resolutionFilename = (report.resolution_photo_url ?? "").split("/uploads/").pop() ?? "";
+  const publicResolutionUrl = resolutionFilename ? `${API_BASE_URL}/uploads/${resolutionFilename}` : "";
+  const hasResolutionPhoto = publicResolutionUrl !== "";
+
+  // Sub-label for original: "DD MMM · CITIZEN" (D-26)
+  // Uses existing formatDate but we need DD MMM only (e.g. "17 May")
+  function formatShortDate(isoString: string): string {
+    return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(
+      new Date(isoString)
+    );
+  }
+  const originalSubLabel = `${formatShortDate(report.created_at)} · CITIZEN`;
+
+  // Resolution date: last history entry with status resolved or closed (Risk 6).
+  // Falls back to report.created_at if no such entry found.
+  const resolutionEntry = [...report.history]
+    .reverse()
+    .find((e) => e.status === "resolved" || e.status === "closed");
+  const resolutionDate = resolutionEntry ? resolutionEntry.changed_at : report.created_at;
+
+  // Corp name: ward_hierarchy?.corporation, fallback "GBA" (Assumption A2 — assigned_org_name
+  // not in PublicReport; admin uploads resolution photos on behalf of their corporation).
+  const corpName = report.ward_hierarchy?.corporation ?? "GBA";
+  const resolutionSubLabel = `${formatShortDate(resolutionDate)} · ${corpName}`;
+  // ─────────────────────────────────────────────────────────────────────────
+
   const hasHierarchy =
     report.ward_hierarchy !== null && report.ward_hierarchy?.ward_name !== null;
   const wh = report.ward_hierarchy;
@@ -553,58 +752,40 @@ export default async function PublicReportPage({
           </div>
         </section>
 
-        {/* Resolution section — conditional on resolved/closed */}
-        {isResolved && (
+        {/* Photo section — Before/After (TRIAGE-05, D-24–D-28)
+            Heading "Photo" always present (D-27 — heading does not change between states).
+            Two-photo: BeforeAfterGrid (desktop 2-col, mobile stacked).
+            Single-photo (no resolution_photo_url): one PhotoFrame, maxWidth 520px. */}
+        <section aria-label="Report photo" style={{ marginBottom: 20 }}>
           <div
             style={{
-              background: "var(--accent-bg)",
-              border: "1px solid var(--accent-border)",
-              borderRadius: "var(--r-lg)",
-              padding: "14px",
-              marginBottom: 20,
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              color: "var(--muted)",
+              marginBottom: 10,
             }}
           >
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-                color: "var(--accent-ink)",
-                marginBottom: 10,
-              }}
-            >
-              Resolution
-            </div>
-            {report.resolution_photo_url && (
-              <div style={{ marginBottom: 8 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={report.resolution_photo_url}
-                  alt="After photo"
-                  style={{
-                    width: "100%",
-                    height: 180,
-                    objectFit: "cover",
-                    borderRadius: "var(--r-md)",
-                    display: "block",
-                  }}
-                />
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 10,
-                    color: "var(--accent-ink)",
-                    marginTop: 6,
-                    letterSpacing: "0.03em",
-                  }}
-                >
-                  After · {formatDate(report.created_at)} &nbsp;·&nbsp; Field verified
-                </div>
-              </div>
-            )}
+            Photo
           </div>
-        )}
+          {hasResolutionPhoto ? (
+            <BeforeAfterGrid
+              originalSrc={publicImageUrl}
+              originalSubLabel={originalSubLabel}
+              resolutionSrc={publicResolutionUrl}
+              resolutionSubLabel={resolutionSubLabel}
+            />
+          ) : (
+            <div style={{ maxWidth: 520, margin: "0 auto" }}>
+              <PhotoFrame
+                label="Photo"
+                subLabel={originalSubLabel}
+                src={publicImageUrl}
+              />
+            </div>
+          )}
+        </section>
 
         {/* GBA Responsibility Hierarchy */}
         <section aria-label="GBA Responsibility Hierarchy" style={{ marginBottom: 20 }}>
