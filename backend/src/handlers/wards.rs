@@ -1,10 +1,12 @@
 use axum::{
     extract::{Query, State},
+    http::header,
+    response::IntoResponse,
     Json,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{db::queries, errors::AppError, AppState};
+use crate::{db::{admin_queries, queries}, errors::AppError, AppState};
 
 #[derive(Deserialize)]
 pub struct WardLookupQuery {
@@ -37,6 +39,65 @@ pub async fn ward_lookup(
         })),
         None => Err(AppError::NotFound),
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 07-02: Public ward boundary GeoJSON endpoint (TRIAGE-04, D-14/D-22/D-23)
+// Security: T-07-04 — public payload contains only ward_name/ward_number + geometry
+//           T-07-SC — no new crates; axum header utilities already in tree
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// GET /api/wards/boundaries
+///
+/// Public, unauthenticated endpoint. Returns all 369 ward polygons as a GeoJSON
+/// FeatureCollection. Each Feature's properties includes ward_name and ward_number
+/// only — no report counts, no PII, no admin-specific data (T-07-04, ASVS V4).
+///
+/// Response carries Cache-Control: public, max-age=86400 (24h, D-22).
+/// No rate limit applied — 24h nginx + Cloudflare edge caching means origin
+/// hit rate is negligible (D-23).
+///
+/// This handler uses the same get_ward_boundaries DB function as the admin
+/// choropleth, but strips unresolved_count from the public-facing properties.
+pub async fn public_get_ward_boundaries(
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, AppError> {
+    let rows = admin_queries::get_ward_boundaries(&state.pool).await?;
+
+    // Assemble a GeoJSON FeatureCollection.
+    // Public payload: ward_name + ward_number + geometry ONLY (T-07-04).
+    // No unresolved_count, no internal UUIDs exposed.
+    let features: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|row| {
+            let geometry: serde_json::Value = row
+                .boundary_geojson
+                .as_deref()
+                .and_then(|s| serde_json::from_str(s).ok())
+                .unwrap_or(serde_json::Value::Null);
+
+            serde_json::json!({
+                "type": "Feature",
+                "geometry": geometry,
+                "properties": {
+                    "ward_name": row.ward_name,
+                    "ward_number": row.ward_number,
+                }
+            })
+        })
+        .collect();
+
+    let body = serde_json::json!({
+        "type": "FeatureCollection",
+        "features": features,
+    });
+
+    // Cache-Control: public, max-age=86400 (24h) per D-22.
+    // Cloudflare respects Cache-Control: public and caches at the edge.
+    Ok((
+        [(header::CACHE_CONTROL, "public, max-age=86400")],
+        Json(body),
+    ))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -258,10 +258,11 @@ async fn main() {
             "/api/admin/analytics/trend",
             get(admin_get_trend_data),
         )
-        // NOTE: /api/wards/boundaries is ADMIN-ONLY — the choropleth is an admin
-        // analytics feature (D-04/D-05). It must NOT be in the public route block.
+        // Phase 07-02: Renamed from /api/wards/boundaries → /api/admin/wards/boundaries.
+        // The admin choropleth still uses this auth-gated endpoint (T-07-05).
+        // The public ward GeoJSON endpoint is registered on the public router below.
         .route(
-            "/api/wards/boundaries",
+            "/api/admin/wards/boundaries",
             get(admin_get_wards_boundaries),
         )
         .layer(axum::middleware::from_fn_with_state(
@@ -278,6 +279,13 @@ async fn main() {
         .route("/api/reports/:id", get(handlers::reports::get_report))
         // Public ward lookup — no auth required
         .route("/api/wards/lookup", get(handlers::wards::ward_lookup))
+        // Phase 07-02: Public ward boundary GeoJSON — no auth required (TRIAGE-04, D-14/D-22/D-23)
+        // T-07-04: properties contain only ward_name/ward_number + geometry (no PII, no counts)
+        // T-07-SC: no new crates — Cache-Control set in handler via axum header tuple
+        .route(
+            "/api/wards/boundaries",
+            get(handlers::wards::public_get_ward_boundaries),
+        )
         // EXPORT-03/ANALYTICS-01: public open-data endpoints — no auth required
         .route("/api/stats", get(handlers::stats::public_get_stats))
         .route("/api/reports.geojson", get(handlers::stats::public_get_geojson))
