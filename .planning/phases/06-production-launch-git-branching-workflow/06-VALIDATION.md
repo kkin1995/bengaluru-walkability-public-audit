@@ -44,7 +44,7 @@ audited: 2026-06-22
 | 06-01-03 | 01 | 2 | LAUNCH-03 | — | Secrets scoped per GitHub Environment | manual | staging.nammadaari.com returns 200 after deploy | ✅ W0 | ✅ green |
 | 06-01-04 | 01 | 2 | LAUNCH-03 | — | N/A | smoke | `curl -f https://staging-api.nammadaari.com/health` | ✅ W0 | ✅ green |
 | 06-02-01 | 02 | 1 | LAUNCH-01 | — | N/A | manual | nammadaari.com serves coming soon page | ✅ W0 | ✅ green |
-| 06-02-02 | 02 | 1 | LAUNCH-01 | — | N/A | smoke | `curl -f https://api.nammadaari.com/health` | ✅ W0 | ⚠️ flaky |
+| 06-02-02 | 02 | 1 | LAUNCH-01 | — | N/A | smoke | `curl -f https://api.nammadaari.com/health` | ✅ W0 | ✅ green |
 | 06-03-01 | 03 | 1 | LAUNCH-04 | — | N/A | automated | `grep -q "Branching Workflow" DEPLOYMENT.md` | ✅ | ✅ green |
 | 06-04-01 | 04 | 1 | LAUNCH-05 | — | N/A | automated | `python3 -c "import json; d=json.load(open('.planning/config.json')); assert 'branching' in d"` | ✅ | ✅ green |
 | 06-05-01 | 05 | 1 | LAUNCH-01 | — | N/A | automated | `npm test -- --testPathPattern=home-page --passWithNoTests --watchAll=false` (on main branch) | ✅ | ✅ green |
@@ -73,7 +73,7 @@ audited: 2026-06-22
 | staging-api.nammadaari.com ingress added to tunnel | LAUNCH-03 | Dashboard-only change | Verify `staging-api.nammadaari.com` ingress pointing to localhost:3011 | ✅ green (smoke-test-staging green in GitHub Actions) |
 | GitHub branch protection on main and staging | LAUNCH-04 | GitHub Settings UI | Verify PR required + CI required + 1 approval on both branches | ✅ green (UAT test 6 confirmed) |
 | Vercel domain mappings (main→nammadaari.com, staging→staging.nammadaari.com) | LAUNCH-01/03 | Vercel dashboard config | Verify in Vercel Project Settings → Domains | ✅ green (UAT tests 2 + 3 confirmed) |
-| api.nammadaari.com health endpoint | LAUNCH-01 | Cloudflare Tunnel (production) | `curl -f https://api.nammadaari.com/health` — production API backend | ⚠️ partial — frontend live, API backend not explicitly curl-tested |
+| api.nammadaari.com health endpoint | LAUNCH-01 | Cloudflare Tunnel (production) | `curl -f https://api.nammadaari.com/health` — production API backend | ✅ green — HTTP 200 `{"status":"ok"}` confirmed 2026-06-22 |
 | Admin seed secrets removed after first login | LAUNCH-02 | Security hygiene | Remove ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD from production GitHub Environment after first admin login | ⬜ pending — deferred to post-launch |
 
 ---
@@ -87,7 +87,7 @@ audited: 2026-06-22
 - [x] Feedback latency < 60s
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** 2026-06-22 — UAT complete 8/8 pass; automated commands verified locally; 1 partial (api.nammadaari.com curl, deferred to post-launch monitoring)
+**Approval:** 2026-06-22 — UAT complete 8/8 pass; all automated commands verified; api.nammadaari.com/health confirmed HTTP 200 `{"status":"ok"}`
 
 ---
 
@@ -96,5 +96,5 @@ audited: 2026-06-22
 |--------|-------|
 | Gaps found | 9 |
 | Resolved | 8 |
-| Escalated to manual-only | 1 (api.nammadaari.com health — Cloudflare tunnel, post-launch) |
+| Escalated to manual-only | 0 |
 | New rows added | 1 (06-05-01: coming soon page unit tests on main) |
