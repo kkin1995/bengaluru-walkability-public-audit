@@ -5,8 +5,8 @@ milestone_name: Stabilise, Launch, and Triage
 current_phase: 7
 current_phase_name: Admin Triage UX + Public Map
 status: executing
-stopped_at: Phase 6 context gathered
-last_updated: "2026-06-22T11:53:39.709Z"
+stopped_at: Phase 7 context gathered
+last_updated: "2026-06-22T17:27:14.779Z"
 last_activity: 2026-06-22
 last_activity_desc: Phase 06 complete, transitioned to Phase 7
 progress:
@@ -85,6 +85,6 @@ Items carried forward from v1.0 close (2026-06-01):
 
 ## Session Continuity
 
-Last session: 2026-06-22T17:30:00Z
-Stopped at: Phase 06 complete (8/8 UAT passed), ready to plan Phase 07
-Resume file: None
+Last session: 2026-06-22T17:27:14.775Z
+Stopped at: Phase 7 context gathered
+Resume file: .planning/phases/07-admin-triage-ux-public-map/07-CONTEXT.md
