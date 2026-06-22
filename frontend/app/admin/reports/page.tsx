@@ -622,7 +622,7 @@ function ReportsPageContent(props: PageProps) {
   }, [corpPopoverOpen, wardPopoverOpen]);
 
   return (
-    <div style={{ padding: "24px 32px", maxWidth: 1400, marginLeft: "auto", marginRight: "auto" }}>
+    <div className="admin-safe-bottom" style={{ padding: "24px 32px", maxWidth: 1400, marginLeft: "auto", marginRight: "auto" }}>
       {/* Offline banner — per UI-SPEC Copywriting Contract */}
       {!isOnline && (
         <div

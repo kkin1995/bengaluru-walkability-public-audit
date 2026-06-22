@@ -210,3 +210,11 @@
     display: none;
   }
 }
+
+/* MOB-01/02/07: safe-area bottom padding for admin scroll containers.
+   Ensures scrollable page content is not clipped behind the 56px admin bottom nav
+   on mobile Safari. Apply to any page-level scroll container that needs clearance.
+   56px = admin bottom nav height (per UI-SPEC Mobile Safari Constraints). */
+.admin-safe-bottom {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom));
+}

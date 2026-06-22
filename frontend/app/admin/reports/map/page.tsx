@@ -462,10 +462,11 @@ export default function ReportsMapPage() {
         </div>
 
         {/* ── Map legend: frosted-glass chip at bottom-left ────────────────── */}
+        {/* MOB-07: offset above 56px admin bottom nav + iOS safe-area-inset-bottom */}
         <div
           style={{
             position: "absolute",
-            bottom: 16,
+            bottom: "calc(56px + env(safe-area-inset-bottom) + 16px)",
             left: 16,
             zIndex: 1000,
             backdropFilter: "blur(8px)",
