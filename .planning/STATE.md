@@ -6,14 +6,14 @@ current_phase: 07
 current_phase_name: admin-triage-ux-public-map
 status: executing
 stopped_at: Phase 07, Plan 04 complete
-last_updated: "2026-06-22T18:37:52.120Z"
-last_activity: 2026-06-22
-last_activity_desc: Plan 07-01 complete (corp/ward filter backend tier)
+last_updated: "2026-06-22T18:44:58.855Z"
+last_activity: 2026-06-23
+last_activity_desc: Plan 07-04 complete (corp/ward filter UI — TRIAGE-01)
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 17
-  completed_plans: 14
+  completed_plans: 15
   percent: 67
 ---
 
@@ -54,6 +54,7 @@ Progress: [████░░░░░░] 41%
 *Updated after each plan completion*
 | Phase 07 P03 | 1 min | 1 tasks | 1 files |
 | Phase 07 P06 | 2min | 1 tasks | 1 files |
+| Phase 07 P05 | 3min | - tasks | - files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Key decisions from Phase 07, Plan 01:
 - [Phase ?]: [Phase 07-06]: Resolution URL via split('/uploads/').pop() (FIX-01 pattern); date from last resolved/closed history entry; corp from ward_hierarchy?.corporation fallback 'GBA'
 - [Phase 07-04]: Custom popover with position:absolute (not fixed) for corp/ward selects — iOS Safari scroll offset bug avoided; no third-party dropdown library (T-07-SC mitigated)
 - [Phase 07-04]: corpIdRef + wardIdRef mirror categoryRef/statusRef pattern — avoids stale closure in fetchReports when geographic filters change
+- [Phase ?]: [Phase 07-05]: STATUS_CHIPS uses publicStatusLabel; In progress = acknowledged|assigned|in_progress per D-07
+- [Phase ?]: [Phase 07-05]: WardBoundaryLayer inside ReportsMap.tsx ssr:false; CSS var resolved at render with oklch fallback for Leaflet SVG
 
 ### Pending Todos
 
@@ -98,6 +101,6 @@ Items carried forward from v1.0 close (2026-06-01):
 
 ## Session Continuity
 
-Last session: 2026-06-22T18:37:52.116Z
+Last session: 2026-06-22T18:44:14.981Z
 Stopped at: Phase 07, Plan 06 complete
 Resume file: .planning/phases/07-admin-triage-ux-public-map/07-07-PLAN.md
