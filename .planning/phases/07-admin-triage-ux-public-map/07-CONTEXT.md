@@ -91,7 +91,11 @@ Phase ends when all 13 requirements pass UAT on mobile Safari and desktop.
 
 ### Design Reference
 
-- **D-29:** The complete admin portal design is in `admin-portal-complete-design.zip` at the project root. Downstream agents MUST read `screens-new.jsx` from this archive for exact pixel values, component APIs, and interaction behavior for TRIAGE-01 through TRIAGE-05. Key screens: `AdminFilterBar` (D-22), `MapChipRows` + `PublicMapChipsMobile/Desktop` (D-23), `WardToggle` + `PublicMapWardMobile/Desktop` (D-24), `BeforeAfterDesktop` + `BeforeAfterMobile` + `BeforeAfterSingle` (D-25). The design uses **Direction B** for the admin portal and **Direction A** for the citizen-facing pages.
+- **D-29:** `admin-portal-complete-design.zip` (project root) is the **admin portal design only**. Direction A ("Daari Ops") in the archive is a design concept, NOT the live citizen portal. Direction B ("Walkability Console") is the actual admin portal.
+
+  **Scope by feature:**
+  - **TRIAGE-01 (admin filter bar)** — use `screens-new.jsx` `AdminFilterBar` (Direction B) as the authoritative implementation spec. Pixel values, component APIs, and interaction behavior are exact.
+  - **TRIAGE-02/03 (public map chips), TRIAGE-04 (ward overlay), TRIAGE-05 (before/after photo)** — the Direction A screens in `screens-new.jsx` show the intended **layout structure and component behavior** (chip row layout, toggle position, photo grid), but the **CSS tokens and component names must come from the live citizen portal** (`frontend/app/globals.css`, existing `map/page.tsx` chip strip, existing `reports/[id]/page.tsx`). Do not adopt Direction A token names (`--accent-bg`, `--accent-ink`, etc.) — map them to the live citizen portal's equivalent tokens.
 
 ### Reviewed Todos
 
@@ -125,10 +129,11 @@ Phase ends when all 13 requirements pass UAT on mobile Safari and desktop.
 - `frontend/app/reports/[id]/page.tsx` — Public report detail page; before/after photo layout added here
 - `PublicReport` interface in same file — `resolution_photo_url?: string | null` already defined; no change needed
 
-### Design System Reference (ALL features)
-- `admin-portal-complete-design.zip` (project root) — Extract and read `screens-new.jsx` before implementing any TRIAGE feature. Contains exact component APIs and pixel specs for D-22 through D-25.
-- `tokens.css` in the archive — Direction A (citizen) and Direction B (admin) token definitions. Direction B is the admin portal; Direction A is citizen-facing pages (public map, report detail).
-- `primitives.jsx` in the archive — Shared primitives: `MapPin`, `StatusBadge`, `Card`, `Icon`, etc.
+### Design System Reference (scoped by surface)
+- `admin-portal-complete-design.zip` (project root) — `screens-new.jsx` for TRIAGE-01 (admin) exact specs + TRIAGE-02/03/04/05 layout intent only.
+- `tokens.css` in the archive — Direction B only is relevant for implementation. Direction A is a design concept, NOT the live citizen portal.
+- `frontend/app/globals.css` — **Authoritative citizen portal CSS tokens** (used for TRIAGE-02/03/04/05 implementation). Always match these, never Direction A from the archive.
+- `primitives.jsx` in the archive — Reference for admin portal primitives (`StatusBadge`, `Card`, admin `Icon` usage). Citizen portal uses `frontend/app/components/ui/` primitives instead.
 
 ### Mobile Safari Fixes (MOB-01 through MOB-07)
 - `frontend/app/admin/admin.css` — Admin CSS variable layer; mobile scroll, bottom-nav safe area, and overflow fixes land here
