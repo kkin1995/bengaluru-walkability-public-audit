@@ -29,3 +29,8 @@ export const BUILD_HASH = process.env.NEXT_PUBLIC_BUILD_HASH ?? "0000000";
 // Derive from NEXT_PUBLIC_SITE_URL so production, staging, and dev all self-identify correctly.
 export const NOMINATIM_USER_AGENT =
   `Nammadaari Walkability Audit (${process.env.NEXT_PUBLIC_SITE_URL ?? "nammadaari.com"})`;
+
+// TRIAGE-04: Public ward boundaries GeoJSON endpoint (Plan 02 backend).
+// Derived from API_BASE_URL so Docker (relative "") and staging (absolute URL) both work.
+// Do NOT inline process.env in components — use this export instead (project config rule).
+export const PUBLIC_WARD_BOUNDARIES_URL = `${API_BASE_URL}/api/wards/boundaries`;

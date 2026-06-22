@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap, GeoJSON } from "react-leaflet";
+import type { FeatureCollection, Feature } from "geojson";
+import type { PathOptions, Layer } from "leaflet";
 import { BENGALURU_CENTER } from "../lib/constants";
 import { getCategoryLabel, publicStatusLabel, publicStatusColor } from "../lib/translations";
 // MAP-02: HeatmapLayer is safe here — ReportsMap is the ssr:false boundary.
@@ -35,6 +37,47 @@ export const STATUS_COLORS: Record<string, string> = {
   closed:       "var(--accent)",
 };
 
+// TRIAGE-04: WardBoundaryLayer renders stroke-only teal ward polygons.
+// MUST be defined inside ReportsMap.tsx (inside the ssr:false boundary per CLAUDE.md Leaflet rule).
+// GeoJSON component from react-leaflet is safe here — no window access outside Leaflet context.
+// Risk 2: Leaflet SVG does not inherit CSS custom properties — resolve --accent at runtime.
+function WardBoundaryLayer({ geojson }: { geojson: FeatureCollection }) {
+  // Resolve the CSS var at render time so Leaflet SVG paths get a real color value.
+  const accentColor =
+    typeof document !== "undefined"
+      ? getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "oklch(0.62 0.14 145)"
+      : "oklch(0.62 0.14 145)";
+
+  function wardStyle(): PathOptions {
+    return {
+      fill: false,
+      color: accentColor,
+      opacity: 0.5,
+      weight: 1.5,
+      lineJoin: "round",
+    };
+  }
+
+  function onEachFeature(feature: Feature, layer: Layer) {
+    const name = (feature.properties as Record<string, unknown>)?.ward_name as string | undefined;
+    if (name) {
+      // Bind tooltip so tapping/hovering a polygon shows the ward name (D-17).
+      (layer as any).bindTooltip(name, { sticky: true, direction: "auto" });
+    }
+  }
+
+  return (
+    <GeoJSON
+      // key ensures re-render if geojson reference changes (cache swap)
+      key={String(geojson.features?.length ?? 0)}
+      data={geojson}
+      style={wardStyle}
+      onEachFeature={onEachFeature}
+      aria-hidden="true"
+    />
+  );
+}
+
 
 interface Report {
   id: string;
@@ -56,10 +99,22 @@ interface Report {
 interface ReportsMapProps {
   apiUrl: string;
   categoryFilter?: string;
+  // TRIAGE-03: client-side status filter (D-11). "all" or bucket key: "open" | "in_progress" | "resolved"
+  statusFilter?: string;
   onReportsLoaded?: (reports: Report[]) => void;
+  // TRIAGE-04: ward boundary overlay props
+  showWardBoundaries?: boolean;
+  wardBoundariesGeojson?: FeatureCollection | null;
 }
 
-export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: ReportsMapProps) {
+export default function ReportsMap({
+  apiUrl,
+  categoryFilter,
+  statusFilter,
+  onReportsLoaded,
+  showWardBoundaries,
+  wardBoundariesGeojson,
+}: ReportsMapProps) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,6 +205,19 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
     };
   }, [fetchReports]);
 
+  // TRIAGE-03 (D-09): AND logic — both categoryFilter and statusFilter apply simultaneously.
+  // statusMatch returns true when filter is unset/"all", or when the status belongs to the bucket.
+  function reportStatusMatch(status: string): boolean {
+    if (!statusFilter || statusFilter === "all") return true;
+    if (statusFilter === "open")
+      return status === "open" || status === "acknowledged" || status === "assigned";
+    if (statusFilter === "in_progress")
+      return status === "acknowledged" || status === "assigned" || status === "in_progress";
+    if (statusFilter === "resolved")
+      return status === "resolved" || status === "closed";
+    return false;
+  }
+
   // Always render MapContainer so Leaflet and tiles preload immediately.
   // Show a loading overlay on top while the API fetch is in-flight.
   // Show markers only after data has arrived.
@@ -169,8 +237,19 @@ export default function ReportsMap({ apiUrl, categoryFilter, onReportsLoaded }: 
         />
         {/* MAP-02/D-02: toggleable density heatmap — toggled via layer control top-right (D-03) */}
         <HeatmapLayer reports={reports} />
+
+        {/* TRIAGE-04: Ward boundary overlay — rendered only when showWardBoundaries is true and geojson is loaded */}
+        {showWardBoundaries && wardBoundariesGeojson && (
+          <WardBoundaryLayer geojson={wardBoundariesGeojson} />
+        )}
+
         {!loading && !error && reports
-          .filter((r) => !categoryFilter || categoryFilter === "all" || r.category === categoryFilter)
+          // TRIAGE-03 (D-09): AND logic — category filter AND status filter both applied
+          .filter((r) => {
+            const catOk = !categoryFilter || categoryFilter === "all" || r.category === categoryFilter;
+            const statusOk = reportStatusMatch(r.status);
+            return catOk && statusOk;
+          })
           .map((report) => (
           <CircleMarker
             key={report.id}
