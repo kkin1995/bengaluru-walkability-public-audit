@@ -5,16 +5,16 @@ milestone_name: Stabilise, Launch, and Triage
 current_phase: 07
 current_phase_name: admin-triage-ux-public-map
 status: executing
-stopped_at: Phase 07 UI-SPEC approved
-last_updated: "2026-06-22T18:21:00.519Z"
+stopped_at: Phase 07, Plan 06 complete
+last_updated: "2026-06-22T18:25:16.210Z"
 last_activity: 2026-06-22
 last_activity_desc: Plan 07-01 complete (corp/ward filter backend tier)
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 17
-  completed_plans: 11
-  percent: 65
+  completed_plans: 12
+  percent: 67
 ---
 
 # Project State
@@ -54,6 +54,7 @@ Progress: [████░░░░░░] 41%
 
 *Updated after each plan completion*
 | Phase 07 P03 | 1 min | 1 tasks | 1 files |
+| Phase 07 P06 | 2min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,8 @@ Key decisions from Phase 07, Plan 01:
 - [Phase 07-01]: build_export_where_clause passes None, None for ward/corp — export filtering is out of scope for Phase 07 (D-04)
 - [Phase ?]: 07-03 complete
 - [Phase ?]: [Phase 07-03]: Used 756x1008 proxy (1/4-scale of iPhone 3024x4032) for bake_orientation orientation=6 test - TEST-01 acceptance criterion satisfied
+- [Phase ?]: [Phase 07-06]: Used inline CSS class + @media query for SSR-safe before/after photo grid in Next.js server component (avoids JS window width check)
+- [Phase ?]: [Phase 07-06]: Resolution URL via split('/uploads/').pop() (FIX-01 pattern); date from last resolved/closed history entry; corp from ward_hierarchy?.corporation fallback 'GBA'
 
 ### Pending Todos
 
@@ -94,6 +97,6 @@ Items carried forward from v1.0 close (2026-06-01):
 
 ## Session Continuity
 
-Last session: 2026-06-22T18:20:18.582Z
-Stopped at: Phase 07, Plan 01 complete
-Resume file: .planning/phases/07-admin-triage-ux-public-map/07-02-PLAN.md
+Last session: 2026-06-22T18:25:16.206Z
+Stopped at: Phase 07, Plan 06 complete
+Resume file: .planning/phases/07-admin-triage-ux-public-map/07-07-PLAN.md

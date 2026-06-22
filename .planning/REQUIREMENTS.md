@@ -40,7 +40,7 @@ Bug fixes confirmed in live field UAT on staging.nammadaari.com (2026-06-01, iPh
 - [ ] **TRIAGE-02**: Public `/map` provides filter chips for report category (mirrors admin chip strip)
 - [ ] **TRIAGE-03**: Public `/map` provides filter chips for report status (open, in progress, resolved)
 - [ ] **TRIAGE-04**: Public `/map` displays a toggleable ward boundary polygon overlay
-- [ ] **TRIAGE-05**: Public report detail page shows the resolution photo alongside the original when a resolution photo has been uploaded by admin
+- [x] **TRIAGE-05**: Public report detail page shows the resolution photo alongside the original when a resolution photo has been uploaded by admin
 
 ---
 
@@ -98,4 +98,4 @@ Bug fixes confirmed in live field UAT on staging.nammadaari.com (2026-06-01, iPh
 | TRIAGE-02 | Phase 7 | Pending |
 | TRIAGE-03 | Phase 7 | Pending |
 | TRIAGE-04 | Phase 7 | Pending |
-| TRIAGE-05 | Phase 7 | Pending |
+| TRIAGE-05 | Phase 7 | Complete |
