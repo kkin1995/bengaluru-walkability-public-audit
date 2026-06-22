@@ -464,7 +464,10 @@ export async function getTrendData(category?: string): Promise<TrendDataPoint[]>
 }
 
 export async function getWardBoundaries(): Promise<FeatureCollection> {
-  return apiFetch<FeatureCollection>(`${BASE}/api/wards/boundaries`);
+  // Phase 07-02: Updated to renamed admin path (T-07-05 — stays auth-gated via admin BASE/proxy).
+  // The public ward boundary endpoint is GET /api/wards/boundaries (no auth) — the admin
+  // choropleth uses this authenticated admin-only version to include unresolved_count.
+  return apiFetch<FeatureCollection>(`${BASE}/api/admin/wards/boundaries`);
 }
 
 // ── Public stats (ANALYTICS-01) ───────────────────────────────────────────────
