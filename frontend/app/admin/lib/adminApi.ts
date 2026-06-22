@@ -132,6 +132,22 @@ export interface AdminReportFilters {
   severity?: string;
   date_from?: string;
   date_to?: string;
+  // Phase 07-04 (D-04): Geographic scope filters
+  ward_id?: string;
+  corporation_id?: string;
+}
+
+// ─── Phase 07-04: Corporation + Ward filter option shapes ──────────────────────
+
+export interface CorporationOption {
+  id: string;
+  name: string;
+}
+
+export interface WardOption {
+  id: string;
+  ward_name: string;
+  ward_number: number;
 }
 
 export interface CreateUserPayload {
@@ -204,6 +220,8 @@ export async function getAdminReports(
     if (filters.severity) params.set("severity", filters.severity);
     if (filters.date_from) params.set("date_from", filters.date_from);
     if (filters.date_to) params.set("date_to", filters.date_to);
+    if (filters.ward_id) params.set("ward_id", filters.ward_id);
+    if (filters.corporation_id) params.set("corporation_id", filters.corporation_id);
   }
   const qs = params.toString();
   const url = `${BASE}/api/admin/reports${qs ? `?${qs}` : ""}`;
@@ -486,4 +504,24 @@ export async function getPublicStats(): Promise<PublicStats> {
   const res = await fetch(`${API_BASE_URL}/api/stats`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+// ─── Phase 07-04: Corporation + Ward filter options (TRIAGE-01, D-03) ────────
+
+/**
+ * Fetch the list of corporations available for the filter bar.
+ * Admin-gated — proxied through /api/admin/corporations (Plan 01 endpoint).
+ */
+export async function getAdminCorporations(): Promise<CorporationOption[]> {
+  return apiFetch<CorporationOption[]>(`${BASE}/api/admin/corporations`);
+}
+
+/**
+ * Fetch the list of wards, optionally narrowed to a specific corporation.
+ * Admin-gated — proxied through /api/admin/wards (Plan 01 endpoint).
+ * When corpId is provided, appends ?corp_id=<corpId> to narrow results (D-02).
+ */
+export async function getAdminWards(corpId?: string): Promise<WardOption[]> {
+  const qs = corpId ? `?corp_id=${encodeURIComponent(corpId)}` : "";
+  return apiFetch<WardOption[]>(`${BASE}/api/admin/wards${qs}`);
 }
