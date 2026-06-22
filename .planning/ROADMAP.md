@@ -42,7 +42,7 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 **Milestone Goal:** Fix all live UAT issues found in the v1.0 field test, ship nammadaari.com with a coming soon page, wire the main/staging/feature branching workflow for CI/CD, and improve admin triage UX + public map for daily use.
 
 - [x] **Phase 5: UAT Stabilisation** — Fix 13 confirmed bugs from live iPhone field test on staging.nammadaari.com (completed 2026-06-05)
-- [ ] **Phase 6: Production Launch + Git Branching Workflow** — Ship nammadaari.com coming soon page and wire CI/CD for main/staging branches
+- [x] **Phase 6: Production Launch + Git Branching Workflow** — Ship nammadaari.com coming soon page and wire CI/CD for main/staging branches (completed 2026-06-22)
 - [ ] **Phase 7: Admin Triage UX + Public Map** — Add ward/corp filter to admin queue, filter chips and ward overlay to public map, before/after resolution photo on detail page
 
 ---
@@ -87,7 +87,7 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
   3. Pushing a commit to the staging branch triggers a CI run that deploys to staging.nammadaari.com
   4. DEPLOYMENT.md documents the branching model (feature/fix → staging → main at milestone) so any contributor can follow it without asking
 
-**Plans**: 4/5 plans executed
+**Plans**: 5/5 plans complete
 
 Plans:
 **Wave 1**
@@ -102,7 +102,7 @@ Plans:
 
 **Wave 3** *(depends on Wave 2)*
 
-- [ ] 06-04-PLAN.md — Update DEPLOYMENT.md, add GSD branching config to config.json (LAUNCH-04, LAUNCH-05)
+- [x] 06-04-PLAN.md — Update DEPLOYMENT.md, add GSD branching config to config.json (LAUNCH-04, LAUNCH-05)
 
 **UI hint**: yes
 
@@ -150,7 +150,7 @@ Plans:
 | 4. Export and Public Analytics | v1.0 | 5/5 | ✅ Complete | 2026-05-31 |
 | 04.1 Ward-Org Link Gap Closure | v1.0 | 4/4 | ✅ Complete | 2026-06-01 |
 | 5. UAT Stabilisation | v1.1 | 4/4 | Complete   | 2026-06-05 |
-| 6. Production Launch + Git Branching | v1.1 | 4/5 | In Progress|  |
+| 6. Production Launch + Git Branching | v1.1 | 5/5 | Complete   | 2026-06-22 |
 | 7. Admin Triage UX + Public Map | v1.1 | 0/TBD | Not started | — |
 
 ---
