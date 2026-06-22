@@ -87,7 +87,7 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
   3. Pushing a commit to the staging branch triggers a CI run that deploys to staging.nammadaari.com
   4. DEPLOYMENT.md documents the branching model (feature/fix → staging → main at milestone) so any contributor can follow it without asking
 
-**Plans**: 3/5 plans executed
+**Plans**: 4/5 plans executed
 
 Plans:
 **Wave 1**
@@ -98,7 +98,7 @@ Plans:
 
 - [x] 06-02-PLAN.md — Restructure deploy.yml for dual-branch, rename docker-compose.server.yml, delete railway.toml (LAUNCH-02, LAUNCH-03)
 - [x] 06-03-PLAN.md — Create staging Docker Compose stack and nginx config (port 3011, isolated volumes) (LAUNCH-03)
-- [ ] 06-05-PLAN.md — Coming soon page on main branch per UI-SPEC.md (LAUNCH-01) [targets main branch]
+- [x] 06-05-PLAN.md — Coming soon page on main branch per UI-SPEC.md (LAUNCH-01) [targets main branch]
 
 **Wave 3** *(depends on Wave 2)*
 
@@ -150,7 +150,7 @@ Plans:
 | 4. Export and Public Analytics | v1.0 | 5/5 | ✅ Complete | 2026-05-31 |
 | 04.1 Ward-Org Link Gap Closure | v1.0 | 4/4 | ✅ Complete | 2026-06-01 |
 | 5. UAT Stabilisation | v1.1 | 4/4 | Complete   | 2026-06-05 |
-| 6. Production Launch + Git Branching | v1.1 | 3/5 | In Progress|  |
+| 6. Production Launch + Git Branching | v1.1 | 4/5 | In Progress|  |
 | 7. Admin Triage UX + Public Map | v1.1 | 0/TBD | Not started | — |
 
 ---
