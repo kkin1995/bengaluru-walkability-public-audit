@@ -184,8 +184,9 @@ async fn main() {
         admin_deactivate_user, admin_delete_report, admin_export_csv, admin_export_geojson,
         admin_get_corporation_analytics, admin_get_intake_stats, admin_get_report, admin_get_stats,
         admin_get_trend_data, admin_get_ward_analytics, admin_get_wards_boundaries,
-        admin_list_organizations, admin_list_reports, admin_list_users, admin_login, admin_logout,
-        admin_me, admin_resolve_report, admin_update_profile, admin_update_report_status,
+        admin_list_corporations, admin_list_organizations, admin_list_reports, admin_list_users,
+        admin_list_wards, admin_login, admin_logout, admin_me, admin_resolve_report,
+        admin_update_profile, admin_update_report_status,
     };
     use middleware::auth::require_auth;
 
@@ -241,6 +242,9 @@ async fn main() {
         .route("/api/admin/users/:id", delete(admin_deactivate_user))
         .route("/api/admin/users/:id/org", patch(admin_assign_user_org))
         .route("/api/admin/organizations", get(admin_list_organizations))
+        // Phase 07-01: corp/ward filter-option endpoints — TRIAGE-01 (T-07-01: admin-only)
+        .route("/api/admin/corporations", get(admin_list_corporations))
+        .route("/api/admin/wards", get(admin_list_wards))
         // Phase 04-03a: analytics endpoints — ANALYTICS-02/03/04/05 (T-04-08: admin-only)
         .route(
             "/api/admin/analytics/wards",

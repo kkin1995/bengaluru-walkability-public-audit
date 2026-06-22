@@ -1523,6 +1523,66 @@ pub async fn admin_get_wards_boundaries(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Phase 07-01: Admin corp/ward filter-option handlers (D-03, TRIAGE-01)
+// Security: T-07-01 (admin_protected_router — JWT required)
+//           T-07-02 (corp_id deserialized as Uuid — invalid UUIDs rejected)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Query params for GET /api/admin/wards — corp_id is optional.
+///
+/// Using Uuid deserialization means any non-UUID value in `corp_id` will cause
+/// Axum to return 422 Unprocessable Entity before the handler runs (T-07-02).
+#[derive(Debug, serde::Deserialize)]
+pub struct WardFilterParams {
+    pub corp_id: Option<Uuid>,
+}
+
+/// GET /api/admin/corporations — list all corporation-level organizations.
+///
+/// # Contract (D-03, TRIAGE-01, T-07-01)
+/// - Requires admin auth (route registered inside admin_protected_router).
+/// - Returns a JSON array of `{ "id": <uuid>, "name": <string> }`.
+/// - Ordered by name ascending.
+pub async fn admin_list_corporations(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let rows = admin_queries::list_distinct_corporations(&state.pool).await?;
+    let data: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|(id, name)| serde_json::json!({ "id": id, "name": name }))
+        .collect();
+    Ok(Json(serde_json::json!(data)))
+}
+
+/// GET /api/admin/wards — list wards for the filter select, optionally scoped to a corp.
+///
+/// # Contract (D-03, TRIAGE-01, T-07-01, T-07-02)
+/// - Requires admin auth (route registered inside admin_protected_router).
+/// - Optional `?corp_id=<uuid>` query param narrows the ward list to that corporation.
+///   Non-UUID values are rejected at deserialization (T-07-02, ASVS V5).
+/// - Returns a JSON array of `{ "id": <uuid>, "ward_name": <string>, "ward_number": <i32> }`.
+/// - Ordered by ward_number ascending.
+pub async fn admin_list_wards(
+    Extension(_claims): Extension<AuthJwtClaims>,
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<WardFilterParams>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let rows = admin_queries::list_wards_for_filter(&state.pool, params.corp_id).await?;
+    let data: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|(id, ward_name, ward_number)| {
+            serde_json::json!({
+                "id": id,
+                "ward_name": ward_name,
+                "ward_number": ward_number,
+            })
+        })
+        .collect();
+    Ok(Json(serde_json::json!(data)))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // § 4 — Pure unit tests
 //
 // Requirements covered:

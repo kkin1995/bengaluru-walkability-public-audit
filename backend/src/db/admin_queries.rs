@@ -1713,6 +1713,85 @@ pub fn ward_boundaries_sql_fragment() -> &'static str {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Phase 07-01: Admin corp/ward filter-option queries (D-03, TRIAGE-01)
+// Requirements: TRIAGE-01
+// Security: T-07-01 (admin-gated — handlers registered in admin_protected_router)
+//           T-07-02 (corp_id bound as $1, never interpolated)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// D-03 (TRIAGE-01): Return all distinct corporations from the organizations table.
+///
+/// Filters to `org_type = 'corporation'` so only corporation-level org rows are
+/// returned (not wards, zones, or the BBMP parent). Results are ordered by name.
+///
+/// Returns `Vec<(Uuid, String)>` = `(id, name)` pairs so the admin frontend can
+/// populate the Corporation filter select with stable UUIDs as values.
+///
+/// # Security
+/// - T-07-01: Handler registered inside admin_protected_router (require_auth).
+/// - T-07-02: No user input flows into this query — purely aggregate read.
+pub async fn list_distinct_corporations(
+    pool: &PgPool,
+) -> Result<Vec<(Uuid, String)>, AppError> {
+    let rows = sqlx::query(
+        "SELECT id, name FROM organizations WHERE org_type = 'corporation' ORDER BY name",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let result = rows
+        .iter()
+        .map(|r| {
+            (
+                r.get::<Uuid, _>("id"),
+                r.get::<String, _>("name"),
+            )
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// D-03 (TRIAGE-01): Return wards for the admin ward-filter select, optionally scoped
+/// to a single corporation.
+///
+/// When `corp_id` is Some, returns only wards whose `org_id` matches that corporation UUID.
+/// When `corp_id` is None, returns all 369 wards ordered by ward_number.
+///
+/// Returns `Vec<(Uuid, String, i32)>` = `(id, ward_name, ward_number)` for the
+/// admin frontend ward-filter popover.
+///
+/// # Security
+/// - T-07-01: Handler registered inside admin_protected_router (require_auth).
+/// - T-07-02: corp_id is bound as $1 via parameterized query — never interpolated.
+pub async fn list_wards_for_filter(
+    pool: &PgPool,
+    corp_id: Option<Uuid>,
+) -> Result<Vec<(Uuid, String, i32)>, AppError> {
+    let rows = sqlx::query(
+        "SELECT id, ward_name, ward_number FROM wards \
+         WHERE ($1::uuid IS NULL OR org_id = $1) \
+         ORDER BY ward_number",
+    )
+    .bind(corp_id)
+    .fetch_all(pool)
+    .await?;
+
+    let result = rows
+        .iter()
+        .map(|r| {
+            (
+                r.get::<Uuid, _>("id"),
+                r.get::<String, _>("ward_name"),
+                r.try_get::<i32, _>("ward_number").unwrap_or(0),
+            )
+        })
+        .collect();
+
+    Ok(result)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Unit tests — no database required
 //
 // Requirements covered:
