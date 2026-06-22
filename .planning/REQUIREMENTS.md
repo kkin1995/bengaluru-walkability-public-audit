@@ -30,7 +30,7 @@ Bug fixes confirmed in live field UAT on staging.nammadaari.com (2026-06-01, iPh
 
 - [ ] **LAUNCH-01**: `nammadaari.com` displays a coming soon page with @nammadaariblr Instagram CTA, matching the citizen portal design language
 - [ ] **LAUNCH-02**: `main` branch auto-deploys to `nammadaari.com` via Cloudflare Tunnel + GitHub Actions CI
-- [ ] **LAUNCH-03**: `staging` branch auto-deploys to `staging.nammadaari.com` via GitHub Actions CI
+- [x] **LAUNCH-03**: `staging` branch auto-deploys to `staging.nammadaari.com` via GitHub Actions CI
 - [ ] **LAUNCH-04**: Branching workflow is documented in DEPLOYMENT.md: feature/fix branches → staging (merge when ready + tested) → main (merge at each numbered milestone completion)
 - [ ] **LAUNCH-05**: GSD branching config updated so `fix/*` and `feat/*` branches are the working default; direct commits to `main` or `staging` are guarded
 
@@ -47,10 +47,12 @@ Bug fixes confirmed in live field UAT on staging.nammadaari.com (2026-06-01, iPh
 ## Future Requirements (v1.2+)
 
 ### Notifications
+
 - **NOTIF-01**: GBA admins receive a weekly email digest with new report count for their ward/corporation
 - **NOTIF-02**: Submitter receives email notification when their report status changes
 
 ### Government Workflow (Extended)
+
 - **GWF-01**: Field team can view assigned reports with map on Android mobile (mobile-optimised admin view)
 
 ---
@@ -89,7 +91,7 @@ Bug fixes confirmed in live field UAT on staging.nammadaari.com (2026-06-01, iPh
 | FIX-13 | Phase 5 | Pending |
 | LAUNCH-01 | Phase 6 | Pending |
 | LAUNCH-02 | Phase 6 | Pending |
-| LAUNCH-03 | Phase 6 | Pending |
+| LAUNCH-03 | Phase 6 | Complete |
 | LAUNCH-04 | Phase 6 | Pending |
 | LAUNCH-05 | Phase 6 | Pending |
 | TRIAGE-01 | Phase 7 | Pending |
