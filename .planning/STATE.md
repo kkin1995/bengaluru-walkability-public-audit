@@ -5,8 +5,8 @@ milestone_name: Stabilise, Launch, and Triage
 current_phase: 7
 current_phase_name: Admin Triage UX + Public Map
 status: executing
-stopped_at: Phase 7 context gathered
-last_updated: "2026-06-22T17:27:14.779Z"
+stopped_at: Phase 07 UI-SPEC approved
+last_updated: "2026-06-22T18:02:23.307Z"
 last_activity: 2026-06-22
 last_activity_desc: Phase 06 complete, transitioned to Phase 7
 progress:
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-06-05 after v1.1 roadmap created)
 
 Phase: 7 — Admin Triage UX + Public Map
 Phase: 06 (production-launch-git-branching-workflow) — UP NEXT
-Status: Executing Phase 06
+Status: Ready to execute
 Last activity: 2026-06-22 — Phase 06 complete, transitioned to Phase 7
 
 Progress: [███░░░░░░░] 33%
@@ -85,6 +85,6 @@ Items carried forward from v1.0 close (2026-06-01):
 
 ## Session Continuity
 
-Last session: 2026-06-22T17:27:14.775Z
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-admin-triage-ux-public-map/07-CONTEXT.md
+Last session: 2026-06-22T17:37:29.816Z
+Stopped at: Phase 07 UI-SPEC approved
+Resume file: .planning/phases/07-admin-triage-ux-public-map/07-UI-SPEC.md
