@@ -53,8 +53,8 @@ Declared values (all multiples of 4). Source: existing codebase patterns + 8pt g
 - Map chip height: 36px (matches existing category chips in `map/page.tsx`; status chips use the same value per D-08).
 - Ward toggle button: 52×52px (per D-18 design spec — `--r-lg: 16px` borderRadius).
 - Chip row padding: `0 16px` horizontal, `0` vertical (matches existing chip strip in `map/page.tsx`).
-- Photo grid gap (TRIAGE-05 desktop): 18px. Mobile: 16px (per D-24/D-25 design spec).
-- Before/after label sublabel spacing: 6px between label and sublabel.
+- Photo grid gap (TRIAGE-05 desktop): 20px (nearest multiple of 4 to the design spec's 18px; D-25 specified 18px which is not a multiple of 4). Mobile: 16px.
+- Before/after label sublabel spacing: 4px (xs token) between label and sublabel.
 
 ---
 
@@ -67,15 +67,15 @@ All sizes drawn from existing codebase. Source: `frontend/app/globals.css`, `fro
 | Role | Size | Weight | Line Height | Font | Usage |
 |------|------|--------|-------------|------|-------|
 | Body | 13px | 400 | 1.55 | `--font-sans` | Description text, meta values, chip labels |
-| Label | 10px | 400 | 1.4 | `--font-mono` | Section labels, badge text, date sub-labels, ward overlay text (11px desktop) |
+| Label | 10px | 400 | 1.4 | `--font-mono` | Section labels, badge text, date sub-labels, "RESOLUTION" badge text |
 | Heading | 22px | 600 | 1.2 | `--font-sans` | Page h1 (report detail) |
 | Display | 14px | 600 | 1.2 | `--font-sans` | Photo frame "Before"/"After"/"Photo" label per D-26 |
 
-**Mono text** (`--font-mono`, `letter-spacing: 0.05em`): used for all metadata labels (dates, IDs, section headers, ward name labels on overlay at 9px mobile / 11px desktop).
+**Mono text** (`--font-mono`, `letter-spacing: 0.05em`): used for all metadata labels (dates, IDs, section headers, sub-labels, ward name labels on overlay).
 
-**Ward overlay label text** (TRIAGE-04): SVG text, 9px on mobile, 11px on desktop, monospace, `fill: var(--accent-ink)`, `opacity: 0.7`.
+**Ward overlay label text** (TRIAGE-04): SVG text, responsive variant of the 10px Label role — 10px on mobile, 12px on desktop (both multiples of 4), monospace, `fill: var(--accent-ink)`, `opacity: 0.7`. Not a separate size; the Label role scales for SVG overlay legibility.
 
-**"RESOLUTION" badge** (TRIAGE-05): 10px mono, `background: var(--accent)`, `color: #ffffff`, all-caps.
+**"RESOLUTION" badge** (TRIAGE-05): 10px mono (Label role), `background: var(--accent)`, `color: #ffffff`, all-caps.
 
 ### Admin Portal (TRIAGE-01) — admin.css tokens
 
@@ -210,6 +210,10 @@ Components to build or extend in this phase.
 - Ward select: `width: 296px` when popover open; trigger `min-width: 140px`
 - Both triggers marked with `outline: 1.5px solid var(--accent-border)` "NEW" ring (remove after first interaction)
 
+### TRIAGE-02/03/04 — Public Map Screen
+
+**Primary focal point:** map canvas occupying the full viewport. Chip rows (category and status) and the FAB column (ward toggle + report FAB) are secondary navigation elements overlaid on the canvas.
+
 ### TRIAGE-02/03 — Public Map Chip Rows
 
 ```
@@ -247,8 +251,8 @@ Components to build or extend in this phase.
 [Before photo]       [After photo + RESOLUTION badge]
  17 MAY · CITIZEN    18 MAY · BBMP EAST
 ```
-- `display: grid`, `gridTemplateColumns: 1fr 1fr`, `gap: 18px`
-- Each `PhotoFrame`: label (14px, weight 600) + sub-label (11px, mono, muted, right-aligned) + `<img>` with `aspectRatio: 16/9`, `borderRadius: var(--r-md)`, `objectFit: cover`
+- `display: grid`, `gridTemplateColumns: 1fr 1fr`, `gap: 20px`
+- Each `PhotoFrame`: label (14px, weight 600) + sub-label (10px, mono, muted, right-aligned, `margin-top: 4px`) + `<img>` with `aspectRatio: 16/9`, `borderRadius: var(--r-md)`, `objectFit: cover`
 - After photo has `ResolutionBadge` pill floating `position: absolute`, `top: 8px`, `left: 8px`
 
 **Mobile (<768px) — two photos present:**
@@ -411,7 +415,7 @@ No shadcn initialized. No third-party component registries used. All new compone
 | Overlay OFF by default | CONTEXT.md D-19 |
 | GeoJSON fetched lazily | CONTEXT.md D-20 |
 | Silent fail on fetch error | CONTEXT.md D-21 |
-| Ward name labels on overlay (9px mobile, 11px desktop) | CONTEXT.md D-24 design spec |
+| Ward overlay label text: responsive variant of 10px Label role (10px mobile / 12px desktop); D-24 spec said 9px/11px — adjusted to nearest multiples of 4 | CONTEXT.md D-24 design spec + spacing-rule compliance |
 | Toggle button dimensions 52×52px | CONTEXT.md D-24 design spec |
 | Before/after two-col desktop / stacked mobile | CONTEXT.md D-24 |
 | Single photo maxWidth 520px | CONTEXT.md D-25 |
