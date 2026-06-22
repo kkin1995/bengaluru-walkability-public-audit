@@ -1128,6 +1128,35 @@ mod bake_orientation_tests {
         );
     }
 
+    /// TEST-01 — orientation 6 at iPhone portrait aspect (3024×4032 input → 4032×3024 output).
+    ///
+    /// This test uses a 756×1008 JPEG — exactly 1/4-scale of the iPhone 16 Pro Max portrait
+    /// dimensions (3024÷4 = 756, 4032÷4 = 1008). The same rotation math applies at any scale:
+    /// after a 90° CW bake, width becomes the original height (1008) and height becomes the
+    /// original width (756). This satisfies ROADMAP success criterion 8 (input 3024×4032 →
+    /// output 4032×3024) without the ~35 MB allocation required by the full-resolution image.
+    ///
+    /// This is the acceptance criterion test referenced by Phase 7 Plan 03 (TEST-01).
+    #[test]
+    fn bake_orientation_6_iphone_portrait_dimensions() {
+        // 756×1008 = 1/4-scale proxy for the iPhone portrait dimensions 3024×4032.
+        // width (756) < height (1008) confirms portrait aspect (width < height).
+        let input = make_jpeg_with_orientation(756, 1008, 6);
+        let output = bake_orientation(&input)
+            .expect("bake_orientation must succeed for orientation=6 iPhone portrait proxy");
+
+        let decoded = image::load_from_memory(&output)
+            .expect("Output of bake_orientation must be a valid JPEG");
+        assert_eq!(
+            decoded.width(), 1008,
+            "After 90 CW rotation of 756×1008 iPhone portrait proxy, output width must be 1008 (the original height)"
+        );
+        assert_eq!(
+            decoded.height(), 756,
+            "After 90 CW rotation of 756×1008 iPhone portrait proxy, output height must be 756 (the original width)"
+        );
+    }
+
     /// FIX-06 — malformed bytes must return AppError::BadRequest, never panic.
     #[test]
     fn bake_orientation_malformed_returns_bad_request() {
