@@ -167,11 +167,11 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 - [ ] Ward attribution label inconsistency: "Auto-detected" vs "Auto-routed" — UAT-01-04
 - [ ] LOCATION_SRC: MANUAL_PIN label misleading (GPS_API / MANUAL_ADJUST) — UAT-01-08
 
-#### v1.1 — Production Launch + Git Branching Workflow
-- [ ] nammadaari.com coming soon page with @nammadaariblr Instagram CTA
-- [ ] Git branching model: main → nammadaari.com, staging → staging.nammadaari.com; feature/fix branches merge to staging; staging merges to main at milestone completions
-- [ ] CI/CD auto-deploy from both main and staging branches
-- [ ] Domain-switch infrastructure: easy flip from coming soon to full app
+#### v1.1 — Production Launch + Git Branching Workflow ✓ Complete — Phase 06
+- ✓ nammadaari.com coming soon page with @nammadaariblr Instagram CTA — Phase 06 (LAUNCH-01)
+- ✓ Git branching model: main → nammadaari.com, staging → staging.nammadaari.com; feature/fix branches merge to staging; staging merges to main at milestone completions — Phase 06 (LAUNCH-04/05)
+- ✓ CI/CD auto-deploy from both main and staging branches (5-job deploy.yml, live-verified) — Phase 06 (LAUNCH-02/03)
+- ✓ Domain-switch infrastructure: staging stack isolated on port 3011, concurrent with production — Phase 06 (LAUNCH-03)
 
 #### v1.1 — Admin Triage UX + Public Map
 - [ ] Ward/corporation filter in admin reports queue — UAT-01 enhancement
@@ -255,4 +255,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-05 — milestone v1.1 started*
+*Last updated: 2026-06-22 — after Phase 06 (Production Launch + Git Branching Workflow)*

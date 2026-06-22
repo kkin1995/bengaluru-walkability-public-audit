@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stabilise, Launch, and Triage
-current_phase: 06
-current_phase_name: production-launch-git-branching-workflow
+current_phase: 7
+current_phase_name: Admin Triage UX + Public Map
 status: executing
 stopped_at: Phase 6 context gathered
-last_updated: "2026-06-22T10:13:00.833Z"
+last_updated: "2026-06-22T11:53:39.709Z"
 last_activity: 2026-06-22
-last_activity_desc: Phase 06 execution started
+last_activity_desc: Phase 06 complete, transitioned to Phase 7
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 9
-  completed_plans: 7
-  percent: 33
+  completed_plans: 9
+  percent: 67
 ---
 
 # Project State
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-05 after v1.1 roadmap created)
 
 **Core value:** Citizens can report a broken footpath in 60 seconds and the government can act on it
-**Current focus:** Phase 06 — production-launch-git-branching-workflow
+**Current focus:** Phase 07 — admin-triage-ux-+-public-map
 
 ## Current Position
 
-Phase: 06 (production-launch-git-branching-workflow) — EXECUTING
+Phase: 7 — Admin Triage UX + Public Map
 Phase: 06 (production-launch-git-branching-workflow) — UP NEXT
 Status: Executing Phase 06
-Last activity: 2026-06-22 — Phase 06 execution started
+Last activity: 2026-06-22 — Phase 06 complete, transitioned to Phase 7
 
 Progress: [███░░░░░░░] 33%
 
@@ -50,6 +50,7 @@ Progress: [███░░░░░░░] 33%
 | 5. UAT Stabilisation | TBD | — | — |
 | 6. Production Launch | TBD | — | — |
 | 7. Triage UX + Map | TBD | — | — |
+| 06 | 5 | - | - |
 
 *Updated after each plan completion*
 
@@ -57,20 +58,20 @@ Progress: [███░░░░░░░] 33%
 
 ### Decisions
 
-Key v1.0 decisions carried forward (see PROJECT.md Key Decisions for full log):
+Key decisions from Phase 06 (see PROJECT.md Key Decisions for full log):
 
-- [v1.0]: Self-hosted Arch Linux + Cloudflare Tunnel — existing tunnel routes nammadaari.com; no new infra needed for Phase 6
-- [v1.0]: AdminReport.image_url type mismatch known tech debt — FIX-01 (public photo) may surface same fallback gap; audit image_url vs image_path at Phase 5
-- [v1.0]: /report route deprecated in Phase 02.3.2 — FIX-02 and FIX-03 complete the cleanup by removing all remaining NavLinks to deprecated route
+- [Phase 06]: Staging nginx runs on host port 3011 (production owns 80) — both stacks can run concurrently on same LXC; volumes postgres_staging_data + uploads_staging isolated
+- [Phase 06]: deploy.yml uses full ref path `refs/heads/staging` / `refs/heads/main` in if: conditions — prevents branch-routing ambiguity
+- [Phase 06]: frontend parked behind `profiles: [frontend-only]` in staging compose — staging stack starts db + backend + nginx only
+- [Phase 06]: GSD config.json branching section added — /gsd-ship now routes PRs to staging; milestone merges go staging → main
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-- [Phase 5]: 13 bugs are confirmed on iPhone iOS 26.5 (staging.nammadaari.com); some (FIX-04, FIX-05 — Leaflet iOS Safari) may require CSP or tile-provider changes; verify environment parity before fixing
-- [Phase 6]: LAUNCH-05 (GSD branching config guard) depends on GSD tooling — confirm how guard is implemented before writing the plan
+- [Phase 5]: 13 bugs confirmed on iPhone iOS 26.5 (staging.nammadaari.com); some (FIX-04, FIX-05 — Leaflet iOS Safari) may require CSP or tile-provider changes; verify environment parity before fixing
 
 ## Deferred Items
 
@@ -84,6 +85,6 @@ Items carried forward from v1.0 close (2026-06-01):
 
 ## Session Continuity
 
-Last session: 2026-06-22T10:13:00.829Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-production-launch-git-branching-workflow/06-CONTEXT.md
+Last session: 2026-06-22T17:30:00Z
+Stopped at: Phase 06 complete (8/8 UAT passed), ready to plan Phase 07
+Resume file: None
