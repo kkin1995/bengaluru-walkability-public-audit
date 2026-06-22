@@ -10,5 +10,24 @@
     "verifier": true,
     "nyquist_validation": true,
     "_auto_chain_active": false
+  },
+  "graphify": {
+    "enabled": true
+  },
+  "ui": {
+    "spacing_exceptions_allowed": true
+  },
+  "branching": {
+    "working_branch": "staging",
+    "protected": ["main", "staging"],
+    "merge_targets": {
+      "feat": "staging",
+      "fix": "staging",
+      "phase": "staging"
+    },
+    "milestone_merge": {
+      "from": "staging",
+      "to": "main"
+    }
   }
 }

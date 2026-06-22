@@ -2,7 +2,7 @@
 
 Production deployment for the Bengaluru Walkability Public Audit: backend on an Arch Linux desktop, frontend on Vercel, connected via Cloudflare Tunnel.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-06-22
 
 ---
 
@@ -16,12 +16,12 @@ Traffic from citizens and the admin dashboard flows like this:
 Citizen browser ──────────────────────────────────────────────────────────────┐
                                                                               ▼
                                                                     Vercel (Next.js frontend)
-                                                                    https://staging-walkability.kinariwala.com
+                                                                    https://nammadaari.com (or staging.nammadaari.com)
                                                                               │
                                                                               │ server-side fetch + API calls
                                                                               ▼
                                                              Cloudflare edge (HTTPS)
-                                                             https://api-walkability.kinariwala.com
+                                                             https://api.nammadaari.com (or staging-api.nammadaari.com)
                                                                               │
                                                                               │ TLS-terminated; plain HTTP inside
                                                                               ▼
@@ -49,12 +49,124 @@ Citizen browser ─────────────────────�
 | Component | Where | Notes |
 |-----------|-------|-------|
 | Frontend (Next.js) | Vercel | Auto-deploy from `main`; free tier |
-| Backend (Rust/Axum) | Desktop / Docker | Managed by `docker-compose.server.yml` override |
+| Backend (Rust/Axum) | Desktop / Docker | Managed by `docker-compose.production-server.yml` override (production) or `docker-compose.staging-server.yml` (staging) |
 | Database (PostGIS) | Desktop / Docker | Persistent volume on host disk |
 | nginx (reverse proxy) | Desktop / Docker | Uses `nginx/nginx.server.conf` — backend only |
 | Cloudflare Tunnel | Cloudflare edge ↔ desktop cloudflared daemon | Outbound-only; no firewall changes needed |
 
 **Why Cloudflare Tunnel?** The desktop typically sits behind a home router with NAT and no public static IP. Cloudflare Tunnel establishes an outbound connection from the desktop to Cloudflare's edge; Cloudflare then terminates HTTPS for the public hostname and forwards plain HTTP to the tunnel daemon on port 80. This means no port-forwarding rules, no static IP contract, no self-managed TLS certificates, and automatic DDoS protection from Cloudflare's network — all for free on the Cloudflare free tier.
+
+---
+
+## 1a. Branching Workflow
+
+This project uses a three-tier branching model wired to two separate deployment environments:
+
+```
+feature/fix branch  →  PR to staging  →  merge to main (milestone only)
+```
+
+| Branch | Purpose | Deploys to |
+|--------|---------|------------|
+| `main` | Production — current milestone release | `nammadaari.com` (Vercel) + `api.nammadaari.com` (Docker on LXC) |
+| `staging` | Integration — accumulates work from feature branches | `staging.nammadaari.com` (Vercel) + `staging-api.nammadaari.com` (Docker on LXC, port 3011) |
+| `feat/*`, `fix/*`, `phase/*` | Working branches — created from `staging` | No direct deployment |
+
+**Rules:**
+
+- All feature and fix work branches from `staging` (not `main`)
+- PRs target `staging`: CI must pass (all three jobs: `frontend-checks`, `backend-checks`, `docker-build`) and 1 approval is required before merge
+- Direct pushes to `staging` or `main` are blocked by GitHub branch protection rules — no bypass, including for admins
+- `main` only ever receives a merge from `staging` — this happens at milestone completion via `/gsd-complete-milestone`
+- `/gsd-ship` creates PRs targeting `staging` (configured via `.planning/config.json branching.working_branch`)
+
+---
+
+## 1b. Staging Stack Setup
+
+The staging environment runs on the same Proxmox LXC (192.168.1.152) as production but is fully isolated with its own containers, volumes, and network ports.
+
+**Directory:** `/opt/nammadaari-staging/` on the LXC
+
+**Start the staging stack:**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.staging-server.yml up -d db backend nginx
+```
+
+**Key differences from production:**
+
+| Property | Production | Staging |
+|----------|-----------|---------|
+| Compose override | `docker-compose.production-server.yml` | `docker-compose.staging-server.yml` |
+| nginx host port | 80 (Cloudflare Tunnel entry point) | 3011 (Cloudflare Tunnel second ingress) |
+| Backend internal port | 3001 | 3011 |
+| PostgreSQL data volume | `postgres_data` | `postgres_staging_data` |
+| Uploads volume | `uploads` | `uploads_staging` |
+| `PUBLIC_URL` | `https://api.nammadaari.com` | `https://staging-api.nammadaari.com` |
+| `CORS_ORIGIN` (GitHub Environment secret) | `https://nammadaari.com` | `https://staging.nammadaari.com` |
+| Vercel branch domain | `nammadaari.com` → `main` | `staging.nammadaari.com` → `staging` |
+
+Both stacks can run simultaneously — they never share ports or volumes.
+
+---
+
+## 1c. Cloudflare Tunnel: Hostname Rename and Staging Ingress
+
+These are **manual steps** that must be performed on the Arch Linux VM (or LXC) where `cloudflared` runs. They are not automated by the deploy workflow.
+
+**Step 1: Edit the cloudflared config**
+
+```bash
+sudo nano /etc/cloudflared/config.yml
+```
+
+**Step 2: Update the ingress rules**
+
+Replace the existing single-ingress config with the two-ingress config below. Replace `<TUNNEL-UUID>` with your actual tunnel UUID.
+
+```yaml
+tunnel: <TUNNEL-UUID>
+credentials-file: /etc/cloudflared/<TUNNEL-UUID>.json
+
+ingress:
+  - hostname: api.nammadaari.com
+    service: http://localhost:80
+  - hostname: staging-api.nammadaari.com
+    service: http://localhost:3011
+  - service: http_status:404
+```
+
+Changes made:
+- Updated production hostname to `api.nammadaari.com` (D-16)
+- Added second ingress rule: `staging-api.nammadaari.com` → `http://localhost:3011` (D-17)
+
+**Step 3: Update Cloudflare DNS**
+
+In the Cloudflare dashboard → your zone → DNS:
+
+1. Add CNAME: `api` → `<TUNNEL-UUID>.cfargotunnel.com` (Proxy enabled)
+2. Add CNAME: `staging-api` → `<TUNNEL-UUID>.cfargotunnel.com` (Proxy enabled)
+3. Remove the old CNAME for the prior production API subdomain once `api.nammadaari.com` is verified working
+
+**Step 4: Restart cloudflared**
+
+```bash
+sudo systemctl restart cloudflared
+sudo systemctl status cloudflared --no-pager
+```
+
+**Step 5: Verify**
+
+After starting the staging stack (Section 1b), confirm the tunnel routes traffic correctly:
+
+```bash
+curl https://staging-api.nammadaari.com/health
+# Expected: {"status":"ok"}
+
+curl https://api.nammadaari.com/health
+# Expected: {"status":"ok"} (production, must be running)
+```
 
 ---
 
@@ -202,12 +314,16 @@ tunnel: <TUNNEL-UUID>
 credentials-file: /etc/cloudflared/<TUNNEL-UUID>.json
 
 ingress:
-  - hostname: api-walkability.kinariwala.com
+  - hostname: api.nammadaari.com
     service: http://localhost:80
+  - hostname: staging-api.nammadaari.com
+    service: http://localhost:3011
   - service: http_status:404
 ```
 
-The `ingress` block maps the public hostname to `http://localhost:80` where nginx is listening inside Docker. The catch-all `http_status:404` returns 404 for any hostname not matched above.
+The `ingress` block maps public hostnames to local ports where nginx is listening inside Docker. `api.nammadaari.com` routes to production nginx (port 80); `staging-api.nammadaari.com` routes to the staging nginx (port 3011). The catch-all `http_status:404` returns 404 for any hostname not matched above.
+
+> **Note:** If you are setting up a fresh tunnel (not using an existing tunnel), replace the hostname values with your actual domain names. For an existing tunnel, update `/etc/cloudflared/config.yml` per Section 1c.
 
 > **Permissions note:** `/etc/cloudflared/config.yml` should be owned by root and readable
 > by the cloudflared systemd service. `sudo chown root:root /etc/cloudflared/config.yml &&
@@ -218,20 +334,26 @@ The `ingress` block maps the public hostname to `http://localhost:80` where ngin
 **Option A (recommended) — automatic via cloudflared:**
 
 ```bash
-cloudflared tunnel route dns walkability-prod api-walkability.kinariwala.com
+cloudflared tunnel route dns walkability-prod api.nammadaari.com
+cloudflared tunnel route dns walkability-prod staging-api.nammadaari.com
 ```
 
-This creates a proxied CNAME `api-walkability → <TUNNEL-UUID>.cfargotunnel.com` in your Cloudflare zone automatically.
+This creates proxied CNAMEs pointing to `<TUNNEL-UUID>.cfargotunnel.com` in your Cloudflare zone automatically.
 
 **Option B — manual via the Cloudflare dashboard:**
 
-1. Go to the Cloudflare dashboard → your zone `kinariwala.com` → DNS → Add record
-2. Fill in:
+1. Go to the Cloudflare dashboard → your zone `nammadaari.com` → DNS → Add record
+2. Add the production API record:
    - **Type:** CNAME
-   - **Name:** `api-walkability`
+   - **Name:** `api`
    - **Target:** `<TUNNEL-UUID>.cfargotunnel.com`
    - **Proxy status:** Enabled (orange cloud)
-3. Save.
+3. Add the staging API record:
+   - **Type:** CNAME
+   - **Name:** `staging-api`
+   - **Target:** `<TUNNEL-UUID>.cfargotunnel.com`
+   - **Proxy status:** Enabled (orange cloud)
+4. Save both records.
 
 ### 4f. Install and start the systemd service
 
@@ -260,11 +382,14 @@ Production environment variables live in a `.env` file at the repository root (n
 | `POSTGRES_PASSWORD` | `openssl rand -base64 32` | Strong random; never share; rotating requires DB restart |
 | `JWT_SECRET` | `openssl rand -hex 32` | Min 32 chars; rotating invalidates all admin sessions |
 | `COOKIE_SECURE` | `true` (literal) | Cloudflare terminates TLS so cookies always travel over HTTPS; never set to `false` in production |
-| `CORS_ORIGIN` | `https://staging-walkability.kinariwala.com` | Exact frontend URL; no trailing slash; no wildcard |
-| `ADMIN_SEED_EMAIL` | `admin@example.com` | Initial super-admin created on first boot |
-| `ADMIN_SEED_PASSWORD` | `openssl rand -base64 24` | Min 12 chars; change via admin UI after first login |
+| `CORS_ORIGIN` | `https://nammadaari.com` (production) / `https://staging.nammadaari.com` (staging) | Exact frontend URL; no trailing slash; no wildcard. Set per environment in GitHub Environments, not in `.env` |
+| `PUBLIC_URL` | `https://api.nammadaari.com` (production) / `https://staging-api.nammadaari.com` (staging) | Used to construct image URLs in API responses. Set in the Compose server override file, not `.env` |
+| `ADMIN_SEED_EMAIL` | `admin@example.com` | Initial super-admin created on first boot. Remove from GitHub Environment secrets after first successful login (see note below) |
+| `ADMIN_SEED_PASSWORD` | `openssl rand -base64 24` | Min 12 chars; change via admin UI after first login. Remove from GitHub Environment secrets after first successful login (see note below) |
 | `POSTGRES_DB` | `walkability` (default) | Override only if running multiple instances |
 | `POSTGRES_USER` | `walkability` (default) | Override only if running multiple instances |
+
+> **Admin seed secret hygiene (D-27):** After the first successful admin login on the production stack, remove `ADMIN_SEED_EMAIL` and `ADMIN_SEED_PASSWORD` from the GitHub `production` Environment secrets page. The seed function is idempotent (runs only when no admin users exist) so future deploys are unaffected, but removing the secrets prevents accidental exposure and reduces the attack surface. Go to: GitHub repo → Settings → Environments → production → remove both variables.
 
 **Example `.env` file** (replace placeholder values before use):
 
@@ -279,7 +404,7 @@ POSTGRES_USER=walkability
 JWT_SECRET=REPLACE_WITH_openssl_rand_hex_32
 
 COOKIE_SECURE=true
-CORS_ORIGIN=https://staging-walkability.kinariwala.com
+CORS_ORIGIN=https://nammadaari.com
 
 ADMIN_SEED_EMAIL=admin@example.com
 ADMIN_SEED_PASSWORD=REPLACE_WITH_strong_password_min_12_chars
@@ -310,10 +435,10 @@ nano .env
 This command builds the backend image from source and starts the three production services (`db`, `backend`, `nginx`). The frontend service is gated behind a Compose profile and will not start.
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.server.yml up -d --build db backend nginx
+docker compose -f docker-compose.yml -f docker-compose.production-server.yml up -d --build db backend nginx
 ```
 
-The `docker-compose.server.yml` override:
+The `docker-compose.production-server.yml` override:
 - Swaps nginx's config to `nginx/nginx.server.conf` (backend-only, no frontend upstream)
 - Drops the nginx dependency on the frontend container
 - Parks the frontend service behind the `frontend-only` profile
@@ -323,7 +448,7 @@ The `docker-compose.server.yml` override:
 **Check all services are healthy:**
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.server.yml ps
+docker compose -f docker-compose.yml -f docker-compose.production-server.yml ps
 ```
 
 All three services (`db`, `backend`, `nginx`) should show `healthy` status. If `backend` is starting, wait 30 seconds — it has a `start_period: 30s` health check.
@@ -339,7 +464,7 @@ Expected: `{"status":"ok"}`
 **Check the public tunnel endpoint:**
 
 ```bash
-curl -f https://api-walkability.kinariwala.com/health
+curl -f https://api.nammadaari.com/health
 ```
 
 Expected: same `{"status":"ok"}` response arriving from the public internet via the Cloudflare Tunnel.
@@ -347,7 +472,7 @@ Expected: same `{"status":"ok"}` response arriving from the public internet via 
 **If anything is wrong — check backend logs:**
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.server.yml logs -f backend
+docker compose -f docker-compose.yml -f docker-compose.production-server.yml logs -f backend
 ```
 
 ---
@@ -429,18 +554,33 @@ groups gh-runner
 
 ## 8. Ongoing Operations
 
+### Production stack operations (in `/opt/nammadaari/`)
+
 | Operation | Command |
 |-----------|---------|
 | Deploy a new build (automatic) | Push to `main` → GitHub Actions runs `deploy.yml` automatically |
-| Deploy manually (force redeploy) | `docker compose -f docker-compose.yml -f docker-compose.server.yml up -d --remove-orphans db backend nginx` |
-| Trigger workflow_dispatch | GitHub → Actions → Deploy → "Run workflow" |
-| View backend logs | `docker compose -f docker-compose.yml -f docker-compose.server.yml logs -f backend` |
-| View nginx logs | `docker compose -f docker-compose.yml -f docker-compose.server.yml logs -f nginx` |
+| Deploy manually (force redeploy) | `docker compose -f docker-compose.yml -f docker-compose.production-server.yml up -d --remove-orphans db backend nginx` |
+| Trigger workflow_dispatch | GitHub → Actions → Deploy → "Run workflow" (select `main` branch) |
+| View backend logs | `docker compose -f docker-compose.yml -f docker-compose.production-server.yml logs -f backend` |
+| View nginx logs | `docker compose -f docker-compose.yml -f docker-compose.production-server.yml logs -f nginx` |
 | View tunnel logs | `sudo journalctl -u cloudflared -f` |
-| Restart a single service | `docker compose -f docker-compose.yml -f docker-compose.server.yml restart backend` |
+| Restart a single service | `docker compose -f docker-compose.yml -f docker-compose.production-server.yml restart backend` |
 | Update env vars | Edit `.env` → re-run the `up` command → containers pick up new env on restart |
-| Stop everything (data preserved) | `docker compose -f docker-compose.yml -f docker-compose.server.yml down` |
-| Check service health | `docker compose -f docker-compose.yml -f docker-compose.server.yml ps` |
+| Stop everything (data preserved) | `docker compose -f docker-compose.yml -f docker-compose.production-server.yml down` |
+| Check service health | `docker compose -f docker-compose.yml -f docker-compose.production-server.yml ps` |
+
+### Staging stack operations (in `/opt/nammadaari-staging/`)
+
+| Operation | Command |
+|-----------|---------|
+| Deploy staging (automatic) | Push to `staging` → GitHub Actions runs `deploy.yml` automatically |
+| Deploy staging manually | `docker compose -f docker-compose.yml -f docker-compose.staging-server.yml up -d --remove-orphans db backend nginx` |
+| View staging backend logs | `docker compose -f docker-compose.yml -f docker-compose.staging-server.yml logs -f backend` |
+| View staging nginx logs | `docker compose -f docker-compose.yml -f docker-compose.staging-server.yml logs -f nginx` |
+| Restart staging service | `docker compose -f docker-compose.yml -f docker-compose.staging-server.yml restart backend` |
+| Stop staging (data preserved) | `docker compose -f docker-compose.yml -f docker-compose.staging-server.yml down` |
+| Check staging health | `docker compose -f docker-compose.yml -f docker-compose.staging-server.yml ps` |
+| Check staging health endpoint | `curl https://staging-api.nammadaari.com/health` |
 
 ---
 
@@ -451,8 +591,8 @@ groups gh-runner
 | Tunnel not connecting / `cloudflared tunnel info` shows 0 connectors | Credentials file missing, wrong path in config.yml, or wrong UUID | Verify `/etc/cloudflared/config.yml` — `tunnel:` must match the UUID from `cloudflared tunnel create`. Credentials JSON must be at the path listed in `credentials-file:`. `sudo systemctl restart cloudflared` after fixing. |
 | `docker: permission denied` when running docker commands | User not in `docker` group, or not re-logged-in after `usermod` | Run `groups` to check. Log out and back in. For the runner user: verify `groups gh-runner` includes `docker`. |
 | GitHub runner shows offline in repo settings | `svc.sh` service not running, or runner crashed | `sudo ./svc.sh status` from the `actions-runner` directory. If not running: `sudo ./svc.sh start`. Check `sudo journalctl -u actions.runner.* -f` for crash details. |
-| Deploy job fails at "Wait for local health" step | Backend not healthy after deploy | `docker compose -f docker-compose.yml -f docker-compose.server.yml logs backend`. Common causes: missing or invalid `POSTGRES_PASSWORD` or `JWT_SECRET` env vars; DB not ready (increase `start_period` or check DB logs). |
-| `curl https://<tunnel-url>/health` hangs or returns 502 | nginx or backend not running, or tunnel ingress points to wrong port | (1) `docker compose ps` — all three services must be healthy. (2) Verify `/etc/cloudflared/config.yml` ingress: `service: http://localhost:80` (not 3001 — nginx is the entry point). (3) `sudo systemctl status cloudflared`. |
+| Deploy job fails at "Wait for local health" step | Backend not healthy after deploy | Production: `docker compose -f docker-compose.yml -f docker-compose.production-server.yml logs backend`. Staging: `docker compose -f docker-compose.yml -f docker-compose.staging-server.yml logs backend`. Common causes: missing or invalid `POSTGRES_PASSWORD` or `JWT_SECRET` env vars; DB not ready (increase `start_period` or check DB logs). |
+| `curl https://api.nammadaari.com/health` hangs or returns 502 | nginx or backend not running, or tunnel ingress points to wrong port | (1) `docker compose ps` — all three services must be healthy. (2) Verify `/etc/cloudflared/config.yml` ingress: `api.nammadaari.com` → `http://localhost:80` and `staging-api.nammadaari.com` → `http://localhost:3011`. (3) `sudo systemctl status cloudflared`. |
 | Admin login redirects back to login on production | `COOKIE_SECURE` not `true`, or `CORS_ORIGIN` mismatch | Check `.env`: `COOKIE_SECURE=true`. Check `CORS_ORIGIN` matches the Vercel frontend URL exactly — no trailing slash, no protocol mismatch (`https://` required). |
 | Push to `main` does not trigger deploy | "production" environment missing, or required reviewers blocking approval | GitHub → Settings → Environments → verify `production` exists. Check the deploy job status in Actions — it may be "Waiting" for environment approval. |
 | `docker compose config` fails with "service frontend" error | Compose version incompatibility with `required: false` in override | Update docker-compose-plugin: `sudo pacman -Syu docker-compose`. Compose v2.20+ supports `required: false` natively. |
@@ -473,7 +613,7 @@ groups gh-runner
 2. Update GitHub Actions secret: repo Settings → Secrets → Actions → `JWT_SECRET`
 3. Update `.env` on the desktop server: `JWT_SECRET=<new-value>`
 4. Restart backend to invalidate current JWTs:
-   `docker compose -f docker-compose.yml -f docker-compose.server.yml restart backend`
+   `docker compose -f docker-compose.yml -f docker-compose.production-server.yml restart backend`
 5. All logged-in admins will be immediately logged out — warn GBA team before rotating
 
 ### POSTGRES_PASSWORD rotation
@@ -481,7 +621,7 @@ groups gh-runner
 1. Update in `.env`: `POSTGRES_PASSWORD=<new-value>`
 2. Update inside the running database:
    `docker exec -it <db-container> psql -U walkability -c "ALTER USER walkability PASSWORD '<new-value>';"`
-3. Restart backend: `docker compose -f docker-compose.yml -f docker-compose.server.yml restart backend`
+3. Restart backend: `docker compose -f docker-compose.yml -f docker-compose.production-server.yml restart backend`
 
 ### ADMIN_SEED_PASSWORD rotation
 
@@ -503,13 +643,13 @@ Files older than 30 days are automatically deleted after each successful backup.
 ### Restore PostgreSQL from backup
 
 1. Stop the backend (not the db):
-   `docker compose -f docker-compose.yml -f docker-compose.server.yml stop backend`
+   `docker compose -f docker-compose.yml -f docker-compose.production-server.yml stop backend`
 2. Drop and recreate the database:
    `docker exec -it <db-container> psql -U walkability -c "DROP DATABASE walkability; CREATE DATABASE walkability;"`
 3. Restore from backup:
    `gunzip -c /data/backups/db/walkability_YYYYMMDD_HHMMSS.sql.gz | docker exec -i <db-container> psql -U walkability walkability`
 4. Restart the backend:
-   `docker compose -f docker-compose.yml -f docker-compose.server.yml start backend`
+   `docker compose -f docker-compose.yml -f docker-compose.production-server.yml start backend`
 5. Verify: `curl https://<tunnel-url>/health`
 
 ### Restore uploads volume from backup

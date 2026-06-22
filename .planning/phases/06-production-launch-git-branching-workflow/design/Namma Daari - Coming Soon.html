@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Namma Daari — Coming Soon</title>
+<link rel="stylesheet" href="styles.css?v=3" />
+<style>
+  html, body { min-height: 100%; }
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 18% 22%, oklch(0.96 0.03 145) 0%, transparent 42%),
+      radial-gradient(circle at 84% 78%, rgba(180, 165, 140, 0.18) 0%, transparent 46%);
+    background-attachment: fixed;
+    color: var(--ink);
+  }
+  .page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 32px 28px 28px;
+  }
+
+  /* Top bar */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .wordmark {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    white-space: nowrap;
+  }
+  .wordmark .en {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .wordmark .kn {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--accent-ink);
+  }
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 6px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    box-shadow: var(--shadow-sm);
+  }
+  .status-chip .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* Hero */
+  .hero {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 56px 0;
+    max-width: 760px;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 22px;
+  }
+  .eyebrow span { color: var(--accent-ink); }
+  .tagline {
+    font-size: clamp(38px, 6.4vw, 68px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.04;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .tagline .soft { color: var(--muted-2); }
+  .tagline-kn {
+    font-family: var(--font-kn);
+    font-size: clamp(18px, 2.4vw, 24px);
+    font-weight: 500;
+    color: var(--accent-ink);
+    margin: 22px 0 0;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .tagline-kn .translit {
+    font-family: var(--font-mono);
+    font-size: 0.62em;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    text-transform: lowercase;
+  }
+  .desc {
+    font-size: clamp(15px, 1.9vw, 18px);
+    line-height: 1.62;
+    color: var(--ink-2);
+    margin: 34px 0 0;
+    max-width: 600px;
+    text-wrap: pretty;
+  }
+  .desc b {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* CTA */
+  .cta-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-top: 40px;
+  }
+  .ig-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+    padding: 14px 22px 14px 18px;
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: var(--r-full);
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    box-shadow: var(--shadow-md);
+  }
+  .ig-btn svg { display: block; }
+  .ig-btn .handle { font-family: var(--font-mono); font-size: 14px; letter-spacing: -0.02em; }
+  .cta-note {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+    max-width: 280px;
+  }
+
+  /* Footer */
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-top: 22px;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--muted-2);
+    text-transform: uppercase;
+  }
+  .footer .tags { display: flex; gap: 8px; flex-wrap: wrap; }
+  .footer .tag {
+    padding: 4px 9px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--muted);
+  }
+
+  @media (max-width: 560px) {
+    .page { padding: 22px 20px 24px; }
+    .topbar { align-items: flex-start; }
+    .hero { padding: 36px 0; }
+    .tagline { letter-spacing: -0.02em; }
+    .desc { margin-top: 28px; }
+    .cta-row { gap: 16px; margin-top: 32px; }
+    .ig-btn { width: 100%; justify-content: center; }
+    .cta-note { max-width: none; }
+  }
+  @media (max-width: 380px) {
+    .wordmark { flex-direction: column; gap: 2px; }
+    .wordmark .kn { font-size: 14px; }
+  }
+</style>
+</head>
+<body data-screen-label="Namma Daari — Coming Soon">
+
+<div class="page">
+
+  <header class="topbar">
+    <div class="wordmark">
+      <span class="en">Namma Daari</span>
+      <span class="kn">ನಮ್ಮ ದಾರಿ</span>
+    </div>
+    <div class="status-chip"><span class="dot pulse"></span> Coming soon · Bengaluru</div>
+  </header>
+
+  <main class="hero">
+    <p class="eyebrow">Citizen reporting for <span>walkable streets</span></p>
+
+    <h1 class="tagline">Snap a broken footpath.<br /><span class="soft">Put it on Bengaluru's map.</span></h1>
+
+    <p class="tagline-kn">ನಮ್ಮ ದಾರಿ <span class="translit">namma daari · our path</span></p>
+
+    <p class="desc">
+      Namma Daari turns a quick phone photo into a tracked civic report — cracked footpaths, blocked crossings, missing kerb ramps and dark stretches along the Namma Metro corridor and beyond. <b>Every report lands in front of BBMP / GBA</b> with a location, a ward and a status attached, so nothing quietly disappears. Walkable streets start with what we choose to notice.
+    </p>
+
+    <div class="cta-row">
+      <a class="ig-btn press" href="https://instagram.com/nammadaariblr" target="_blank" rel="noopener">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="currentColor" stroke-width="1.8"/>
+          <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/>
+          <circle cx="17.3" cy="6.7" r="1.3" fill="currentColor"/>
+        </svg>
+        Follow <span class="handle">@nammadaariblr</span>
+      </a>
+      <p class="cta-note">We're not live yet. Follow along for the launch and the first wards we're mapping.</p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <span>Built for Bengaluru · ಬೆಂಗಳೂರಿಗಾಗಿ</span>
+    <div class="tags">
+      <span class="tag">Footpaths</span>
+      <span class="tag">Crossings</span>
+      <span class="tag">Lighting</span>
+      <span class="tag">BBMP / GBA</span>
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>
