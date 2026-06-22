@@ -1,18 +1,32 @@
 name: Deploy
+# Manages two GitHub Environments (staging and production) across two self-hosted runners.
+#
+# Environments:
+#   staging    — runner label: walkability-staging; deploys to /opt/nammadaari-staging/
+#   production — runner label: walkability-prod;    deploys to /opt/nammadaari/
+#
+# Triggers:
+#   push to staging → deploy-staging + smoke-test-staging
+#   push to main    → deploy-production + smoke-test-production
+#   workflow_dispatch → requires "environment" input to select target
+#
 # Required GitHub Actions configuration:
-# Secrets (Settings > Secrets and variables > Actions > Secrets):
+# Secrets (per environment — Settings > Environments > [staging|production] > Secrets):
 #   LXC_SSH_KEY            — private key for SSH access to Namma Daari LXC
-# Variables (Settings > Secrets and variables > Actions > Variables):
+#   JWT_SECRET             — 64-char hex string (openssl rand -hex 64)
+#   POSTGRES_PASSWORD      — PostgreSQL password
+#   CORS_ORIGIN            — exact origin string the backend should allow
+#   ADMIN_SEED_EMAIL       — Initial admin user email
+#   ADMIN_SEED_PASSWORD    — Initial admin user password (remove after first deploy)
+# Variables (per environment — Settings > Environments > [staging|production] > Variables):
 #   BACKEND_URL    — public Cloudflare tunnel URL for the backend
 #   FRONTEND_URL   — Vercel frontend URL
-#   CORS_ORIGIN    — exact origin string the backend should allow
-# Environments (Settings > Environments):
-#   production     — required by the deploy job's `environment: production` gate
-# Self-hosted runner:
-#   Must be installed on the Arch VM and labeled: self-hosted, linux, walkability-prod
+# Self-hosted runners:
+#   walkability-prod    — existing runner on Arch VM for production deploys
+#   walkability-staging — second label added to the same runner for staging deploys
 #
 # NEXT_PUBLIC_BUILD_HASH injection (FIX-11 / D-28):
-# The production frontend deploys via Vercel (not this CI — only the backend is built here).
+# The frontend deploys via Vercel (not this CI — only the backend is built here).
 # To inject a per-deploy git short SHA into the public frontend bundle, set the Vercel
 # project Build Command to:
 #   NEXT_PUBLIC_BUILD_HASH=$(git rev-parse --short HEAD) npm run build
@@ -22,16 +36,77 @@ on:
   push:
     branches:
       - main
+      - staging
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment for manual deploy"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
 jobs:
   ci:
     name: "Run CI checks"
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
-  deploy:
-    name: "Deploy to Namma Daari LXC"
+
+  deploy-staging:
+    name: "Deploy to Staging"
     needs: ci
+    if: |
+      github.ref == 'refs/heads/staging' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    runs-on: [self-hosted, linux, walkability-staging]
+    environment: staging
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure staging directory exists on LXC
+        run: |
+          ssh -i /home/gh-runner/.ssh/nammadaari-lxc -o StrictHostKeyChecking=no root@192.168.1.152 \
+            "mkdir -p /opt/nammadaari-staging"
+
+      - name: Copy updated files to LXC
+        run: |
+          rsync -avz --exclude='.git' \
+            -e "ssh -i /home/gh-runner/.ssh/nammadaari-lxc -o StrictHostKeyChecking=no" \
+            ./ root@192.168.1.152:/opt/nammadaari-staging/
+
+      - name: Build and deploy staging stack
+        run: |
+          ssh -i /home/gh-runner/.ssh/nammadaari-lxc -o StrictHostKeyChecking=no root@192.168.1.152 \
+            "cd /opt/nammadaari-staging && \
+             docker compose -f docker-compose.yml -f docker-compose.staging-server.yml build backend && \
+             docker compose -f docker-compose.yml -f docker-compose.staging-server.yml up -d --remove-orphans db backend nginx"
+
+      - name: Wait for local health
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if ssh -i /home/gh-runner/.ssh/nammadaari-lxc -o StrictHostKeyChecking=no root@192.168.1.152 \
+              "curl -sf --max-time 5 http://localhost:3011/health"; then
+              echo ""
+              echo "Local staging health OK on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i/6 failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "Local staging health check failed after 6 attempts"
+          exit 1
+
+  deploy-production:
+    name: "Deploy to Production"
+    needs: ci
+    if: |
+      github.ref == 'refs/heads/main' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
     runs-on: [self-hosted, linux, walkability-prod]
     environment: production
     permissions:
@@ -46,12 +121,12 @@ jobs:
             -e "ssh -i /home/gh-runner/.ssh/nammadaari-lxc -o StrictHostKeyChecking=no" \
             ./ root@192.168.1.152:/opt/nammadaari/
 
-      - name: Build and deploy on LXC
+      - name: Build and deploy production stack
         run: |
           ssh -i /home/gh-runner/.ssh/nammadaari-lxc -o StrictHostKeyChecking=no root@192.168.1.152 \
             "cd /opt/nammadaari && \
-             docker compose -f docker-compose.yml -f docker-compose.server.yml build backend && \
-             docker compose -f docker-compose.yml -f docker-compose.server.yml up -d --remove-orphans db backend nginx"
+             docker compose -f docker-compose.yml -f docker-compose.production-server.yml build backend && \
+             docker compose -f docker-compose.yml -f docker-compose.production-server.yml up -d --remove-orphans db backend nginx"
 
       - name: Wait for local health
         run: |
@@ -59,41 +134,79 @@ jobs:
             if ssh -i /home/gh-runner/.ssh/nammadaari-lxc -o StrictHostKeyChecking=no root@192.168.1.152 \
               "curl -sf --max-time 5 http://localhost/health"; then
               echo ""
-              echo "Local health OK on attempt $i"
+              echo "Local production health OK on attempt $i"
               exit 0
             fi
             echo "Attempt $i/6 failed, retrying in 10s..."
             sleep 10
           done
-          echo "Local health check failed after 6 attempts"
+          echo "Local production health check failed after 6 attempts"
           exit 1
 
-  smoke-test:
-    name: "Smoke test"
-    needs: deploy
+  smoke-test-staging:
+    name: "Smoke test — Staging"
+    needs: deploy-staging
+    if: |
+      github.ref == 'refs/heads/staging' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
     runs-on: ubuntu-latest
+    environment: staging
     permissions: {}
     steps:
-      - name: "Health check — Cloudflare tunnel backend (with retry)"
+      - name: "Health check — staging backend (with retry)"
         run: |
           for i in 1 2 3 4 5; do
             if curl -sf --max-time 10 "${{ vars.BACKEND_URL }}/health"; then
               echo ""
-              echo "Backend healthy on attempt $i"
+              echo "Staging backend healthy on attempt $i"
               exit 0
             fi
             echo "Attempt $i/5 failed, retrying in 15s..."
             sleep 15
           done
-          echo "Backend health check failed after 5 attempts"
+          echo "Staging backend health check failed after 5 attempts"
           exit 1
 
       - name: "API check — reports endpoint"
         run: |
           curl -sf --max-time 10 "${{ vars.BACKEND_URL }}/api/reports" | head -c 200
 
-      - name: "Frontend check — Vercel"
+      - name: "Frontend check — Vercel staging"
         run: |
           status=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 15 "${{ vars.FRONTEND_URL }}")
-          echo "Frontend HTTP $status"
+          echo "Staging frontend HTTP $status"
+          [ "$status" -eq 200 ]
+
+  smoke-test-production:
+    name: "Smoke test — Production"
+    needs: deploy-production
+    if: |
+      github.ref == 'refs/heads/main' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    runs-on: ubuntu-latest
+    environment: production
+    permissions: {}
+    steps:
+      - name: "Health check — production backend (with retry)"
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -sf --max-time 10 "${{ vars.BACKEND_URL }}/health"; then
+              echo ""
+              echo "Production backend healthy on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i/5 failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "Production backend health check failed after 5 attempts"
+          exit 1
+
+      - name: "API check — reports endpoint"
+        run: |
+          curl -sf --max-time 10 "${{ vars.BACKEND_URL }}/api/reports" | head -c 200
+
+      - name: "Frontend check — Vercel production"
+        run: |
+          status=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 15 "${{ vars.FRONTEND_URL }}")
+          echo "Production frontend HTTP $status"
           [ "$status" -eq 200 ]
