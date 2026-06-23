@@ -80,6 +80,12 @@ function WardPopover({ wards, wardId, isLoading, isError, corpName, onSelect, on
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && query && filtered.length > 0) {
+            onSelect(filtered[0].id);
+            onClose();
+          }
+        }}
         placeholder="grep ward name or no…"
         style={{
           width: "100%",
@@ -680,16 +686,16 @@ function ReportsPageContent(props: PageProps) {
 
       {/* Phase 07-04: Geographic filter bar (TRIAGE-01, D-01)
           Inline with a vertical separator from the page heading area.
-          On tablet the bar scrolls horizontally (no-scrollbar, no wrap). */}
+          overflowX omitted intentionally: the bar holds only two small triggers
+          (~260px total) so horizontal overflow never occurs, and setting
+          overflow-x:auto forces overflow-y:auto which clips the absolutely
+          positioned Corp/Ward popovers. */}
       <div
-        className="no-scrollbar"
         style={{
           display: "flex",
           gap: 8,
           alignItems: "center",
-          overflowX: "auto",
           marginBottom: 16,
-          paddingBottom: 2,
         }}
       >
         {/* Vertical separator */}
