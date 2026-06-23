@@ -218,3 +218,15 @@
 .admin-safe-bottom {
   padding-bottom: calc(56px + env(safe-area-inset-bottom));
 }
+
+/* MOB-05: ward-table + choropleth side-by-side on desktop, stacked on mobile */
+.analytics-ward-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 768px) {
+  .analytics-ward-grid {
+    grid-template-columns: 1fr;
+  }
+}

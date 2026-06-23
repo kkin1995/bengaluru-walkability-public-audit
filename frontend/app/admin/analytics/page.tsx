@@ -91,8 +91,11 @@ export default function AnalyticsPage() {
 
   return (
     <div
+      className="admin-safe-bottom"
       style={{
-        padding: "24px 32px",
+        paddingTop: "24px",
+        paddingLeft: "32px",
+        paddingRight: "32px",
         maxWidth: 1200,
         marginLeft: "auto",
         marginRight: "auto",
@@ -159,14 +162,8 @@ export default function AnalyticsPage() {
         )}
       </Card>
 
-      {/* Ward table + choropleth — side by side (D-06) */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 16,
-        }}
-      >
+      {/* Ward table + choropleth — side by side on desktop, stacked on mobile (D-06, MOB-05) */}
+      <div className="analytics-ward-grid">
         <div>
           <SectionLabel style={{ marginBottom: 8 }}>
             Top Wards by Unresolved Reports

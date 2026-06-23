@@ -526,7 +526,9 @@ export default function AdminDashboard() {
     <div
       className="admin-safe-bottom"
       style={{
-        padding: "24px 32px",
+        paddingTop: "24px",
+        paddingLeft: "32px",
+        paddingRight: "32px",
         maxWidth: 1200,
         marginLeft: "auto",
         marginRight: "auto",
