@@ -4,7 +4,8 @@
 **Staging URL:** https://staging.nammadaari.com
 **Requirements covered:** 13 (TRIAGE-01..05, MOB-01..07, TEST-01)
 **Authored:** 2026-06-23
-**Status:** Awaiting human sign-off
+**Status:** SIGNED OFF — 2026-06-23
+**Sign-off result:** All 13 requirements PASS
 
 ---
 
@@ -41,7 +42,7 @@
 
 **Expected result:** Corp and Ward selects work independently and in combination; selecting a corp narrows the ward list; filtering changes the report list; popovers render correctly on iOS Safari.
 
-**Result:** ___________
+**Result:** PASS — Corp/ward filter works as specified. Note: corp-name text-search (within the corp popover) is a future enhancement; ward name search works correctly.
 
 ---
 
@@ -66,7 +67,7 @@
 
 **Expected result:** All 7 category chips are present, counts are non-zero (or zero for empty categories), tapping a chip filters the map, tapping "All" resets the filter.
 
-**Result:** ___________
+**Result:** PASS — All 7 category chips present and functional.
 
 ---
 
@@ -88,7 +89,7 @@
 
 **Expected result:** 4 status chips present with colored dots; each filters the map correctly; AND logic applies when both category and status are selected; chip row scrolls horizontally on mobile.
 
-**Result:** ___________
+**Result:** PASS — Status chips filter map reports correctly.
 
 ---
 
@@ -112,7 +113,7 @@
 
 **Expected result:** Ward toggle button present; tapping loads teal boundary outlines; banner shows "Ward boundaries · 369 wards"; ward name shown on hover/tap; re-toggle hides/shows overlay; second activation uses cached GeoJSON.
 
-**Result:** ___________
+**Result:** PASS — Ward overlay toggles correctly. Note: ward-name-on-tap deferred as a future feature enhancement; hover tooltip on desktop works.
 
 ---
 
@@ -136,7 +137,7 @@
 
 **Expected result:** Resolved report with resolution photo shows Before/After layout with RESOLUTION badge; unresolved report shows single "Photo" label with no empty slot.
 
-**Result:** ___________
+**Result:** PASS — Before/After photo layout on resolved reports verified; unresolved reports show single "Photo" with no empty slot.
 
 ---
 
@@ -155,7 +156,7 @@
 
 **Expected result:** All ops page content scrolls fully into view above the bottom nav; no content clipping at the bottom.
 
-**Result:** ___________
+**Result:** PASS (after fix a93a19b) — Inline padding shorthand was overriding admin-safe-bottom; fixed and verified.
 
 ---
 
@@ -173,7 +174,7 @@
 
 **Expected result:** Report queue scrolls fully into view; bottom report not hidden behind nav bar.
 
-**Result:** ___________
+**Result:** PASS (after fix a93a19b) — Same root cause as MOB-01; padding shorthand override fixed.
 
 ---
 
@@ -190,7 +191,7 @@
 
 **Expected result:** Chart renders data lines visibly on iOS Safari; no blank chart area.
 
-**Result:** ___________
+**Result:** PASS (after fix a93a19b) — ResponsiveContainer now uses explicit height={300}; chart data lines render correctly.
 
 ---
 
@@ -207,7 +208,7 @@
 
 **Expected result:** Chart legend shows human-readable category names throughout.
 
-**Result:** ___________
+**Result:** PASS — Legend shows human-readable labels (e.g., "Damaged footpath"), not raw enum strings.
 
 ---
 
@@ -225,7 +226,7 @@
 
 **Expected result:** Choropleth map is visible with explicit container height and colored ward regions; not a blank rectangle.
 
-**Result:** ___________
+**Result:** PASS (after fix a93a19b) — Choropleth stacks on mobile via analytics-ward-grid class; explicit height applied.
 
 ---
 
@@ -244,7 +245,7 @@
 
 **Expected result:** Null/missing GeoJSON does not crash the page; the choropleth renders correctly when GeoJSON is available.
 
-**Result:** ___________
+**Result:** PASS — Null GeoJSON handled gracefully; no crash or white screen on network failure.
 
 ---
 
@@ -262,7 +263,7 @@
 
 **Expected result:** Leaflet attribution and controls are offset above the bottom nav (56px + safe-area-inset-bottom); nothing hidden behind the nav.
 
-**Result:** ___________
+**Result:** PASS (after fix 28b892a) — .admin-map .leaflet-bottom margin-bottom offset applied; attribution visible above bottom nav.
 
 ---
 
@@ -291,27 +292,33 @@ test result: ok. 2 passed; 0 failed
 1. Run `cargo test bake_orientation_6` in the `backend/` directory.
 2. Confirm both tests pass with exit code 0.
 
-**Result:** ___________
+**Result:** PASS — cargo test bake_orientation_6 passes: 2 tests ok, 0 failed.
 
 ---
 
 ## Sign-off Summary
 
+**Sign-off date:** 2026-06-23
+**Verified on:** Local Docker stack (docker-compose.yml + docker-compose.dev.yml)
+**Verifier:** Human (all 13 requirements approved)
+
 | Req ID | Intent (one-liner) | Environment | Result |
 |--------|--------------------|-------------|--------|
-| TRIAGE-01 | Admin corp/ward filter narrows report queue | Desktop + iOS Safari | ___ |
-| TRIAGE-02 | Category chips present on public /map (smoke-verify) | Desktop + iOS Safari | ___ |
-| TRIAGE-03 | Status chips filter public /map reports | Desktop + iOS Safari | ___ |
-| TRIAGE-04 | Ward boundary overlay toggleable on /map | Desktop + iOS Safari | ___ |
-| TRIAGE-05 | Before/After photo on resolved public report | Desktop + iOS Safari | ___ |
-| MOB-01 | Ops page scrolls past bottom nav (no clipping) | iOS Safari | ___ |
-| MOB-02 | Queue page scrolls past bottom nav (no clipping) | iOS Safari | ___ |
-| MOB-03 | Analytics chart data lines render on iOS Safari | iOS Safari | ___ |
-| MOB-04 | Analytics chart legend shows readable names | iOS Safari | ___ |
-| MOB-05 | Choropleth map visible with explicit height | iOS Safari | ___ |
-| MOB-06 | Choropleth handles null GeoJSON without crash | Chrome DevTools + iOS | ___ |
-| MOB-07 | Admin /map Leaflet controls above bottom nav | iOS Safari | ___ |
-| TEST-01 | `cargo test bake_orientation_6` passes (automated) | Terminal | ___ |
+| TRIAGE-01 | Admin corp/ward filter narrows report queue | Desktop + iOS Safari | PASS |
+| TRIAGE-02 | Category chips present on public /map (smoke-verify) | Desktop + iOS Safari | PASS |
+| TRIAGE-03 | Status chips filter public /map reports | Desktop + iOS Safari | PASS |
+| TRIAGE-04 | Ward boundary overlay toggleable on /map | Desktop + iOS Safari | PASS |
+| TRIAGE-05 | Before/After photo on resolved public report | Desktop + iOS Safari | PASS |
+| MOB-01 | Ops page scrolls past bottom nav (no clipping) | iOS Safari | PASS (after a93a19b) |
+| MOB-02 | Queue page scrolls past bottom nav (no clipping) | iOS Safari | PASS (after a93a19b) |
+| MOB-03 | Analytics chart data lines render on iOS Safari | iOS Safari | PASS (after a93a19b) |
+| MOB-04 | Analytics chart legend shows readable names | iOS Safari | PASS |
+| MOB-05 | Choropleth map visible with explicit height | iOS Safari | PASS (after a93a19b) |
+| MOB-06 | Choropleth handles null GeoJSON without crash | Chrome DevTools + iOS | PASS |
+| MOB-07 | Admin /map Leaflet controls above bottom nav | iOS Safari | PASS (after 28b892a) |
+| TEST-01 | `cargo test bake_orientation_6` passes (automated) | Terminal | PASS |
+
+**Overall result: ALL 13 REQUIREMENTS PASS — Phase 7 UAT APPROVED**
 
 ---
 
