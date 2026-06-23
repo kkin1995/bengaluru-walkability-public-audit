@@ -462,23 +462,23 @@ function ReportsPageContent(props: PageProps) {
   }
 
   // Load corp + ward options on mount (D-03)
+  // WR-07: use Promise.allSettled so partial failures are handled without a
+  // second round of retry fetches. The old Promise.all + catch + retry pattern
+  // fired setIsLoadingFilters(false) via .finally() while the retry calls were
+  // still in-flight, causing a flash of empty filter state followed by population.
   useEffect(() => {
+    let cancelled = false;
     setIsLoadingFilters(true);
-    Promise.all([getAdminCorporations(), getAdminWards()]).then(([corps, ws]) => {
-      setCorporations(corps);
-      setWards(ws);
-      setFilterError({ corp: false, ward: false });
-    }).catch(() => {
-      // Partial error handling — try each independently
-      getAdminCorporations()
-        .then((corps) => setCorporations(corps))
-        .catch(() => setFilterError((prev) => ({ ...prev, corp: true })));
-      getAdminWards()
-        .then((ws) => setWards(ws))
-        .catch(() => setFilterError((prev) => ({ ...prev, ward: true })));
+    Promise.allSettled([getAdminCorporations(), getAdminWards()]).then(([corpsResult, wardsResult]) => {
+      if (cancelled) return;
+      if (corpsResult.status === "fulfilled") setCorporations(corpsResult.value);
+      else setFilterError((prev) => ({ ...prev, corp: true }));
+      if (wardsResult.status === "fulfilled") setWards(wardsResult.value);
+      else setFilterError((prev) => ({ ...prev, ward: true }));
     }).finally(() => {
-      setIsLoadingFilters(false);
+      if (!cancelled) setIsLoadingFilters(false);
     });
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
