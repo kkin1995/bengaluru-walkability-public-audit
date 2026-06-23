@@ -403,7 +403,7 @@ export default function ReportsMapPage() {
           </div>
         )}
 
-        <div data-testid="admin-reports-map" style={{ height: "100%", width: "100%" }}>
+        <div data-testid="admin-reports-map" className="admin-map" style={{ height: "100%", width: "100%" }}>
           <MapContainer
             center={center}
             zoom={12}

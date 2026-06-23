@@ -219,6 +219,14 @@
   padding-bottom: calc(56px + env(safe-area-inset-bottom));
 }
 
+/* MOB-07: push Leaflet's own attribution and zoom controls above the 56px admin
+   bottom nav on mobile. Leaflet renders .leaflet-bottom at bottom:0 inside the
+   map canvas regardless of the wrapper height, so a CSS override is the only
+   reliable way to reposition it. Apply .admin-map to the MapContainer wrapper. */
+.admin-map .leaflet-bottom {
+  margin-bottom: calc(56px + env(safe-area-inset-bottom));
+}
+
 /* MOB-05: ward-table + choropleth side-by-side on desktop, stacked on mobile */
 .analytics-ward-grid {
   display: grid;
