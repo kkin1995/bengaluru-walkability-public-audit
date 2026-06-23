@@ -67,7 +67,7 @@ export default function TrendChart({ data, legendFormatter }: TrendChartProps) {
     // to zero height on iOS Safari when parent is 100%-only. ResponsiveContainer reads
     // the wrapper's explicit pixel height rather than relying on parent layout.
     <div style={{ width: "100%", height: 300 }}>
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis
@@ -76,7 +76,9 @@ export default function TrendChart({ data, legendFormatter }: TrendChartProps) {
             tickFormatter={(v: string) => v.slice(5)}
           />
           <YAxis style={{ fontFamily: "var(--font-mono)", fontSize: 11 }} />
-          <Tooltip />
+          <Tooltip
+            formatter={(value, name) => [value, getCategoryLabel(String(name)).en]}
+          />
           {/* MOB-04: legend formatter maps raw DB enum strings to human-readable labels */}
           <Legend
             onClick={handleLegendClick}
@@ -92,6 +94,7 @@ export default function TrendChart({ data, legendFormatter }: TrendChartProps) {
               stroke={CATEGORY_COLORS[cat] ?? "#718096"}
               strokeWidth={2}
               dot={false}
+              isAnimationActive={false}
               hide={hiddenLines.has(cat)}
             />
           ))}
