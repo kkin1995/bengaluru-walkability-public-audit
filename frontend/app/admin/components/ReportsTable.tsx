@@ -436,8 +436,7 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          flexWrap: "wrap",
+          alignItems: "flex-start",
           gap: 10,
           padding: "8px 0",
           borderBottom: "1px solid var(--border)",
@@ -456,75 +455,86 @@ function CompactRow({ report, role, onStatusChange, onDelete, onUpdateStatus, ex
           alt={`Photo of ${categoryLabel}`}
           style={{ flexShrink: 0 }}
         />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: 14,
-            fontWeight: 600,
-            fontFamily: "var(--font-sans)",
-            color: "var(--ink)",
-            marginBottom: 3,
-          }}>
-            {categoryLabel}
+        {/* Right column: 2 deterministic rows — no wrapping */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 0 }}>
+          {/* Row 1: category name (truncates) + severity + status badges */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{
+              flex: 1,
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              fontSize: 14,
+              fontWeight: 600,
+              fontFamily: "var(--font-sans)",
+              color: "var(--ink)",
+            }}>
+              {categoryLabel}
+            </div>
+            <SeverityIndicator severity={sevValue} style={{ flexShrink: 0 }} />
+            <StatusBadge status={report.status} monoLabel />
           </div>
-          <div style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            color: "var(--muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            display: "flex",
-            gap: 6,
-            alignItems: "center",
-            overflow: "hidden",
-          }}>
-            <span style={{ fontWeight: 600, color: "var(--ink-2)", flexShrink: 0 }}>
-              WLK-{report.id.slice(0, 5).toUpperCase()}
-            </span>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 1, minWidth: 0 }}>{report.ward_name ?? "—"}</span>
-            <span style={{ flexShrink: 0 }}>{getRelativeTime(report.created_at)}</span>
-            {/* ABUSE-06: Duplicate label */}
-            {report.duplicate_of_id && (
-              <span
-                data-testid="duplicate-label"
-                style={{ fontStyle: "italic" }}
-              >
-                Duplicate
+          {/* Row 2: ID · ward · time (truncates) + dupe expand + action buttons */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{
+              flex: 1,
+              minWidth: 0,
+              overflow: "hidden",
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              color: "var(--muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              display: "flex",
+              gap: 6,
+              alignItems: "center",
+            }}>
+              <span style={{ fontWeight: 600, color: "var(--ink-2)", flexShrink: 0 }}>
+                WLK-{report.id.slice(0, 5).toUpperCase()}
               </span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 1, minWidth: 0 }}>{report.ward_name ?? "—"}</span>
+              <span style={{ flexShrink: 0 }}>{getRelativeTime(report.created_at)}</span>
+              {/* ABUSE-06: Duplicate label */}
+              {report.duplicate_of_id && (
+                <span
+                  data-testid="duplicate-label"
+                  style={{ fontStyle: "italic" }}
+                >
+                  Duplicate
+                </span>
+              )}
+            </div>
+            {dupCount > 0 && (
+              <DupeExpandButton
+                reportId={report.id}
+                dupCount={dupCount}
+                expandedRows={expandedRows}
+                onToggle={onToggleExpand}
+              />
+            )}
+            <Btn
+              variant="ghost"
+              size="xs"
+              onClick={(e) => { e.stopPropagation(); (onUpdateStatus ?? onStatusChange)(report.id); }}
+              aria-label={`Change status for report ${report.id}`}
+              style={{ flexShrink: 0 }}
+            >
+              Status
+            </Btn>
+            {role === "admin" && (
+              <Btn
+                variant="danger-soft"
+                size="xs"
+                onClick={(e) => { e.stopPropagation(); onDelete(report.id); }}
+                aria-label={`Delete report ${report.id}`}
+                data-testid="delete-button"
+                style={{ flexShrink: 0 }}
+              >
+                Delete
+              </Btn>
             )}
           </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          {dupCount > 0 && (
-            <DupeExpandButton
-              reportId={report.id}
-              dupCount={dupCount}
-              expandedRows={expandedRows}
-              onToggle={onToggleExpand}
-            />
-          )}
-          <SeverityIndicator severity={sevValue} />
-          <StatusBadge status={report.status} monoLabel />
-        </div>
-        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-          <Btn
-            variant="ghost"
-            size="xs"
-            onClick={(e) => { e.stopPropagation(); (onUpdateStatus ?? onStatusChange)(report.id); }}
-            aria-label={`Change status for report ${report.id}`}
-          >
-            Status
-          </Btn>
-          {role === "admin" && (
-            <Btn
-              variant="danger-soft"
-              size="xs"
-              onClick={(e) => { e.stopPropagation(); onDelete(report.id); }}
-              aria-label={`Delete report ${report.id}`}
-              data-testid="delete-button"
-            >
-              Delete
-            </Btn>
-          )}
         </div>
       </div>
 
