@@ -17,6 +17,7 @@ import { Btn } from "../components/Btn";
 import { SectionLabel } from "../components/SectionLabel";
 import KpiCards from "../components/KpiCards";
 import WardTable from "../components/WardTable";
+import { getCategoryLabel } from "@/app/lib/translations";
 
 const TrendChart = dynamic(() => import("../components/TrendChart"), { ssr: false });
 const ChoroplethMap = dynamic(() => import("./ChoroplethMap"), { ssr: false });
@@ -154,7 +155,7 @@ export default function AnalyticsPage() {
             }}
           />
         ) : (
-          <TrendChart data={trendData} />
+          <TrendChart data={trendData} legendFormatter={(v) => getCategoryLabel(v).en} />
         )}
       </Card>
 
@@ -183,11 +184,16 @@ export default function AnalyticsPage() {
             </Btn>
           )}
         </div>
-        <div>
+        {/* MOB-05/06: explicit height on wrapper prevents choropleth from collapsing
+            on mobile. Height matches ChoroplethMap's internal MapContainer (400px).
+            Width: 100% ensures no horizontal scroll on narrow viewports. */}
+        <div style={{ width: "100%", minWidth: 0 }}>
           <SectionLabel style={{ marginBottom: 8 }}>
             Ward Map — click to filter
           </SectionLabel>
-          <ChoroplethMap onWardClick={setSelectedWard} />
+          <div style={{ height: 400, width: "100%" }}>
+            <ChoroplethMap onWardClick={setSelectedWard} />
+          </div>
         </div>
       </div>
     </div>

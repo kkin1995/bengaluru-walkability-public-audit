@@ -30,7 +30,11 @@ export default function ChoroplethMap({ onWardClick }: ChoroplethMapProps) {
   }, []);
 
   return (
-    <div style={{ position: "relative" }}>
+    // MOB-05/06: wrapper has height:100% so it fills the explicit 400px parent set
+    // in analytics/page.tsx. Position relative required for Leaflet's internal
+    // absolute-positioned controls. null boundaries are handled by the `boundaries &&`
+    // guard on <GeoJSON> — no crash when ward boundaries fail to load.
+    <div style={{ position: "relative", height: "100%", width: "100%" }}>
       {fetchError && (
         <div
           role="alert"
@@ -50,7 +54,7 @@ export default function ChoroplethMap({ onWardClick }: ChoroplethMapProps) {
       <MapContainer
         center={[12.9716, 77.5946]}
         zoom={11}
-        style={{ height: 400, borderRadius: "var(--r-lg)" }}
+        style={{ height: 400, width: "100%", borderRadius: "var(--r-lg)" }}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

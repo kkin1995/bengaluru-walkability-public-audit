@@ -13,12 +13,15 @@ import {
 import type { LegendPayload } from "recharts/types/component/DefaultLegendContent";
 import { useState } from "react";
 import type { TrendDataPoint } from "../lib/adminApi";
+import { getCategoryLabel } from "@/app/lib/translations";
 
 interface TrendChartProps {
   data: TrendDataPoint[];
   // WR-06: selectedWard was previously accepted but never used for actual data filtering.
   // Displaying "FILTERED: {wardName}" while showing unfiltered global data was misleading.
   // The prop has been removed; trend data is always system-wide.
+  // MOB-04: optional legend formatter; falls back to getCategoryLabel if not provided
+  legendFormatter?: (value: string) => string;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -43,7 +46,7 @@ function transformTrendData(data: TrendDataPoint[]): Record<string, unknown>[] {
   );
 }
 
-export default function TrendChart({ data }: TrendChartProps) {
+export default function TrendChart({ data, legendFormatter }: TrendChartProps) {
   const [hiddenLines, setHiddenLines] = useState<Set<string>>(new Set());
 
   const handleLegendClick = (entry: LegendPayload) => {
@@ -60,8 +63,11 @@ export default function TrendChart({ data }: TrendChartProps) {
   const categories = Array.from(new Set(data.map((d) => d.category)));
 
   return (
-    <div>
-      <ResponsiveContainer width="100%" height={280}>
+    // MOB-03: explicit height on wrapper div prevents ResponsiveContainer collapsing
+    // to zero height on iOS Safari when parent is 100%-only. ResponsiveContainer reads
+    // the wrapper's explicit pixel height rather than relying on parent layout.
+    <div style={{ width: "100%", height: 300 }}>
+      <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis
@@ -71,7 +77,13 @@ export default function TrendChart({ data }: TrendChartProps) {
           />
           <YAxis style={{ fontFamily: "var(--font-mono)", fontSize: 11 }} />
           <Tooltip />
-          <Legend onClick={handleLegendClick} />
+          {/* MOB-04: legend formatter maps raw DB enum strings to human-readable labels */}
+          <Legend
+            onClick={handleLegendClick}
+            formatter={(value: string) =>
+              legendFormatter ? legendFormatter(value) : getCategoryLabel(value).en
+            }
+          />
           {categories.map((cat) => (
             <Line
               key={cat}
