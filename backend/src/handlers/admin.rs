@@ -186,7 +186,9 @@ pub fn validate_create_user_request(
     role: &str,
 ) -> Result<(), AppError> {
     // Validate in documented order: email first, then password, then role.
-    if email.is_empty() || !email.contains('@') {
+    // WR-03: use the model-layer validate_email_format (stronger than bare contains('@')):
+    // it rejects double-@ addresses and requires a non-empty local part and a domain with '.'.
+    if !crate::models::admin::validate_email_format(email) {
         return Err(AppError::BadRequest("Invalid email".to_string()));
     }
     if password.chars().count() < 12 {

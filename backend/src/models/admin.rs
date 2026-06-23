@@ -305,7 +305,6 @@ pub fn validate_password_length(password: &str) -> bool {
 /// - "user@"             → false   (empty domain)
 /// - "user@nodot"        → false   (domain has no '.')
 /// - "user@@double.com"  → false   (more than one '@')
-#[allow(dead_code)] // used only in #[cfg(test)] tests in this file
 pub fn validate_email_format(email: &str) -> bool {
     // Split on '@' allowing at most 2 parts — more than one '@' produces len > 2
     let parts: Vec<&str> = email.splitn(2, '@').collect();
