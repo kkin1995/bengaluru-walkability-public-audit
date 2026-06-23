@@ -405,7 +405,9 @@ export default async function PublicReportPage({
   // used for the original (FIX-01 / T-05-05): split on "/uploads/" and rebuild.
   const resolutionFilename = (report.resolution_photo_url ?? "").split("/uploads/").pop() ?? "";
   const publicResolutionUrl = resolutionFilename ? `${API_BASE_URL}/uploads/${resolutionFilename}` : "";
-  const hasResolutionPhoto = publicResolutionUrl !== "";
+  // WR-05: gate on isResolved so a resolution photo uploaded against a non-resolved report
+  // does not show the "RESOLUTION" badge and Before/After layout to citizens.
+  const hasResolutionPhoto = publicResolutionUrl !== "" && isResolved;
 
   // Sub-label for original: "DD MMM · CITIZEN" (D-26)
   // Uses existing formatDate but we need DD MMM only (e.g. "17 May")
