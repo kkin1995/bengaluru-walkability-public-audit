@@ -418,7 +418,8 @@ export default async function PublicReportPage({
 
   // Resolution date: last history entry with status resolved or closed (Risk 6).
   // Falls back to report.created_at if no such entry found.
-  const resolutionEntry = [...report.history]
+  // Null-guard: report.history may be null/undefined on the public endpoint (CR-03).
+  const resolutionEntry = [...(report.history ?? [])]
     .reverse()
     .find((e) => e.status === "resolved" || e.status === "closed");
   const resolutionDate = resolutionEntry ? resolutionEntry.changed_at : report.created_at;
@@ -735,17 +736,17 @@ export default async function PublicReportPage({
               padding: "4px 14px",
             }}
           >
-            {report.history.length === 0 ? (
+            {(report.history ?? []).length === 0 ? (
               <TimelineEntry
                 entry={{ status: report.status, changed_at: report.created_at }}
                 isCurrent
               />
             ) : (
-              report.history.map((entry, i) => (
+              (report.history ?? []).map((entry, i) => (
                 <TimelineEntry
                   key={`${entry.status}-${entry.changed_at}`}
                   entry={entry}
-                  isCurrent={i === report.history.length - 1}
+                  isCurrent={i === (report.history ?? []).length - 1}
                 />
               ))
             )}
