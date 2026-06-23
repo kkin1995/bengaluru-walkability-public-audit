@@ -567,6 +567,9 @@ function ReportsPageContent(props: PageProps) {
       const filters: AdminReportFilters = {};
       if (category) filters.category = category;
       if (status) filters.status = status;
+      // WR-02: forward active corp/ward filters so the export matches what is shown on screen
+      if (corporationId) filters.corporation_id = corporationId;
+      if (wardId) filters.ward_id = wardId;
       const blob = await downloadCsvExport(filters);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -589,6 +592,9 @@ function ReportsPageContent(props: PageProps) {
       const filters: AdminReportFilters = {};
       if (category) filters.category = category;
       if (status) filters.status = status;
+      // WR-02: forward active corp/ward filters so the export matches what is shown on screen
+      if (corporationId) filters.corporation_id = corporationId;
+      if (wardId) filters.ward_id = wardId;
       const blob = await downloadGeoJsonExport(filters);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
