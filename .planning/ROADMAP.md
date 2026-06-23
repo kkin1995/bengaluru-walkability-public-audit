@@ -122,7 +122,7 @@ Plans:
   7. On mobile Safari, the /admin/map Leaflet attribution bar and legend panel are positioned above the bottom nav bar height + safe-area-inset-bottom so nav tabs remain accessible (MOB-07)
   8. A backend unit test feeds a synthetic JPEG with EXIF orientation=6 through `bake_orientation` and asserts output dimensions are 3024×4032 (TEST-01)
 
-**Plans**: 6/8 plans executed
+**Plans**: 7/8 plans executed
 
 Plans:
 **Wave 1** *(independent — backend + test + frontend-only)*
@@ -142,7 +142,7 @@ Plans:
 
 **Wave 4** *(depends on Wave 3)*
 
-- [ ] 07-07-PLAN.md — Mobile Safari admin layout fixes MOB-01 through MOB-07 (MOB-01–07)
+- [x] 07-07-PLAN.md — Mobile Safari admin layout fixes MOB-01 through MOB-07 (MOB-01–07)
 
 **Wave 5** *(verification — depends on all)*
 
@@ -176,7 +176,7 @@ Plans:
 | 04.1 Ward-Org Link Gap Closure | v1.0 | 4/4 | ✅ Complete | 2026-06-01 |
 | 5. UAT Stabilisation | v1.1 | 4/4 | Complete   | 2026-06-05 |
 | 6. Production Launch + Git Branching | v1.1 | 5/5 | Complete    | 2026-06-22 |
-| 7. Admin Triage UX + Public Map | v1.1 | 6/8 | In Progress|  |
+| 7. Admin Triage UX + Public Map | v1.1 | 7/8 | In Progress|  |
 
 ---
 
