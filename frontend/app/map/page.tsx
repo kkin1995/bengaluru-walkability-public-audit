@@ -32,17 +32,14 @@ const STATUS_CHIPS = [
   { value: "resolved",    label: publicStatusLabel("resolved"),    dot: "var(--accent)" },
 ] as const;
 
-// Returns true when a report's status matches the selected status chip bucket (D-07 mapping).
-// Buckets are mutually exclusive: open → open only; in_progress → acknowledged|assigned|in_progress; resolved → resolved|closed.
+// Returns true when a report's status matches the selected status chip bucket.
+// Uses publicStatusLabel so filter buckets are identical to what citizens read on report cards:
+//   "Open"        → open | acknowledged | assigned (all display as "Open")
+//   "In progress" → in_progress only
+//   "Resolved"    → resolved | closed
 function statusMatch(reportStatus: string, chipValue: string): boolean {
   if (chipValue === "all") return true;
-  if (chipValue === "open")
-    return reportStatus === "open";
-  if (chipValue === "in_progress")
-    return reportStatus === "acknowledged" || reportStatus === "assigned" || reportStatus === "in_progress";
-  if (chipValue === "resolved")
-    return reportStatus === "resolved" || reportStatus === "closed";
-  return false;
+  return publicStatusLabel(reportStatus) === publicStatusLabel(chipValue);
 }
 
 function chipLabel(
@@ -59,14 +56,14 @@ function chipLabel(
 }
 
 // TRIAGE-03 (D-10): Status counts are TOTAL counts (not cross-filtered by category).
-// Buckets match statusMatch exactly: open=open, in_progress=acknowledged|assigned|in_progress, resolved=resolved|closed.
+// Bucketed via publicStatusLabel so chip counts match what citizens read on report cards.
 function statusCounts(reports: ReportLite[]): Record<string, number> {
   let open = 0; let inProgress = 0; let resolved = 0;
   for (const r of reports) {
-    const s = r.status;
-    if (s === "open") open++;
-    else if (s === "acknowledged" || s === "assigned" || s === "in_progress") inProgress++;
-    else if (s === "resolved" || s === "closed") resolved++;
+    const label = publicStatusLabel(r.status);
+    if (label === "Open") open++;
+    else if (label === "In progress") inProgress++;
+    else if (label === "Resolved") resolved++;
   }
   return { open, in_progress: inProgress, resolved };
 }

@@ -50,7 +50,8 @@ function WardBoundaryLayer({ geojson }: { geojson: FeatureCollection }) {
 
   function wardStyle(): PathOptions {
     return {
-      fill: false,
+      fill: true,       // transparent fill so polygon interior catches hover events
+      fillOpacity: 0,
       color: accentColor,
       opacity: 0.5,
       weight: 1.5,
