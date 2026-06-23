@@ -37,7 +37,7 @@ Bug fixes confirmed in live field UAT on staging.nammadaari.com (2026-06-01, iPh
 ### TRIAGE — Admin Triage UX + Public Map Enhancements
 
 - [x] **TRIAGE-01**: Admin can filter the reports queue by ward or corporation
-- [ ] **TRIAGE-02**: Public `/map` provides filter chips for report category (mirrors admin chip strip)
+- [x] **TRIAGE-02**: Public `/map` provides filter chips for report category (mirrors admin chip strip)
 - [x] **TRIAGE-03**: Public `/map` provides filter chips for report status (open, in progress, resolved)
 - [x] **TRIAGE-04**: Public `/map` displays a toggleable ward boundary polygon overlay
 - [x] **TRIAGE-05**: Public report detail page shows the resolution photo alongside the original when a resolution photo has been uploaded by admin
@@ -95,7 +95,7 @@ Bug fixes confirmed in live field UAT on staging.nammadaari.com (2026-06-01, iPh
 | LAUNCH-04 | Phase 6 | Complete |
 | LAUNCH-05 | Phase 6 | Complete |
 | TRIAGE-01 | Phase 7 | Complete |
-| TRIAGE-02 | Phase 7 | Pending |
+| TRIAGE-02 | Phase 7 | Complete |
 | TRIAGE-03 | Phase 7 | Complete |
 | TRIAGE-04 | Phase 7 | Complete |
 | TRIAGE-05 | Phase 7 | Complete |

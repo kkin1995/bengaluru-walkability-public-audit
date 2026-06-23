@@ -37,13 +37,13 @@ Total: 18 substantive phases, 59/59 plans — **48/48 v1 requirements satisfied*
 
 ---
 
-### 🚧 v1.1 Stabilise, Launch, and Triage (In Progress)
+### ✅ v1.1 Stabilise, Launch, and Triage (Complete — 2026-06-23)
 
 **Milestone Goal:** Fix all live UAT issues found in the v1.0 field test, ship nammadaari.com with a coming soon page, wire the main/staging/feature branching workflow for CI/CD, and improve admin triage UX + public map for daily use.
 
 - [x] **Phase 5: UAT Stabilisation** — Fix 13 confirmed bugs from live iPhone field test on staging.nammadaari.com (completed 2026-06-05)
 - [x] **Phase 6: Production Launch + Git Branching Workflow** — Ship nammadaari.com coming soon page and wire CI/CD for main/staging branches (completed 2026-06-22)
-- [ ] **Phase 7: Admin Triage UX + Public Map** — Add ward/corp filter to admin queue, filter chips and ward overlay to public map, before/after resolution photo on detail page
+- [x] **Phase 7: Admin Triage UX + Public Map** — Add ward/corp filter to admin queue, filter chips and ward overlay to public map, before/after resolution photo on detail page (completed 2026-06-23)
 
 ---
 
@@ -122,7 +122,7 @@ Plans:
   7. On mobile Safari, the /admin/map Leaflet attribution bar and legend panel are positioned above the bottom nav bar height + safe-area-inset-bottom so nav tabs remain accessible (MOB-07)
   8. A backend unit test feeds a synthetic JPEG with EXIF orientation=6 through `bake_orientation` and asserts output dimensions are 3024×4032 (TEST-01)
 
-**Plans**: 7/8 plans executed
+**Plans**: 8/8 plans complete
 
 Plans:
 **Wave 1** *(independent — backend + test + frontend-only)*
@@ -146,7 +146,7 @@ Plans:
 
 **Wave 5** *(verification — depends on all)*
 
-- [ ] 07-08-PLAN.md — TRIAGE-02 verification (already implemented) + cross-requirement UAT checklist (TRIAGE-02)
+- [x] 07-08-PLAN.md — TRIAGE-02 verification (already implemented) + cross-requirement UAT checklist (TRIAGE-02)
 
 **UI hint**: yes
 
@@ -176,7 +176,7 @@ Plans:
 | 04.1 Ward-Org Link Gap Closure | v1.0 | 4/4 | ✅ Complete | 2026-06-01 |
 | 5. UAT Stabilisation | v1.1 | 4/4 | Complete   | 2026-06-05 |
 | 6. Production Launch + Git Branching | v1.1 | 5/5 | Complete    | 2026-06-22 |
-| 7. Admin Triage UX + Public Map | v1.1 | 7/8 | In Progress|  |
+| 7. Admin Triage UX + Public Map | v1.1 | 8/8 | Complete   | 2026-06-23 |
 
 ---
 

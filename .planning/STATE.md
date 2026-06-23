@@ -4,17 +4,17 @@ milestone: v1.1
 milestone_name: Stabilise, Launch, and Triage
 current_phase: 07
 current_phase_name: admin-triage-ux-public-map
-status: executing
-stopped_at: Phase 07, Plan 04 complete
-last_updated: "2026-06-23T16:26:21.221Z"
+status: complete
+stopped_at: Phase 07, Plan 08 complete — all 13 Phase 7 requirements PASS
+last_updated: "2026-06-23T17:30:00.000Z"
 last_activity: 2026-06-23
-last_activity_desc: Plan 07-04 complete (corp/ward filter UI — TRIAGE-01)
+last_activity_desc: Plan 07-08 complete — Phase 7 UAT sign-off (all 13 requirements PASS)
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 17
-  completed_plans: 16
-  percent: 67
+  completed_plans: 17
+  percent: 100
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-06-05 after v1.1 roadmap created)
 
 ## Current Position
 
-Phase: 07 (admin-triage-ux-public-map) — EXECUTING (Plans 01, 02, 03, 04, 06 complete)
-Status: Executing Phase 07 — 5/8 plans complete
-Last activity: 2026-06-23 — Plan 07-04 complete (corp/ward filter UI — TRIAGE-01)
+Phase: 07 (admin-triage-ux-public-map) — COMPLETE (all 8/8 plans done)
+Status: Phase 07 complete — v1.1 milestone all phases done
+Last activity: 2026-06-23 — Plan 07-08 complete (UAT sign-off, all 13 requirements PASS)
 
-Progress: [████░░░░░░] 41%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -81,6 +81,8 @@ Key decisions from Phase 07, Plan 01:
 - [Phase 07-04]: corpIdRef + wardIdRef mirror categoryRef/statusRef pattern — avoids stale closure in fetchReports when geographic filters change
 - [Phase ?]: [Phase 07-05]: STATUS_CHIPS uses publicStatusLabel; In progress = acknowledged|assigned|in_progress per D-07
 - [Phase ?]: [Phase 07-05]: WardBoundaryLayer inside ReportsMap.tsx ssr:false; CSS var resolved at render with oklch fallback for Leaflet SVG
+- [Phase 07-08]: TRIAGE-02 category chips confirmed pre-existing in map/page.tsx — smoke-verify only, no code change
+- [Phase 07-08]: UAT verified on local Docker stack; ward-name-on-tap and corp-name text-search deferred as future enhancements
 
 ### Pending Todos
 
@@ -102,6 +104,6 @@ Items carried forward from v1.0 close (2026-06-01):
 
 ## Session Continuity
 
-Last session: 2026-06-23T16:26:21.217Z
-Stopped at: Phase 07, Plan 06 complete
-Resume file: .planning/phases/07-admin-triage-ux-public-map/07-07-PLAN.md
+Last session: 2026-06-23T17:30:00.000Z
+Stopped at: Phase 07, Plan 08 complete — all 13 requirements PASS, Phase 7 UAT signed off
+Resume file: None — v1.1 milestone complete
