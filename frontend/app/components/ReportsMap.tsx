@@ -207,10 +207,11 @@ export default function ReportsMap({
 
   // TRIAGE-03 (D-09): AND logic — both categoryFilter and statusFilter apply simultaneously.
   // statusMatch returns true when filter is unset/"all", or when the status belongs to the bucket.
+  // Buckets are mutually exclusive: open → open only; in_progress → acknowledged|assigned|in_progress; resolved → resolved|closed.
   function reportStatusMatch(status: string): boolean {
     if (!statusFilter || statusFilter === "all") return true;
     if (statusFilter === "open")
-      return status === "open" || status === "acknowledged" || status === "assigned";
+      return status === "open";
     if (statusFilter === "in_progress")
       return status === "acknowledged" || status === "assigned" || status === "in_progress";
     if (statusFilter === "resolved")
