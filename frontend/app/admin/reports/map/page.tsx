@@ -247,11 +247,18 @@ export default function ReportsMapPage() {
           padding: "10px 16px",
           background: "var(--surface)",
           borderBottom: "1px solid var(--border)",
+          flexWrap: "wrap",
         }}
       >
         <Pill tone="outline" size="sm" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>
           {String(filteredReports.length)} REPORTS
         </Pill>
+        {/* WR-01: Warn when the 200-report cap is reached — map may be showing partial data */}
+        {reports.length >= 200 && (
+          <Pill tone="warn" size="sm" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>
+            Showing first 200 — map may be partial
+          </Pill>
+        )}
       </div>
 
       {/* ── Filter controls (hidden selects for accessibility + test compatibility) ── */}
