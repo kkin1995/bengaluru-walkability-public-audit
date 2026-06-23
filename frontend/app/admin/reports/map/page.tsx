@@ -21,28 +21,26 @@ import { Btn } from "../../components/Btn";
  */
 function getPinColor(status: string): string {
   switch (status) {
-    case "submitted":
-      return "#6B7280";
-    case "under_review":
-      return "#F59E0B";
+    case "open":          return "#6B7280";
+    case "acknowledged":
+    case "assigned":
+    case "in_progress":   return "#F59E0B";
     case "resolved":
-      return "#22C55E";
-    default:
-      return "#6B7280";
+    case "closed":        return "#22C55E";
+    default:              return "#6B7280";
   }
 }
 
 /** Maps report status to a CSS variable string for legend/chip rendering. */
 function getStatusCssColor(status: string): string {
   switch (status) {
-    case "submitted":
-      return "var(--status-submitted)";
-    case "under_review":
-      return "var(--status-review)";
-    case "resolved":
-      return "var(--status-resolved)";
-    default:
-      return "var(--status-submitted)";
+    case "open":          return "var(--status-open)";
+    case "acknowledged":  return "var(--status-acknowledged)";
+    case "assigned":      return "var(--status-assigned)";
+    case "in_progress":   return "var(--status-in-progress)";
+    case "resolved":      return "var(--status-resolved)";
+    case "closed":        return "var(--status-closed)";
+    default:              return "var(--status-open)";
   }
 }
 
@@ -101,18 +99,24 @@ const CATEGORY_OPTIONS = [
 
 const STATUS_OPTIONS = [
   { value: "", label: "All Statuses" },
-  { value: "submitted", label: "Submitted" },
-  { value: "under_review", label: "Under Review" },
+  { value: "open", label: "Open" },
+  { value: "acknowledged", label: "Acknowledged" },
+  { value: "assigned", label: "Assigned" },
+  { value: "in_progress", label: "In Progress" },
   { value: "resolved", label: "Resolved" },
+  { value: "closed", label: "Closed" },
 ];
 
-type StatusFilter = "" | "submitted" | "under_review" | "resolved";
+type StatusFilter = "" | "open" | "acknowledged" | "assigned" | "in_progress" | "resolved" | "closed";
 
 const STATUS_CHIP_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "", label: "ALL" },
-  { value: "submitted", label: "SUBMITTED" },
-  { value: "under_review", label: "REVIEW" },
+  { value: "open", label: "OPEN" },
+  { value: "acknowledged", label: "ACKNOWLEDGED" },
+  { value: "assigned", label: "ASSIGNED" },
+  { value: "in_progress", label: "IN PROGRESS" },
   { value: "resolved", label: "RESOLVED" },
+  { value: "closed", label: "CLOSED" },
 ];
 
 // ── Main page component ────────────────────────────────────────────────────────
@@ -481,9 +485,9 @@ export default function ReportsMapPage() {
           }}
         >
           {[
-            { label: "SUBMITTED", color: getStatusCssColor("submitted") },
-            { label: "REVIEW",    color: getStatusCssColor("under_review") },
-            { label: "RESOLVED",  color: getStatusCssColor("resolved") },
+            { label: "OPEN",        color: getStatusCssColor("open") },
+            { label: "IN PROGRESS", color: getStatusCssColor("in_progress") },
+            { label: "RESOLVED",    color: getStatusCssColor("resolved") },
           ].map(({ label, color }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span
