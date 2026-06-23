@@ -23,7 +23,11 @@ export interface AdminUser {
   is_super_admin: boolean;
   created_at: string;
   last_login_at: string | null;
-  org_id: string | null;
+  // WR-04: org_id marked optional — Rust AdminUserResponse never serializes this field;
+  // the value is always undefined in the browser (not null). Marked optional so existing
+  // call sites do not break. Re-add as required when org_id: Option<Uuid> is added to
+  // AdminUserResponse on the backend.
+  org_id?: string | null;
 }
 
 export interface UpdateProfilePayload {
