@@ -212,11 +212,13 @@
 }
 
 /* MOB-01/02/07: safe-area bottom padding for admin scroll containers.
-   Ensures scrollable page content is not clipped behind the 56px admin bottom nav
+   Ensures scrollable page content is not clipped behind the ~67px admin bottom nav
    on mobile Safari. Apply to any page-level scroll container that needs clearance.
-   56px = admin bottom nav height (per UI-SPEC Mobile Safari Constraints). */
+   76px = 67px rendered nav (8px top padding + 44px content + 14px bottom padding + 1px border)
+   + 9px visible buffer. env(safe-area-inset-bottom, 0px) explicit fallback ensures
+   correctness when viewport-fit:cover is not active (returns 0 on iOS Safari). */
 .admin-safe-bottom {
-  padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 }
 
 /* MOB-07: push Leaflet's own attribution and zoom controls above the 56px admin
