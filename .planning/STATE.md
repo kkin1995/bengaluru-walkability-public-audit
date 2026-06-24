@@ -5,8 +5,8 @@ milestone_name: Stabilise, Launch, and Triage
 current_phase: 07
 current_phase_name: admin-triage-ux-public-map
 status: executing
-stopped_at: Phase 07, Plan 12 complete — TRIAGE-04b closed (ward focus rectangle removed)
-last_updated: "2026-06-24T06:51:49.187Z"
+stopped_at: Phase 07, Plan 13 complete — MOB-03 closed (TrendChart measured width + sparse data normalization)
+last_updated: "2026-06-24T07:03:06.293Z"
 last_activity: 2026-06-24
 last_activity_desc: Phase 07 execution started
 progress:
@@ -60,6 +60,7 @@ Progress: [██████████] 100%
 | Phase 07 P11 | 137 | 3 tasks | 4 files |
 | Phase 07 P12 | 15min | 3 tasks | 2 files |
 | Phase 07 P13 | 6m | 2 tasks | 2 files |
+| Phase 07 P13 | 20m | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,7 @@ Key decisions from Phase 07, Plan 01:
 - [Phase 07-08]: UAT verified on local Docker stack; ward-name-on-tap and corp-name text-search deferred as future enhancements
 - [Phase 07-12]: Defense-in-depth focus suppression: CSS outline:none on .leaflet-interactive + programmatic blur() on ward polygon click — wardStyle fill:true/fillOpacity:0 left unchanged so TRIAGE-04 hover tooltip does not regress
 - [Phase ?]: TrendChart uses useRef+ResizeObserver+useState to measure container width; LineChart renders only when width>0 — MOB-03 deferred-measurement race eliminated
+- [Phase ?]: [Phase 07-13]: transformTrendData normalizes sparse category data — zero-fills missing category/week pairs so Recharts draws continuous line segments (second root cause of MOB-03)
 
 ### Pending Todos
 
@@ -110,6 +112,6 @@ Items carried forward from v1.0 close (2026-06-01):
 
 ## Session Continuity
 
-Last session: 2026-06-24T06:51:40.357Z
-Stopped at: Phase 07, Plan 12 complete — TRIAGE-04b closed (ward focus rectangle removed)
-Resume file: None — v1.1 milestone complete
+Last session: 2026-06-24T07:03:06.289Z
+Stopped at: Phase 07, Plan 13 complete — MOB-03 closed (TrendChart measured width + sparse data normalization)
+Resume file: None
