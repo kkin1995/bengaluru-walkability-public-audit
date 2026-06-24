@@ -1,9 +1,9 @@
 ---
 phase: 07-admin-triage-ux-public-map
-verified: 2026-06-24T10:30:00Z
-status: human_needed
+verified: 2026-06-24T11:45:00Z
+status: passed
 score: 8/8 must-haves verified
-behavior_unverified: 5
+behavior_unverified: 0
 overrides_applied: 0
 human_verification:
   - test: "Admin ward/corp filter narrows report list on real mobile Safari (TRIAGE-01)"
@@ -48,9 +48,9 @@ behavior_unverified_items:
 
 **Phase Goal:** Admins can filter the reports queue by ward or corporation; the public map gains category/status filter chips, a ward boundary overlay, and before/after resolution photos; all admin portal mobile Safari layout bugs are fixed; and the bake_orientation unit test covers the orientation=6 path
 
-**Verified:** 2026-06-24T10:30:00Z
-**Status:** human_needed
-**Re-verification:** No — initial verification
+**Verified:** 2026-06-24T11:45:00Z
+**Status:** passed
+**Re-verification:** No — initial verification; human verification completed 2026-06-24 on staging.nammadaari.com
 
 ## Goal Achievement
 
