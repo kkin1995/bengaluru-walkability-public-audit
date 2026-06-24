@@ -122,12 +122,18 @@ Plans:
   7. On mobile Safari, the /admin/map Leaflet attribution bar and legend panel are positioned above the bottom nav bar height + safe-area-inset-bottom so nav tabs remain accessible (MOB-07)
   8. A backend unit test feeds a synthetic JPEG with EXIF orientation=6 through `bake_orientation` and asserts output dimensions are 3024×4032 (TEST-01)
 
-**Plans**: 10/10 plans complete
+**Plans**: 13 plans (10 complete, 3 gap-closure pending)
 
 Plans:
 
 - [x] 07-09-PLAN.md
 - [x] 07-10-PLAN.md
+
+**Gap closure** *(re-verification failures from 07-REVERIFY-UAT.md — independent, run after 01-10)*
+
+- [ ] 07-11-PLAN.md — TRIAGE-03 status filter intersection: shared status bucketing so In-progress chip never shows Open-bucket reports (TRIAGE-03)
+- [ ] 07-12-PLAN.md — TRIAGE-04b ward polygon click black focus rectangle removed via SVG outline:none + blur-on-click (TRIAGE-04)
+- [ ] 07-13-PLAN.md — MOB-03 analytics chart lines: measured explicit-width LineChart replaces ResponsiveContainer so lines paint on mobile load (MOB-03)
 
 **Wave 1** *(independent — backend + test + frontend-only)*
 
