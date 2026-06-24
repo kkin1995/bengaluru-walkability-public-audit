@@ -415,9 +415,21 @@ describe("R-RPT-3 — Admin clicking delete calls deleteReport() and refreshes t
       ).toBeInTheDocument();
     });
 
+    // Click the row-level Delete button — this opens the confirmation modal
     await act(async () => {
       await userEvent.click(
         screen.getByTestId(`delete-button-${REPORT_FIXTURE_1.id}`)
+      );
+    });
+
+    // Confirmation modal should now be visible — click the modal's "Delete" button to confirm
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      await userEvent.click(
+        screen.getByTestId("confirm-delete-btn")
       );
     });
 
@@ -442,9 +454,21 @@ describe("R-RPT-3 — Admin clicking delete calls deleteReport() and refreshes t
       ).toBeInTheDocument();
     });
 
+    // Click the row-level Delete button to open the confirmation modal
     await act(async () => {
       await userEvent.click(
         screen.getByTestId(`delete-button-${REPORT_FIXTURE_1.id}`)
+      );
+    });
+
+    // Confirm deletion in the modal
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      await userEvent.click(
+        screen.getByTestId("confirm-delete-btn")
       );
     });
 
@@ -469,9 +493,21 @@ describe("R-RPT-3 — Admin clicking delete calls deleteReport() and refreshes t
       ).toBeInTheDocument();
     });
 
+    // Click the row-level Delete button to open the confirmation modal
     await act(async () => {
       await userEvent.click(
         screen.getByTestId(`delete-button-${REPORT_FIXTURE_1.id}`)
+      );
+    });
+
+    // Confirm deletion in the modal
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      await userEvent.click(
+        screen.getByTestId("confirm-delete-btn")
       );
     });
 
