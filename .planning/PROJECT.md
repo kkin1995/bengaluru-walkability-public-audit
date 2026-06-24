@@ -173,11 +173,13 @@ Citizens can report a broken footpath in 60 seconds and the government can act o
 - ✓ CI/CD auto-deploy from both main and staging branches (5-job deploy.yml, live-verified) — Phase 06 (LAUNCH-02/03)
 - ✓ Domain-switch infrastructure: staging stack isolated on port 3011, concurrent with production — Phase 06 (LAUNCH-03)
 
-#### v1.1 — Admin Triage UX + Public Map
-- [ ] Ward/corporation filter in admin reports queue — UAT-01 enhancement
-- [ ] Category + status filter chips on public /map
-- [ ] Ward boundary polygon overlay on public /map
-- [ ] Before/after resolution photo comparison on public report detail page
+#### v1.1 — Admin Triage UX + Public Map ✓ Complete — Phase 07
+- ✓ Ward/corporation filter in admin reports queue (searchable corp + ward popovers, Enter key, 369 wards) — Phase 07 (TRIAGE-01)
+- ✓ Category + status filter chips on public /map with correct AND intersection logic — Phase 07 (TRIAGE-02, TRIAGE-03)
+- ✓ Ward boundary polygon overlay on public /map (hover tooltip, transparent fill hit area, no focus artifact, marker clicks not swallowed) — Phase 07 (TRIAGE-04)
+- ✓ Before/after resolution photo comparison on public report detail page — Phase 07 (TRIAGE-05)
+- ✓ Mobile Safari admin layout fixed (bottom nav clearance, compact row layout, analytics chart lines, choropleth) — Phase 07 (MOB-01–MOB-07)
+- ✓ bake_orientation unit test for EXIF orientation=6 — Phase 07 (TEST-01)
 
 #### Future — Notifications
 - [ ] Weekly email digest to GBA admins: new report count in their ward/corporation
@@ -255,4 +257,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-22 — after Phase 06 (Production Launch + Git Branching Workflow)*
+*Last updated: 2026-06-24 — after Phase 07 (Admin Triage UX + Public Map) — milestone v1.1 complete*
