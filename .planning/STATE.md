@@ -4,11 +4,11 @@ milestone: v1.1
 milestone_name: Stabilise, Launch, and Triage
 current_phase: 07
 current_phase_name: admin-triage-ux-public-map
-status: complete
+status: executing
 stopped_at: Phase 07, Plan 08 complete — all 13 Phase 7 requirements PASS
-last_updated: "2026-06-23T17:30:00.000Z"
+last_updated: "2026-06-24T06:25:01.037Z"
 last_activity: 2026-06-23
-last_activity_desc: Plan 07-08 complete — Phase 7 UAT sign-off (all 13 requirements PASS)
+last_activity_desc: Plan 07-08 complete (UAT sign-off, all 13 requirements PASS)
 progress:
   total_phases: 3
   completed_phases: 3
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-06-05 after v1.1 roadmap created)
 ## Current Position
 
 Phase: 07 (admin-triage-ux-public-map) — COMPLETE (all 8/8 plans done)
-Status: Phase 07 complete — v1.1 milestone all phases done
+Status: Ready to execute
 Last activity: 2026-06-23 — Plan 07-08 complete (UAT sign-off, all 13 requirements PASS)
 
 Progress: [██████████] 100%
