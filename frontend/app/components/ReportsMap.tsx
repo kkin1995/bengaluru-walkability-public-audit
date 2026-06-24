@@ -153,6 +153,16 @@ export default function ReportsMap({
   const onLoadedRef = useRef(onReportsLoaded);
   useEffect(() => { onLoadedRef.current = onReportsLoaded; }, [onReportsLoaded]);
 
+  // FIX-RATE-01: Track the AbortController for the in-flight fetch so unmount
+  // cancels the request. Prevents: (a) stale error/loading state being set on an
+  // unmounted component, (b) an unmounted fetch still consuming a rate-limit token.
+  const abortRef = useRef<AbortController | null>(null);
+
+  // FIX-RATE-01: Track whether the mount-triggered fetch is already in-flight so
+  // the visibilitychange handler does not fire a duplicate request on tab-restore
+  // when returning from a navigation (both mount and visibilitychange fire together).
+  const mountFetchDoneRef = useRef(false);
+
   // Patch Leaflet's default icon once on mount — before any fetch so it is
   // always set regardless of how quickly the API responds.
   useEffect(() => {
@@ -168,15 +178,19 @@ export default function ReportsMap({
     });
   }, []);
 
-  const fetchReports = useCallback(async () => {
+  const fetchReports = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
+    // FIX-RATE-01: Track abort separately so finally block can check it without
+    // relying on err being in scope (TypeScript scopes catch variables to the catch block).
+    let wasAborted = false;
     try {
       // WR-04: use the purpose-built GeoJSON endpoint instead of the paginated list.
       // GET /api/reports.geojson streams all reports with privacy-rounded coordinates
       // (~111 m precision) and no hard limit. The previous /api/reports?limit=200
       // silently dropped all reports beyond the 200th.
-      const res = await fetch(`${apiUrl}/api/reports.geojson`);
+      // FIX-RATE-01: pass AbortSignal so unmount cancels the in-flight request.
+      const res = await fetch(`${apiUrl}/api/reports.geojson`, { signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: {
         type: string;
@@ -211,23 +225,56 @@ export default function ReportsMap({
       }));
       setReports(items);
       onLoadedRef.current?.(items);
-    } catch {
+    } catch (err) {
+      // FIX-RATE-01: Do not set error state if the request was aborted (component
+      // unmounted mid-fetch). An AbortError is expected and not a real failure.
+      if (err instanceof DOMException && err.name === "AbortError") {
+        wasAborted = true;
+        return;
+      }
       setError("Couldn't load reports — tap to retry.");
     } finally {
-      setLoading(false);
+      // FIX-RATE-01: Only clear loading if the request was not aborted.
+      // If aborted, the component is unmounting — setting state would be a no-op
+      // at best and trigger a React warning at worst.
+      if (!wasAborted) {
+        setLoading(false);
+      }
     }
   }, [apiUrl]); // onReportsLoaded intentionally omitted — see onLoadedRef above
 
   useEffect(() => {
-    fetchReports();
+    // FIX-RATE-01: Create a fresh AbortController for this mount's fetch.
+    // Cancel any previous controller first (defensive, should not happen in practice).
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    mountFetchDoneRef.current = false;
+
+    fetchReports(controller.signal).finally(() => {
+      mountFetchDoneRef.current = true;
+    });
 
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
-        fetchReports();
+        // FIX-RATE-01: Skip the visibilitychange fetch if the mount fetch has not
+        // completed yet. On mobile, returning from a sub-page triggers both a
+        // component mount AND a visibilitychange event, which would fire two
+        // concurrent requests and consume 2 rate-limit tokens per navigation cycle.
+        if (!mountFetchDoneRef.current) return;
+
+        // Cancel the previous fetch if somehow still running.
+        abortRef.current?.abort();
+        const vc = new AbortController();
+        abortRef.current = vc;
+        fetchReports(vc.signal);
       }
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
+      // FIX-RATE-01: Cancel any in-flight fetch on unmount so it does not consume
+      // a rate-limit token after the component is gone.
+      abortRef.current?.abort();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [fetchReports]);
@@ -349,7 +396,14 @@ export default function ReportsMap({
           <div className="bg-white/95 rounded-xl px-6 py-4 shadow text-center mx-4">
             <p className="text-sm text-red-500 mb-3">{error}</p>
             <button
-              onClick={fetchReports}
+              onClick={() => {
+                // FIX-RATE-01: Create a fresh AbortController for the retry so
+                // the signal is not already-aborted from a previous unmount cycle.
+                abortRef.current?.abort();
+                const rc = new AbortController();
+                abortRef.current = rc;
+                fetchReports(rc.signal);
+              }}
               className="text-sm font-medium text-white bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl transition-colors"
             >
               Retry
