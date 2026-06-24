@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, useMap, GeoJSON } from "r
 import type { FeatureCollection, Feature } from "geojson";
 import type { PathOptions, Layer } from "leaflet";
 import { BENGALURU_CENTER } from "../lib/constants";
-import { getCategoryLabel, publicStatusLabel, publicStatusColor } from "../lib/translations";
+import { getCategoryLabel, publicStatusLabel, publicStatusColor, publicStatusMatches } from "../lib/translations";
 // MAP-02: HeatmapLayer is safe here — ReportsMap is the ssr:false boundary.
 // Do NOT import HeatmapLayer from any page or server component directly.
 import HeatmapLayer from "./HeatmapLayer";
@@ -206,20 +206,6 @@ export default function ReportsMap({
     };
   }, [fetchReports]);
 
-  // TRIAGE-03 (D-09): AND logic — both categoryFilter and statusFilter apply simultaneously.
-  // statusMatch returns true when filter is unset/"all", or when the status belongs to the bucket.
-  // Buckets are mutually exclusive: open → open only; in_progress → acknowledged|assigned|in_progress; resolved → resolved|closed.
-  function reportStatusMatch(status: string): boolean {
-    if (!statusFilter || statusFilter === "all") return true;
-    if (statusFilter === "open")
-      return status === "open";
-    if (statusFilter === "in_progress")
-      return status === "acknowledged" || status === "assigned" || status === "in_progress";
-    if (statusFilter === "resolved")
-      return status === "resolved" || status === "closed";
-    return false;
-  }
-
   // Always render MapContainer so Leaflet and tiles preload immediately.
   // Show a loading overlay on top while the API fetch is in-flight.
   // Show markers only after data has arrived.
@@ -246,10 +232,11 @@ export default function ReportsMap({
         )}
 
         {!loading && !error && reports
-          // TRIAGE-03 (D-09): AND logic — category filter AND status filter both applied
+          // TRIAGE-03 (D-09): AND logic — category filter AND status filter both applied.
+          // publicStatusMatches delegates to publicStatusLabel — same bucketing as chip counts (D-10).
           .filter((r) => {
             const catOk = !categoryFilter || categoryFilter === "all" || r.category === categoryFilter;
-            const statusOk = reportStatusMatch(r.status);
+            const statusOk = publicStatusMatches(r.status, (statusFilter ?? "all") as "all" | "open" | "in_progress" | "resolved");
             return catOk && statusOk;
           })
           .map((report) => (

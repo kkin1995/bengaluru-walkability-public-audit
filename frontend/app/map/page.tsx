@@ -32,16 +32,6 @@ const STATUS_CHIPS = [
   { value: "resolved",    label: publicStatusLabel("resolved"),    dot: "var(--accent)" },
 ] as const;
 
-// Returns true when a report's status matches the selected status chip bucket.
-// Uses publicStatusLabel so filter buckets are identical to what citizens read on report cards:
-//   "Open"        → open | acknowledged | assigned (all display as "Open")
-//   "In progress" → in_progress only
-//   "Resolved"    → resolved | closed
-function statusMatch(reportStatus: string, chipValue: string): boolean {
-  if (chipValue === "all") return true;
-  return publicStatusLabel(reportStatus) === publicStatusLabel(chipValue);
-}
-
 function chipLabel(
   chip: (typeof CHIPS)[number],
   counts: Record<string, number>,
