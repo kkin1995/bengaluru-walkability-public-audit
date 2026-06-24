@@ -15,6 +15,7 @@ provides:
   - SVG focus outline suppressed on Leaflet interactive paths via globals.css (TRIAGE-04b)
   - Blur-on-click handler in WardBoundaryLayer so no persistent focus state on ward polygons
   - Ward hover tooltip unchanged (TRIAGE-04 not regressed)
+  - wardBoundaryPane at z-index 390 ensures ward SVG never occludes CircleMarker click events
 
 affects: [07-13]
 
@@ -88,13 +89,13 @@ None - plan executed exactly as written. Both tasks completed as specified. CSS 
 
 ## Issues / Observations
 
-**New observation from human UAT (not caused by this plan):**
+**Additional fix applied post-checkpoint (commit `06f1398`):**
 
 During checkpoint verification the reviewer noted: when the WARDS toggle is on, clicking a report marker does not open the report detail popup.
 
-This is a pre-existing interaction conflict — the ward polygon's `fill:true/fillOpacity:0` layer sits above the marker layer in the Leaflet z-order, so click events may be captured by the ward polygon before reaching the Marker. This issue was NOT introduced by Plan 12 (which only added `outline:none` CSS and a `blur()` call and does not change event propagation). It should be investigated as a separate task — likely requires either adjusting layer z-order or calling `e.stopPropagation()` on ward clicks with care to avoid breaking map click events.
+Root cause: ward GeoJSON loads asynchronously, so its SVG paths were appended to the overlay pane SVG *after* the CircleMarker paths. In SVG, later elements are hit-tested first — so the transparent `fillOpacity:0` ward fill was always above markers and swallowed their clicks.
 
-**Deferred to investigation:** Ward WARDS-overlay blocks report-marker popup click when WARDS toggle is enabled (separate from TRIAGE-04b scope).
+Fix: `WardBoundaryLayer` now creates a dedicated `wardBoundaryPane` at z-index 390 (below `overlayPane` at 400) in a `useEffect`, then renders the `<GeoJSON>` into that pane (`pane="wardBoundaryPane"`). Ward polygons are permanently in a lower SVG layer; CircleMarkers remain in the overlay pane and receive clicks correctly. Human-verified: clicking report markers with WARDS toggle on now opens the popup correctly. Hover tooltips and teal stroke unchanged.
 
 ## User Setup Required
 
@@ -104,8 +105,8 @@ None - no external service configuration required.
 
 - TRIAGE-04b is closed; ward overlay renders with no focus artifacts
 - TRIAGE-04 (hover tooltip) is confirmed not regressed
-- Remaining gap-closure plan: 07-13 (MOB-03 analytics chart lines)
-- Known issue for separate investigation: report marker click popup blocked when WARDS toggle is on
+- Ward marker-click regression resolved; report popups open correctly with WARDS toggle on
+- All gap-closure plans complete; branch ready for /gsd-ship
 
 ---
 *Phase: 07-admin-triage-ux-public-map*
