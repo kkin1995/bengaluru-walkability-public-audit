@@ -423,6 +423,11 @@ function ReportsPageContent(props: PageProps) {
   const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
 
+  // Delete confirmation modal state
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   // Use ref to avoid stale closure in callbacks
   const categoryRef = useRef(category);
   const statusRef = useRef(status);
@@ -534,12 +539,23 @@ function ReportsPageContent(props: PageProps) {
     fetchReports(categoryRef.current, statusRef.current, 1, corpIdRef.current, id);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleDelete(id: string) {
+  function handleDelete(id: string) {
+    setDeleteError(null);
+    setConfirmDeleteId(id);
+  }
+
+  async function confirmDelete() {
+    if (!confirmDeleteId) return;
+    setIsDeleting(true);
+    setDeleteError(null);
     try {
-      await deleteReport(id);
+      await deleteReport(confirmDeleteId);
+      setConfirmDeleteId(null);
       await fetchReports(categoryRef.current, statusRef.current, pageRef.current, corpIdRef.current, wardIdRef.current);
     } catch {
-      // ignore
+      setDeleteError("Failed to delete report. Please try again.");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -830,6 +846,75 @@ function ReportsPageContent(props: PageProps) {
             onPageChange={(pg) => fetchReports(categoryRef.current, statusRef.current, pg, corpIdRef.current, wardIdRef.current)}
           />
         </>
+      )}
+
+      {/* Delete confirmation modal */}
+      {confirmDeleteId !== null && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-modal-title"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 50,
+            background: "rgba(10,10,10,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          onClick={() => !isDeleting && setConfirmDeleteId(null)}
+        >
+          <div
+            style={{
+              background: "var(--surface)",
+              borderRadius: "var(--r-xl)",
+              boxShadow: "var(--shadow-lg)",
+              width: "100%",
+              maxWidth: 480,
+              padding: 24,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="delete-modal-title"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: 15,
+                fontWeight: 600,
+                color: "var(--ink)",
+                margin: "0 0 16px",
+              }}
+            >
+              Delete this report? This cannot be undone.
+            </h2>
+            {deleteError && (
+              <p role="alert" style={{ fontSize: 13, color: "var(--danger-ink)", marginBottom: 12 }}>
+                {deleteError}
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <Btn
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDeleteId(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Btn>
+              <Btn
+                variant="danger"
+                size="sm"
+                data-testid="confirm-delete-btn"
+                onClick={confirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </Btn>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Status-change modal */}

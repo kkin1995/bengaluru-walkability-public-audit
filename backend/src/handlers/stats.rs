@@ -48,7 +48,8 @@ pub async fn public_get_stats(
 
 /// GET /api/reports.geojson — streaming PII-free FeatureCollection; no auth required.
 ///
-/// Rate limited: 2 req/min per IP (governor keyed limiter on AppState).
+/// Rate limited: 30 req/min per IP (governor keyed limiter on AppState).
+/// Raised from 2r/min — see main.rs geojson_quota comment for rationale.
 /// Coordinates rounded to 3 decimal places (~111 m) by queries::round3().
 pub async fn public_get_geojson(
     State(state): State<AppState>,

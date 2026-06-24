@@ -135,8 +135,12 @@ async fn main() {
     let quota = governor::Quota::per_hour(std::num::NonZeroU32::new(2).unwrap());
     let rate_limiter = Arc::new(governor::RateLimiter::keyed(quota));
 
-    // EXPORT-03/D-18: Per-IP rate limiter for public GeoJSON endpoint — 2 req/min.
-    let geojson_quota = governor::Quota::per_minute(std::num::NonZeroU32::new(2).unwrap());
+    // EXPORT-03/D-18: Per-IP rate limiter for public GeoJSON endpoint — 30 req/min.
+    // Raised from 2r/min: the /map page legitimately re-fetches on every mount and
+    // on each visibilitychange (tab-restore). 2r/min exhausted after 2-3 navigation
+    // cycles, returning 429 → "Couldn't load reports" error for normal citizen use.
+    // 30r/min retains meaningful bot/scraper defense while allowing normal SPA navigation.
+    let geojson_quota = governor::Quota::per_minute(std::num::NonZeroU32::new(30).unwrap());
     let geojson_rate_limiter = Arc::new(governor::RateLimiter::keyed(geojson_quota));
 
     // WR-01: Read COOKIE_SECURE once at startup; store in AppState so the login

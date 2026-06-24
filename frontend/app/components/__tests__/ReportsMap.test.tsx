@@ -111,8 +111,11 @@ describe("R5 / AC5.1 — Reports load on mount", () => {
     render(<ReportsMap apiUrl={API_URL} />);
 
     await waitFor(() => {
+      // FIX-RATE-01: fetch now receives a second { signal } argument (AbortController).
+      // Use expect.objectContaining so the test is not brittle about signal internals.
       expect(global.fetch).toHaveBeenCalledWith(
-        `${API_URL}/api/reports.geojson`
+        `${API_URL}/api/reports.geojson`,
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
   });
