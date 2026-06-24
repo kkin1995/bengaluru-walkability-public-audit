@@ -39,6 +39,9 @@ jest.mock("@/app/admin/lib/adminApi", () => ({
   createUser: jest.fn(),
   deactivateUser: jest.fn(),
   getDuplicatesForReport: jest.fn(),
+  getAdminCorporations: jest.fn(),
+  getAdminWards: jest.fn(),
+  listOrganizations: jest.fn(),
 }));
 
 // Mock ReportsTable to expose duplicate badge/label directly so the test is
@@ -166,6 +169,8 @@ describe("ABUSE-06: Admin queue duplicate signals", () => {
       id: "admin-id",
       role: "admin",
     });
+    (adminApiModule.getAdminCorporations as jest.Mock).mockResolvedValue([]);
+    (adminApiModule.getAdminWards as jest.Mock).mockResolvedValue([]);
   });
 
   afterEach(() => {

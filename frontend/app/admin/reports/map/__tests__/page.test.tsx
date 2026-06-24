@@ -814,11 +814,11 @@ describe("RM-FE-5 / AC-RM-FE-5-S2 — Status filter reduces visible pins", () =>
 describe("RM-FE-5 / AC-RM-FE-5-S3 — Both filters applied simultaneously (AND logic)", () => {
   it("category AND status filter together show only matching pins", async () => {
     const reports = [
-      makeReport({ id: "and1", category: "broken_footpath", status: "submitted" }),
-      makeReport({ id: "and2", category: "broken_footpath", status: "submitted" }),
+      makeReport({ id: "and1", category: "broken_footpath", status: "open" }),
+      makeReport({ id: "and2", category: "broken_footpath", status: "open" }),
       makeReport({ id: "and3", category: "broken_footpath", status: "resolved" }),
-      makeReport({ id: "and4", category: "poor_lighting", status: "submitted" }),
-      makeReport({ id: "and5", category: "poor_lighting", status: "submitted" }),
+      makeReport({ id: "and4", category: "poor_lighting", status: "open" }),
+      makeReport({ id: "and5", category: "poor_lighting", status: "open" }),
     ];
     (adminApi.getAdminReports as jest.Mock).mockResolvedValueOnce(makeListResponse(reports));
     render(<ReportsMapPage />);
@@ -841,7 +841,7 @@ describe("RM-FE-5 / AC-RM-FE-5-S3 — Both filters applied simultaneously (AND l
     if (categorySelect && statusSelect) {
       await act(async () => {
         await userEvent.selectOptions(categorySelect as HTMLElement, "broken_footpath");
-        await userEvent.selectOptions(statusSelect as HTMLElement, "submitted");
+        await userEvent.selectOptions(statusSelect as HTMLElement, "open");
       });
 
       const filteredMarkers =
@@ -850,7 +850,7 @@ describe("RM-FE-5 / AC-RM-FE-5-S3 — Both filters applied simultaneously (AND l
           : screen.queryAllByTestId("circle-marker");
       expect(filteredMarkers.length).toBe(
         2,
-        "With category=broken_footpath AND status=submitted, exactly 2 pins must be visible (AC-RM-FE-5-S3)"
+        "With category=broken_footpath AND status=open, exactly 2 pins must be visible (AC-RM-FE-5-S3)"
       );
     }
   });

@@ -49,6 +49,8 @@ jest.mock("../lib/adminApi", () => ({
   updateReportStatus: jest.fn(),
   createUser: jest.fn(),
   deactivateUser: jest.fn(),
+  getAdminCorporations: jest.fn(),
+  getAdminWards: jest.fn(),
 }));
 
 // ReportsTable mock — renders the reports and exposes controls
@@ -196,6 +198,8 @@ beforeEach(() => {
   mockSearchParamsString = "";
   mockRouterPush.mockClear();
   capturedReportsTableProps = {};
+  (adminApi.getAdminCorporations as jest.Mock).mockResolvedValue([]);
+  (adminApi.getAdminWards as jest.Mock).mockResolvedValue([]);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

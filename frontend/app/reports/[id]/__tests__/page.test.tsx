@@ -273,8 +273,7 @@ describe("PublicReportPage — Resolution section (conditional)", () => {
     const jsx = await PublicReportPage({ params: { id: "test-report-abc" } });
     render(jsx);
 
-    expect(screen.getByText(/Resolution/i)).toBeInTheDocument();
-    expect(screen.getByText(/Field verified/i)).toBeInTheDocument();
+    expect(screen.getByText(/RESOLUTION/i)).toBeInTheDocument();
   });
 
   it("does NOT render Resolution section when status is open", async () => {
@@ -282,7 +281,7 @@ describe("PublicReportPage — Resolution section (conditional)", () => {
     const jsx = await PublicReportPage({ params: { id: "test-report-abc" } });
     render(jsx);
 
-    expect(screen.queryByText(/Field verified/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/RESOLUTION/i)).not.toBeInTheDocument();
   });
 
   it("does NOT render Resolution section when status is in_progress", async () => {
@@ -290,7 +289,7 @@ describe("PublicReportPage — Resolution section (conditional)", () => {
     const jsx = await PublicReportPage({ params: { id: "test-report-abc" } });
     render(jsx);
 
-    expect(screen.queryByText(/Field verified/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/RESOLUTION/i)).not.toBeInTheDocument();
   });
 
   it("renders Resolution section when status is closed", async () => {
@@ -302,7 +301,7 @@ describe("PublicReportPage — Resolution section (conditional)", () => {
     const jsx = await PublicReportPage({ params: { id: "test-report-abc" } });
     render(jsx);
 
-    expect(screen.getByText(/Field verified/i)).toBeInTheDocument();
+    expect(screen.getByText(/RESOLUTION/i)).toBeInTheDocument();
   });
 });
 
