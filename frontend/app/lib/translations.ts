@@ -72,6 +72,22 @@ export function publicStatusLabel(status: string): "Open" | "In progress" | "Res
   return "Open"; // open, acknowledged, assigned, and unknown statuses
 }
 
+// TRIAGE-03 / D-09: Single shared bucketing predicate — consumed by both the render filter
+// (ReportsMap marker .filter()) and chip count buckets (statusCounts in map/page.tsx).
+// Delegates to publicStatusLabel so bucket assignments cannot drift between the two callers.
+export function publicStatusMatches(
+  status: string,
+  bucket: "all" | "open" | "in_progress" | "resolved"
+): boolean {
+  if (bucket === "all") return true;
+  const labelMap: Record<"open" | "in_progress" | "resolved", "Open" | "In progress" | "Resolved"> = {
+    open: "Open",
+    in_progress: "In progress",
+    resolved: "Resolved",
+  };
+  return publicStatusLabel(status) === labelMap[bucket];
+}
+
 // Returns CSS variable string for the 3-state public status color mapping.
 export function publicStatusColor(status: string): string {
   if (status === "in_progress") return "var(--warn)";
