@@ -122,7 +122,7 @@ Plans:
   7. On mobile Safari, the /admin/map Leaflet attribution bar and legend panel are positioned above the bottom nav bar height + safe-area-inset-bottom so nav tabs remain accessible (MOB-07)
   8. A backend unit test feeds a synthetic JPEG with EXIF orientation=6 through `bake_orientation` and asserts output dimensions are 3024×4032 (TEST-01)
 
-**Plans**: 12/13 plans executed
+**Plans**: 13/13 plans complete
 
 Plans:
 
@@ -133,7 +133,7 @@ Plans:
 
 - [x] 07-11-PLAN.md — TRIAGE-03 status filter intersection: shared status bucketing so In-progress chip never shows Open-bucket reports (TRIAGE-03)
 - [x] 07-12-PLAN.md — TRIAGE-04b ward polygon click black focus rectangle removed via SVG outline:none + blur-on-click (TRIAGE-04)
-- [ ] 07-13-PLAN.md — MOB-03 analytics chart lines: measured explicit-width LineChart replaces ResponsiveContainer so lines paint on mobile load (MOB-03)
+- [x] 07-13-PLAN.md — MOB-03 analytics chart lines: measured explicit-width LineChart replaces ResponsiveContainer so lines paint on mobile load (MOB-03)
 
 **Wave 1** *(independent — backend + test + frontend-only)*
 
@@ -186,7 +186,7 @@ Plans:
 | 04.1 Ward-Org Link Gap Closure | v1.0 | 4/4 | ✅ Complete | 2026-06-01 |
 | 5. UAT Stabilisation | v1.1 | 4/4 | Complete   | 2026-06-05 |
 | 6. Production Launch + Git Branching | v1.1 | 5/5 | Complete    | 2026-06-22 |
-| 7. Admin Triage UX + Public Map | v1.1 | 12/13 | In Progress|  |
+| 7. Admin Triage UX + Public Map | v1.1 | 13/13 | Complete   | 2026-06-24 |
 
 ---
 
