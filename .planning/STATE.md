@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stabilise, Launch, and Triage
 current_phase: 07
-status: "Phase 07 shipped — PR #22"
+status: "Phase 07 shipped — PR #22 (updated)"
 stopped_at: Phase 07 UAT complete — all 4 re-verify2 tests pass, milestone v1.1 complete
-last_updated: "2026-06-24T07:58:13.162Z"
+last_updated: "2026-06-24T13:40:13.699Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 21
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-05 after v1.1 roadmap created)
 ## Current Position
 
 Phase: 07
-Status: Phase 07 shipped — PR #22
+Status: Phase 07 shipped — PR #22 (updated)
 Last activity: 2026-06-24
 
 Progress: [██████████] 100%
