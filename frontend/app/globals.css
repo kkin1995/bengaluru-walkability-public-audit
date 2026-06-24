@@ -133,3 +133,10 @@ body {
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
+
+/* TRIAGE-04b: Suppress the default browser focus outline on Leaflet SVG paths.
+   Ward polygons are interactive (fill:true/fillOpacity:0) so hover events register,
+   but clicking them produces a black focus rectangle artifact. Both selectors are
+   included for defence-in-depth (some browsers honour the scoped one; others the flat one). */
+.leaflet-interactive:focus { outline: none; }
+.leaflet-container svg path.leaflet-interactive { outline: none; }

@@ -65,6 +65,12 @@ function WardBoundaryLayer({ geojson }: { geojson: FeatureCollection }) {
       // Bind tooltip so tapping/hovering a polygon shows the ward name (D-17).
       (layer as any).bindTooltip(name, { sticky: true, direction: "auto" });
     }
+    // TRIAGE-04b: blur the focused SVG path on click so no focus outline lingers.
+    // The CSS rule in globals.css already suppresses outline:focus; this handler is
+    // belt-and-suspenders — it removes focus state from the element immediately.
+    (layer as any).on("click", (e: { target?: { _path?: SVGPathElement } }) => {
+      e?.target?._path?.blur?.();
+    });
   }
 
   return (
