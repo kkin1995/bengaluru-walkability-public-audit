@@ -193,6 +193,7 @@ pub async fn deactivate_admin_user(pool: &PgPool, user_id: Uuid) -> Result<bool,
 ///
 /// Both are appended as AND conditions on top of the existing org_id CTE scoping (D-05).
 /// All values are bound via $N parameters — never interpolated (T-07-02, ASVS V5).
+#[allow(clippy::too_many_arguments)]
 fn build_report_where_clause(
     category: Option<&str>,
     status: Option<&str>,
