@@ -8,10 +8,9 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
 } from "recharts";
 import type { LegendPayload } from "recharts/types/component/DefaultLegendContent";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { TrendDataPoint } from "../lib/adminApi";
 import { getCategoryLabel } from "@/app/lib/translations";
 
@@ -35,6 +34,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: "#718096",
 };
 
+const CHART_HEIGHT = 300;
+
 function transformTrendData(data: TrendDataPoint[]): Record<string, unknown>[] {
   const byWeek: Record<string, Record<string, unknown>> = {};
   for (const d of data) {
@@ -48,6 +49,46 @@ function transformTrendData(data: TrendDataPoint[]): Record<string, unknown>[] {
 
 export default function TrendChart({ data, legendFormatter }: TrendChartProps) {
   const [hiddenLines, setHiddenLines] = useState<Set<string>>(new Set());
+
+  // MOB-03 re-fix: self-measuring wrapper eliminates the deferred-measurement race.
+  //
+  // Root cause: the previous approach used a wrapping component that relies on a
+  // ResizeObserver to measure its parent before Recharts computes each Line's SVG
+  // path `d` attribute. On mobile (and Chrome simulated mobile) the container's
+  // measured width arrives after first paint (0 on initial render), so Recharts
+  // computes geometry against a zero width — the line `d` is empty and only the
+  // static grid/axes paint. isAnimationActive={false} cannot fix this because
+  // the geometry itself is never computed.
+  //
+  // Fix: measure the outer div with a ResizeObserver into React state and pass
+  // an explicit numeric width={width} to LineChart directly. With concrete
+  // numbers, Recharts computes the path `d` synchronously on render. Render
+  // LineChart only once width > 0 so Recharts never computes against zero.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    // Initial synchronous measurement
+    const measured = el.getBoundingClientRect().width || el.clientWidth;
+    if (measured > 0) setWidth(measured);
+
+    // Watch for container resize (orientation change, viewport resize)
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        const w = entry.contentRect.width;
+        if (w > 0) setWidth(w);
+      }
+    });
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   const handleLegendClick = (entry: LegendPayload) => {
     const key = String(entry.dataKey ?? "");
@@ -63,12 +104,12 @@ export default function TrendChart({ data, legendFormatter }: TrendChartProps) {
   const categories = Array.from(new Set(data.map((d) => d.category)));
 
   return (
-    // MOB-03: explicit height on wrapper div prevents ResponsiveContainer collapsing
-    // to zero height on iOS Safari when parent is 100%-only. ResponsiveContainer reads
-    // the wrapper's explicit pixel height rather than relying on parent layout.
-    <div style={{ width: "100%", height: 300 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData}>
+    // Outer div: full-width, fixed pixel height so the measuring ref always has
+    // a concrete bounding rect to read. The ResizeObserver on this element
+    // reports its width into state; LineChart is rendered only when width > 0.
+    <div ref={containerRef} style={{ width: "100%", height: CHART_HEIGHT }}>
+      {width > 0 && (
+        <LineChart data={chartData} width={width} height={CHART_HEIGHT}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis
             dataKey="week_start"
@@ -99,7 +140,7 @@ export default function TrendChart({ data, legendFormatter }: TrendChartProps) {
             />
           ))}
         </LineChart>
-      </ResponsiveContainer>
+      )}
     </div>
   );
 }
