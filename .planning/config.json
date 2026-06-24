@@ -19,7 +19,10 @@
   },
   "branching": {
     "working_branch": "staging",
-    "protected": ["main", "staging"],
+    "protected": [
+      "main",
+      "staging"
+    ],
     "merge_targets": {
       "feat": "staging",
       "fix": "staging",
