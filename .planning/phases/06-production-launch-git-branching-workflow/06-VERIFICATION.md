@@ -1,10 +1,12 @@
 ---
 phase: 06-production-launch-git-branching-workflow
 verified: 2026-06-22T11:15:36Z
-status: human_needed
-score: 9/10 must-haves verified
+status: passed
+score: 10/10 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
+human_verified: 2026-06-22T17:30:00Z
+human_verified_by: UAT session (06-UAT.md) — Tests 2 and 3 both result:pass
 re_verification:
   previous_status: gaps_found
   previous_score: 5/10
@@ -23,16 +25,21 @@ human_verification:
   - test: "Visit https://nammadaari.com in a browser"
     expected: "Coming soon page with Namma Daari wordmark, 'Coming soon · Bengaluru' pulsing chip, 'Snap a broken footpath.' tagline, description paragraph mentioning BBMP/GBA, and Instagram CTA @nammadaariblr"
     why_human: "Live Vercel deployment and Cloudflare routing cannot be verified from the codebase; the code is correct on origin/main but whether Vercel built and served it is external state. Human confirmed HTTP 200 — visual confirmation of content needed."
+    confirmed: true
+    confirmed_by: "06-UAT.md Test 2 — result:pass (2026-06-22T17:30:00Z)"
   - test: "Visit https://staging.nammadaari.com in a browser"
     expected: "Full citizen app home page (report submission interface with photo CTA) — NOT the coming soon page"
     why_human: "Vercel branch-to-domain routing (staging.nammadaari.com → staging branch) is external Vercel dashboard configuration; page.tsx on origin/staging correctly shows the citizen app but actual DNS/CDN routing requires browser confirmation"
+    confirmed: true
+    confirmed_by: "06-UAT.md Test 3 — result:pass (2026-06-22T17:30:00Z)"
 ---
 
 # Phase 6: Production Launch + Git Branching Workflow Verification Report
 
 **Phase Goal:** Establish production launch infrastructure — staging branch, dual-environment CI/CD, coming soon page on nammadaari.com, and documented branching workflow.
 **Verified:** 2026-06-22T11:15:36Z
-**Status:** human_needed
+**Status:** passed
+**Human Verification Closed:** 2026-06-22T17:30:00Z (via 06-UAT.md Tests 2 + 3)
 **Re-verification:** Yes — after gap closure (infra PR #21 merged to origin/staging)
 
 ---
@@ -43,7 +50,7 @@ human_verification:
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | Visiting nammadaari.com shows a coming soon page with the @nammadaariblr Instagram CTA (LAUNCH-01) | ⚠️ PRESENT_BEHAVIOR_UNVERIFIED | page.tsx on origin/main: no `use client`, no API calls, metadata.title = "Namma Daari — Coming Soon", href="https://instagram.com/nammadaariblr", rel="noopener". CSS module on origin/main: 37 var(--) references, no hardcoded hex. Human-confirmed: PR #20 merged, nammadaari.com returns HTTP 200 with coming soon content. Visual/layout check requires browser. |
+| 1 | Visiting nammadaari.com shows a coming soon page with the @nammadaariblr Instagram CTA (LAUNCH-01) | ✓ VERIFIED | page.tsx on origin/main: no `use client`, no API calls, metadata.title = "Namma Daari — Coming Soon", href="https://instagram.com/nammadaariblr", rel="noopener". CSS module on origin/main: 37 var(--) references, no hardcoded hex. Human confirmed visual content in browser: 06-UAT.md Test 2 result:pass (2026-06-22). |
 | 2 | Pushing to main triggers CI that deploys to nammadaari.com via Cloudflare Tunnel (LAUNCH-02) | ✓ VERIFIED | origin/main deploy.yml: triggers on push to main, uses `environment: production`, runs on walkability-prod runner, uses docker-compose.server.yml which EXISTS on origin/main. Smoke test uses vars.BACKEND_URL and vars.FRONTEND_URL from the production environment. Self-consistent pipeline. Human-confirmed production environment variables and runner label present. |
 | 3 | Pushing to staging triggers CI that deploys to staging.nammadaari.com (LAUNCH-03) | ✓ VERIFIED | origin/staging deploy.yml: on.push.branches=[main,staging], 5 jobs (ci, deploy-staging, deploy-production, smoke-test-staging, smoke-test-production). deploy-staging uses environment:staging and runs-on:[self-hosted,linux,walkability-staging]. docker-compose.staging-server.yml exists on origin/staging. Human-confirmed: runner label walkability-staging and GitHub Environment staging configured. |
 | 4 | DEPLOYMENT.md documents the branching model (feature/fix → staging → main) and staging stack (LAUNCH-04) | ✓ VERIFIED | origin/staging DEPLOYMENT.md: grep docker-compose.server.yml = 0; docker-compose.production-server.yml = 17; api-walkability = 0; staging = many. Sections §1a Branching Workflow, §1b Staging Stack Setup, §1c Cloudflare Tunnel all present (grep "Branching Workflow|Staging Stack|Cloudflare Tunnel" = 11 matches). |
@@ -120,7 +127,7 @@ No probes declared for this phase. Step 7c: SKIPPED.
 
 | Requirement | Source Plan | Description | Status | Evidence |
 |-------------|------------|-------------|--------|----------|
-| LAUNCH-01 | 06-05 | nammadaari.com shows coming soon page with @nammadaariblr CTA | ⚠️ PRESENT_BEHAVIOR_UNVERIFIED | page.tsx + CSS module on origin/main; code verified; human-confirmed HTTP 200; visual rendering requires browser |
+| LAUNCH-01 | 06-05 | nammadaari.com shows coming soon page with @nammadaariblr CTA | ✓ SATISFIED | page.tsx + CSS module on origin/main; code verified; human confirmed visual content in browser (06-UAT.md Test 2 result:pass, 2026-06-22) |
 | LAUNCH-02 | 06-01, 06-02 | main branch auto-deploys to nammadaari.com via Cloudflare Tunnel + CI | ✓ SATISFIED | origin/main deploy.yml: push to main → deploy job (environment: production) → docker-compose.server.yml (exists on main). Self-consistent. Human-confirmed production environment and runner operational. |
 | LAUNCH-03 | 06-01, 06-02, 06-03 | staging branch auto-deploys to staging.nammadaari.com via CI | ✓ SATISFIED | origin/staging: dual-branch deploy.yml with deploy-staging job; docker-compose.staging-server.yml present; runner label walkability-staging confirmed; GitHub Environment staging confirmed |
 | LAUNCH-04 | 06-04 | Branching workflow documented in DEPLOYMENT.md | ✓ SATISFIED | DEPLOYMENT.md §1a Branching Workflow, §1b Staging Stack Setup, §1c Cloudflare Tunnel present on origin/staging; all old references updated |
@@ -140,19 +147,21 @@ No TBD, FIXME, or XXX markers found in any files modified by this phase on origi
 
 ---
 
-### Human Verification Required
+### Human Verification — CONFIRMED
 
-#### 1. Confirm coming soon page visual content on nammadaari.com
+Both human verification items were confirmed via the UAT session (06-UAT.md, 2026-06-22T17:30:00Z):
 
-**Test:** Visit https://nammadaari.com in a browser (Chrome or Firefox preferred for full CSS support)
-**Expected:** Coming soon page renders with: Namma Daari wordmark (EN + Kannada), "Coming soon · Bengaluru" pulsing green dot chip, "Snap a broken footpath." / "Put it on Bengaluru's map." tagline (second line in muted color), description paragraph with "Every report lands in front of BBMP / GBA" in bold, Instagram CTA button with @nammadaariblr handle, footer with four tags (Footpaths, Crossings, Lighting, BBMP / GBA). Page title in browser tab: "Namma Daari — Coming Soon".
-**Why human:** HTTP 200 already confirmed by human. The visual rendering — CSS variable resolution, animation, responsive layout — requires a live browser. The code is verified correct; this check confirms Vercel built and served it properly.
+#### 1. nammadaari.com — coming soon page visual content
 
-#### 2. Confirm staging.nammadaari.com shows the full citizen app
+**Result:** CONFIRMED (06-UAT.md Test 2 — result:pass)
+**Test:** Visit https://nammadaari.com — confirmed by human in browser.
+**Expected:** Coming soon page with Namma Daari wordmark, "Coming soon · Bengaluru" pulsing chip, "Snap a broken footpath." tagline, BBMP/GBA description, @nammadaariblr Instagram CTA.
 
-**Test:** Visit https://staging.nammadaari.com in a browser
-**Expected:** Full citizen app home page with report submission interface (photo CTA, location, category) — NOT a coming soon page. No "Namma Daari — Coming Soon" in page title.
-**Why human:** page.tsx on origin/staging is confirmed to be the citizen home page (imports Link, Icon, Pill, SectionLabel, ReportCTA — not the coming soon component). The domain routing (staging.nammadaari.com → staging branch in Vercel) is external Vercel configuration confirmed during Plan 05 Task 4; this check confirms the routing is still active and that the staging branch page.tsx is actually served.
+#### 2. staging.nammadaari.com — full citizen app
+
+**Result:** CONFIRMED (06-UAT.md Test 3 — result:pass)
+**Test:** Visit https://staging.nammadaari.com — confirmed by human in browser.
+**Expected:** Full citizen app home page with report submission interface — NOT the coming soon page.
 
 ---
 
