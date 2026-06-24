@@ -186,7 +186,7 @@ Plans:
 | 04.1 Ward-Org Link Gap Closure | v1.0 | 4/4 | ✅ Complete | 2026-06-01 |
 | 5. UAT Stabilisation | v1.1 | 4/4 | Complete   | 2026-06-05 |
 | 6. Production Launch + Git Branching | v1.1 | 5/5 | Complete    | 2026-06-22 |
-| 7. Admin Triage UX + Public Map | v1.1 | 13/13 | Complete   | 2026-06-24 |
+| 7. Admin Triage UX + Public Map | v1.1 | 13/13 | Complete    | 2026-06-24 |
 
 ---
 
