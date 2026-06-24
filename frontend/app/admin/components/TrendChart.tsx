@@ -38,9 +38,19 @@ const CHART_HEIGHT = 300;
 
 function transformTrendData(data: TrendDataPoint[]): Record<string, unknown>[] {
   const byWeek: Record<string, Record<string, unknown>> = {};
+  const allCategories = new Set<string>();
   for (const d of data) {
+    allCategories.add(d.category);
     if (!byWeek[d.week_start]) byWeek[d.week_start] = { week_start: d.week_start };
     byWeek[d.week_start][d.category] = d.count;
+  }
+  // Fill missing category/week pairs with 0 so Recharts draws continuous line segments.
+  // Without this, a category absent from a week produces an isolated point that is
+  // invisible with dot={false}, making the chart appear blank on sparse datasets.
+  for (const week of Object.values(byWeek)) {
+    for (const cat of Array.from(allCategories)) {
+      if (week[cat] === undefined) week[cat] = 0;
+    }
   }
   return Object.values(byWeek).sort((a, b) =>
     String(a.week_start) < String(b.week_start) ? -1 : 1
