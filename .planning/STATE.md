@@ -5,15 +5,15 @@ milestone_name: Stabilise, Launch, and Triage
 current_phase: 07
 current_phase_name: admin-triage-ux-public-map
 status: executing
-stopped_at: Phase 07, Plan 11 complete — TRIAGE-03 closed (status bucket consistency)
-last_updated: "2026-06-24T06:32:08.965Z"
+stopped_at: Phase 07, Plan 12 complete — TRIAGE-04b closed (ward focus rectangle removed)
+last_updated: "2026-06-24T06:42:01.243Z"
 last_activity: 2026-06-24
 last_activity_desc: Phase 07 execution started
 progress:
   total_phases: 21
   completed_phases: 20
   total_plans: 81
-  completed_plans: 79
+  completed_plans: 80
   percent: 95
 ---
 
@@ -58,6 +58,7 @@ Progress: [██████████] 100%
 | Phase 07 P07 | 20min | 3 tasks | 7 files |
 | Phase 07 P11 | 137s | 3 tasks | 4 files |
 | Phase 07 P11 | 137 | 3 tasks | 4 files |
+| Phase 07 P12 | 15min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,7 @@ Key decisions from Phase 07, Plan 01:
 - [Phase ?]: [Phase 07-05]: WardBoundaryLayer inside ReportsMap.tsx ssr:false; CSS var resolved at render with oklch fallback for Leaflet SVG
 - [Phase 07-08]: TRIAGE-02 category chips confirmed pre-existing in map/page.tsx — smoke-verify only, no code change
 - [Phase 07-08]: UAT verified on local Docker stack; ward-name-on-tap and corp-name text-search deferred as future enhancements
+- [Phase 07-12]: Defense-in-depth focus suppression: CSS outline:none on .leaflet-interactive + programmatic blur() on ward polygon click — wardStyle fill:true/fillOpacity:0 left unchanged so TRIAGE-04 hover tooltip does not regress
 
 ### Pending Todos
 
@@ -106,6 +108,6 @@ Items carried forward from v1.0 close (2026-06-01):
 
 ## Session Continuity
 
-Last session: 2026-06-24T06:32:04.970Z
-Stopped at: Phase 07, Plan 08 complete — all 13 requirements PASS, Phase 7 UAT signed off
+Last session: 2026-06-24T06:42:01.239Z
+Stopped at: Phase 07, Plan 12 complete — TRIAGE-04b closed (ward focus rectangle removed)
 Resume file: None — v1.1 milestone complete
