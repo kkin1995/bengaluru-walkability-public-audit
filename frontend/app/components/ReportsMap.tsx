@@ -42,6 +42,22 @@ export const STATUS_COLORS: Record<string, string> = {
 // GeoJSON component from react-leaflet is safe here — no window access outside Leaflet context.
 // Risk 2: Leaflet SVG does not inherit CSS custom properties — resolve --accent at runtime.
 function WardBoundaryLayer({ geojson }: { geojson: FeatureCollection }) {
+  const map = useMap();
+  // Defer GeoJSON render until the custom pane exists — pane creation is async (useEffect).
+  const [paneReady, setPaneReady] = useState(false);
+
+  useEffect(() => {
+    // Create a dedicated pane at z-index 390, below the default overlayPane (400).
+    // Ward GeoJSON loads after CircleMarkers mount, so without this the SVG paths
+    // are appended last in the overlay pane SVG — on top of markers — and swallow clicks.
+    // A separate lower-z-index pane keeps ward polygons permanently behind markers.
+    if (!map.getPane("wardBoundaryPane")) {
+      const pane = map.createPane("wardBoundaryPane");
+      pane.style.zIndex = "390";
+    }
+    setPaneReady(true);
+  }, [map]);
+
   // Resolve the CSS var at render time so Leaflet SVG paths get a real color value.
   const accentColor =
     typeof document !== "undefined"
@@ -73,6 +89,8 @@ function WardBoundaryLayer({ geojson }: { geojson: FeatureCollection }) {
     });
   }
 
+  if (!paneReady) return null;
+
   return (
     <GeoJSON
       // key ensures re-render if geojson reference changes (cache swap)
@@ -81,6 +99,8 @@ function WardBoundaryLayer({ geojson }: { geojson: FeatureCollection }) {
       style={wardStyle}
       onEachFeature={onEachFeature}
       aria-hidden="true"
+      // Render in the lower-z-index pane so ward polygons never occlude marker clicks.
+      pane="wardBoundaryPane"
     />
   );
 }
